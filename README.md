@@ -82,65 +82,142 @@ hulw: 이 프로젝트 전체 리팩토링해줘
 ### 5. 🔗 OMC HUD 연동
 - oh-my-claudecode HUD 캐시 활용 (추가 API 호출 없음)
 
-## 설치
+## 설치 및 셋업 (필독!)
 
-### 방법 1: 원클릭 설치 (권장)
+### 전체 설치 순서
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Step 1: install.sh 실행                                    │
+│    └─ Claude Code, OMC, OpenCode, OMO, 퓨전 플러그인 설치    │
+│                         ↓                                   │
+│  Step 2: Claude Code에서 /oh-my-claudecode:omc-setup        │
+│    └─ oh-my-claudecode 기본 설정                            │
+│                         ↓                                   │
+│  Step 3: OpenCode 프로바이더 인증                            │
+│    └─ Anthropic, OpenAI, Google API 키 설정                 │
+│                         ↓                                   │
+│  Step 4: Claude Code에서 /oh-my-claude-money:fusion-setup   │
+│    └─ 퓨전 오케스트레이터 활성화                              │
+│                         ↓                                   │
+│  ✅ 설치 완료! hulw: 명령어로 퓨전 모드 사용 가능             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Step 1: 설치 스크립트 실행
 
 ```bash
-# 모든 것을 자동으로 설치
+# 원클릭 설치 (자동 확인)
+curl -fsSL https://raw.githubusercontent.com/DrFREEST/oh-my-claude-money/main/install.sh | bash -s -- --yes
+
+# 또는 수동 확인 모드
 curl -fsSL https://raw.githubusercontent.com/DrFREEST/oh-my-claude-money/main/install.sh | bash
 ```
 
 또는 로컬에서:
 
 ```bash
+git clone https://github.com/DrFREEST/oh-my-claude-money.git
+cd oh-my-claude-money
 ./install.sh
 ```
 
-이 스크립트는 다음을 자동으로 설치/설정합니다:
+이 스크립트는 다음을 자동으로 설치합니다:
 - ✅ Claude Code CLI + oh-my-claudecode
 - ✅ OpenCode CLI + oh-my-opencode
 - ✅ oh-my-claude-money 퓨전 플러그인
-- ✅ 멀티 프로바이더 API 키 설정 (Anthropic, OpenAI, Google)
 
-### 방법 2: 수동 설치
+---
+
+### Step 2: oh-my-claudecode 셋업
+
+**새 터미널**을 열고 Claude Code를 실행합니다:
 
 ```bash
-# 플러그인 디렉토리로 심볼릭 링크 생성
-ln -sf /opt/oh-my-claude-money ~/.claude/plugins/local/oh-my-claude-money
+claude
 ```
 
-### 방법 3: hooks 직접 등록
+Claude Code 프롬프트에서 다음 명령어 입력:
 
-`~/.claude/settings.json`에 훅 추가:
+```
+/oh-my-claudecode:omc-setup
+```
 
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node /opt/oh-my-claude-money/src/hooks/detect-handoff.mjs",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node /opt/oh-my-claude-money/src/hooks/session-start.mjs",
-            "timeout": 3
-          }
-        ]
-      }
-    ]
-  }
-}
+이 과정에서 `~/.claude/CLAUDE.md`에 OMC 지시사항이 설정됩니다.
+
+---
+
+### Step 3: OpenCode 프로바이더 인증
+
+OpenCode에서 GPT/Gemini를 사용하려면 API 키 설정이 필요합니다.
+
+#### 방법 A: 환경 변수 (권장)
+
+```bash
+# API 키 발급 후 환경 변수 설정
+export ANTHROPIC_API_KEY="sk-ant-..."   # https://console.anthropic.com/settings/keys
+export OPENAI_API_KEY="sk-..."          # https://platform.openai.com/api-keys
+export GOOGLE_API_KEY="..."             # https://aistudio.google.com/apikey
+
+# 영구 저장 (선택)
+echo 'export ANTHROPIC_API_KEY="your-key"' >> ~/.bashrc
+echo 'export OPENAI_API_KEY="your-key"' >> ~/.bashrc
+echo 'export GOOGLE_API_KEY="your-key"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### 방법 B: OpenCode OAuth 로그인
+
+```bash
+opencode auth login anthropic
+opencode auth login openai
+opencode auth login google
+```
+
+> ⚠️ **참고:** 일부 환경에서 `fetch() URL is invalid` 에러가 발생할 수 있습니다.
+> 이 경우 방법 A(환경 변수)를 사용하세요.
+> [관련 이슈](https://github.com/sst/opencode/issues/3335)
+
+#### 인증 확인
+
+```bash
+opencode auth status
+```
+
+---
+
+### Step 4: 퓨전 플러그인 셋업
+
+다시 Claude Code를 실행합니다:
+
+```bash
+claude
+```
+
+Claude Code 프롬프트에서 다음 명령어 입력:
+
+```
+/oh-my-claude-money:fusion-setup
+```
+
+안내에 따라 `~/.claude/CLAUDE.md`에 퓨전 지시사항을 추가하면 **설치 완료**입니다!
+
+---
+
+### (선택) 수동 설치
+
+스크립트 없이 직접 설치하려면:
+
+```bash
+# 1. oh-my-claude-money 클론
+git clone https://github.com/DrFREEST/oh-my-claude-money.git ~/.local/share/oh-my-claude-money
+
+# 2. 플러그인 심볼릭 링크
+ln -sf ~/.local/share/oh-my-claude-money ~/.claude/plugins/local/oh-my-claude-money
+
+# 3. 이후 Step 2~4 진행
 ```
 
 ## 사용법

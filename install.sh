@@ -523,16 +523,17 @@ run_omc_setup() {
     # Claude Code로 omc-setup 실행
     log_info "omc-setup 실행 중... (잠시 기다려주세요)"
 
-    # 비대화식으로 omc-setup 실행
-    if claude --dangerously-skip-permissions -p "/oh-my-claudecode:omc-setup" --max-turns 5 2>/dev/null; then
-        log_success "omc-setup 완료"
-    else
-        # 대체: 직접 설정 파일 복사
-        log_warn "자동 셋업 실패. 수동 셋업이 필요합니다."
-        log_info "Claude Code 실행 후 '/oh-my-claudecode:omc-setup' 입력하세요"
+    # 비대화식으로 omc-setup 실행하고 출력 캡처
+    local output
+    output=$(claude --dangerously-skip-permissions -p "/oh-my-claudecode:omc-setup" --max-turns 5 2>&1) || true
 
-        # 최소 설정 적용
+    # Unknown skill 에러 체크
+    if echo "$output" | grep -qi "unknown skill\|not found\|error"; then
+        log_warn "자동 셋업 실패 (플러그인이 아직 로드되지 않음)"
+        log_info "Claude Code 실행 후 '/oh-my-claudecode:omc-setup' 입력하세요"
         setup_omc_minimal
+    else
+        log_success "omc-setup 완료"
     fi
 }
 
@@ -612,11 +613,13 @@ print_summary() {
     echo -e "  • 예상 절약률: 39-67%"
     echo ""
 
-    echo ""
-    echo -e "${BOLD}추가 프로바이더 로그인:${NC}"
-    echo -e "  ${CYAN}opencode auth login openai${NC}   # GPT (Oracle 에이전트)"
-    echo -e "  ${CYAN}opencode auth login google${NC}   # Gemini (Frontend 에이전트)"
-    echo ""
+    if command -v opencode &>/dev/null; then
+        echo ""
+        echo -e "${BOLD}추가 프로바이더 로그인:${NC}"
+        echo -e "  ${CYAN}opencode auth login openai${NC}   # GPT (Oracle 에이전트)"
+        echo -e "  ${CYAN}opencode auth login google${NC}   # Gemini (Frontend 에이전트)"
+        echo ""
+    fi
 
     echo -e "새 터미널을 열거나 ${CYAN}source ~/.bashrc${NC} 실행 후 사용하세요."
     echo ""

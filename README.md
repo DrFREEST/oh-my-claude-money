@@ -222,11 +222,86 @@ ln -sf ~/.local/share/oh-my-claude-money ~/.claude/plugins/local/oh-my-claude-mo
 
 ## 사용법
 
-### 자동 감지 (훅 기반)
+### 퓨전 모드 (키워드 & 슬래시 명령어)
+
+프롬프트 **어디에든** 키워드를 포함하면 자동으로 인식됩니다:
+
+#### 🚀 hulw (하이브리드 울트라워크)
+
+항상 OpenCode 퓨전 모드로 실행하여 **Claude 토큰 절약**:
+
+```
+# 모두 동일하게 인식됨
+/hulw 이 프로젝트 리팩토링해줘
+이 프로젝트 리팩토링해줘 hulw
+hulw로 빠르게 처리해줘
+/oh-my-claude-money:hulw 작업내용
+```
+
+#### ⚡ ulw (자동 퓨전 울트라워크)
+
+사용량에 따라 **자동으로 퓨전 모드 전환**:
+- 사용량 < 70%: Claude 에이전트 사용
+- 사용량 70-90%: 하이브리드 모드 (자동 전환)
+- 사용량 > 90%: OpenCode 중심 모드
+
+```
+# 모두 동일하게 인식됨
+/ulw 버그 수정해줘
+버그 수정해줘 ulw
+ulw로 진행
+울트라워크 모드로 작업
+```
+
+#### 🤖 autopilot (하이브리드 오토파일럿)
+
+아이디어부터 완성까지 **자율 실행 + 퓨전 지원**:
+
+```
+# 모두 동일하게 인식됨
+/autopilot REST API 만들어줘
+autopilot으로 대시보드 구현
+build me a todo app
+로그인 기능 만들어줘
+```
+
+**하이브리드 오토파일럿** 명시적 요청:
+```
+autopilot hulw 이 프로젝트 전체 리팩토링
+hybrid autopilot으로 진행
+퓨전 오토파일럿 모드
+```
+
+#### 🛑 중단 키워드
+
+진행 중인 작업을 중단하려면:
+```
+stop
+cancel
+abort
+중단
+취소
+```
+
+또는 명시적 명령어:
+```
+/oh-my-claude-money:cancel-autopilot
+```
+
+### 키워드 요약
+
+| 키워드 | 동작 | 토큰 절약 |
+|--------|------|----------|
+| `hulw`, `/hulw` | 항상 퓨전 모드 | ✅ 항상 |
+| `ulw`, `/ulw` | 사용량 기반 자동 전환 | 조건부 |
+| `autopilot`, `만들어줘` | 자율 실행 (퓨전 지원) | 조건부 |
+| `autopilot hulw` | 퓨전 오토파일럿 | ✅ 항상 |
+
+### 자동 전환 감지 (훅 기반)
 
 설치 후 자동으로 작동합니다:
-- 키워드 입력 시 전환 안내 메시지 표시
-- 사용량 임계치 도달 시 경고 메시지 표시
+- 사용량 90% 도달 시 OpenCode 전환 권장
+- "opencode", "전환", "handoff" 입력 시 전환 안내
 
 ### 수동 전환
 
@@ -238,9 +313,16 @@ ln -sf ~/.local/share/oh-my-claude-money ~/.claude/plugins/local/oh-my-claude-mo
 /opt/oh-my-claude-money/scripts/export-context.sh
 ```
 
-### 슬래시 명령어
+### 전체 명령어 목록
 
-Claude Code에서 `/opencode` 명령어 사용 (플러그인 활성화 필요)
+| 명령어 | 설명 |
+|--------|------|
+| `/oh-my-claude-money:fusion-setup` | 퓨전 플러그인 초기 셋업 |
+| `/oh-my-claude-money:hulw` | 하이브리드 울트라워크 |
+| `/oh-my-claude-money:ulw` | 자동 퓨전 울트라워크 |
+| `/oh-my-claude-money:autopilot` | 하이브리드 오토파일럿 |
+| `/oh-my-claude-money:cancel-autopilot` | 오토파일럿 중단 |
+| `/opencode` | OpenCode로 명시적 전환 |
 
 ## 설정
 

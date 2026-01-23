@@ -7,6 +7,7 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
+| #865 | 11:42 PM | 🟣 | Added /cancel-autopilot command for stopping hybrid sessions | ~441 |
 | #854 | 11:30 PM | 🟣 | Fusion Setup Command Added with Comprehensive 4-Step Installation Guide | ~779 |
 | #850 | 11:28 PM | 🟣 | Created fusion-setup slash command for guided configuration | ~505 |
 | #797 | 10:29 PM | ✅ | Initial Git Commit - oh-my-claude-money v2.0 Complete Codebase | ~729 |

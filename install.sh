@@ -422,46 +422,165 @@ setup_opencode_auth() {
     echo -e "  • ${GREEN}OpenAI${NC} (GPT) - Oracle 에이전트"
     echo -e "  • ${GREEN}Google${NC} (Gemini) - Frontend Engineer 에이전트"
     echo ""
-    echo -e "각 프로바이더에 로그인하면 해당 에이전트를 사용할 수 있습니다."
+
+    # 인증 방식 선택
+    echo -e "${BOLD}인증 방식을 선택하세요:${NC}"
+    echo "  1) OAuth 로그인 (opencode auth login) - 브라우저 인증"
+    echo "  2) API 키 직접 입력 - 환경 변수로 설정"
+    echo "  3) 건너뛰기 - 나중에 설정"
     echo ""
 
-    # Anthropic 로그인
+    prompt_user "선택 [1/2/3]: " auth_method
+
+    case "$auth_method" in
+        1)
+            setup_opencode_oauth
+            ;;
+        2)
+            setup_opencode_apikeys
+            ;;
+        *)
+            log_info "인증 건너뜀. 나중에 설정하세요:"
+            log_info "  • OAuth: opencode auth login <provider>"
+            log_info "  • API 키: 환경 변수 설정 (ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY)"
+            ;;
+    esac
+}
+
+# OpenCode OAuth 로그인
+setup_opencode_oauth() {
+    echo ""
+    log_info "OAuth 로그인을 시도합니다..."
+    log_warn "참고: 일부 환경에서 'fetch() URL is invalid' 에러가 발생할 수 있습니다."
+    log_info "에러 발생 시 API 키 방식(옵션 2)을 사용하세요."
+    echo ""
+
+    # Anthropic
     echo -e "${BOLD}1/3: Anthropic (Claude)${NC}"
-    if opencode auth status anthropic &>/dev/null 2>&1; then
-        log_success "Anthropic 이미 인증됨"
-    else
-        prompt_user "Anthropic에 로그인하시겠습니까? [Y/n] " confirm
-        if [[ ! "$confirm" =~ ^[Nn] ]]; then
-            opencode auth login anthropic || log_warn "Anthropic 로그인 실패/건너뜀"
-        fi
+    prompt_user "Anthropic에 로그인하시겠습니까? [Y/n] " confirm
+    if [[ ! "$confirm" =~ ^[Nn] ]]; then
+        opencode auth login anthropic 2>&1 || log_warn "Anthropic 로그인 실패"
     fi
     echo ""
 
-    # OpenAI 로그인
+    # OpenAI
     echo -e "${BOLD}2/3: OpenAI (GPT)${NC}"
-    if opencode auth status openai &>/dev/null 2>&1; then
-        log_success "OpenAI 이미 인증됨"
-    else
-        prompt_user "OpenAI에 로그인하시겠습니까? (Oracle 에이전트용) [Y/n] " confirm
-        if [[ ! "$confirm" =~ ^[Nn] ]]; then
-            opencode auth login openai || log_warn "OpenAI 로그인 실패/건너뜀"
-        fi
+    prompt_user "OpenAI에 로그인하시겠습니까? [Y/n] " confirm
+    if [[ ! "$confirm" =~ ^[Nn] ]]; then
+        opencode auth login openai 2>&1 || log_warn "OpenAI 로그인 실패"
     fi
     echo ""
 
-    # Google 로그인
+    # Google
     echo -e "${BOLD}3/3: Google AI (Gemini)${NC}"
-    if opencode auth status google &>/dev/null 2>&1; then
-        log_success "Google AI 이미 인증됨"
+    prompt_user "Google AI에 로그인하시겠습니까? [Y/n] " confirm
+    if [[ ! "$confirm" =~ ^[Nn] ]]; then
+        opencode auth login google 2>&1 || log_warn "Google 로그인 실패"
+    fi
+    echo ""
+}
+
+# OpenCode API 키 설정
+setup_opencode_apikeys() {
+    echo ""
+    log_info "API 키를 환경 변수로 설정합니다."
+    log_info "각 프로바이더의 API 키를 입력하세요. (빈 값으로 건너뛰기 가능)"
+    echo ""
+
+    local shell_config=""
+    if [[ -f "$HOME/.zshrc" ]]; then
+        shell_config="$HOME/.zshrc"
+    elif [[ -f "$HOME/.bashrc" ]]; then
+        shell_config="$HOME/.bashrc"
+    elif [[ -f "$HOME/.bash_profile" ]]; then
+        shell_config="$HOME/.bash_profile"
+    fi
+
+    # Anthropic
+    echo -e "${BOLD}1/3: Anthropic API Key${NC}"
+    echo -e "  발급: ${CYAN}https://console.anthropic.com/settings/keys${NC}"
+    if [[ -n "$ANTHROPIC_API_KEY" ]]; then
+        log_success "ANTHROPIC_API_KEY 이미 설정됨"
     else
-        prompt_user "Google AI에 로그인하시겠습니까? (Frontend Engineer용) [Y/n] " confirm
-        if [[ ! "$confirm" =~ ^[Nn] ]]; then
-            opencode auth login google || log_warn "Google 로그인 실패/건너뜀"
+        prompt_user "ANTHROPIC_API_KEY: " api_key
+        if [[ -n "$api_key" ]]; then
+            export ANTHROPIC_API_KEY="$api_key"
+            [[ -n "$shell_config" ]] && echo "export ANTHROPIC_API_KEY=\"$api_key\"" >> "$shell_config"
+            log_success "Anthropic API 키 설정됨"
         fi
     fi
     echo ""
 
-    log_info "프로바이더 인증 상태 확인: opencode auth status"
+    # OpenAI
+    echo -e "${BOLD}2/3: OpenAI API Key${NC}"
+    echo -e "  발급: ${CYAN}https://platform.openai.com/api-keys${NC}"
+    if [[ -n "$OPENAI_API_KEY" ]]; then
+        log_success "OPENAI_API_KEY 이미 설정됨"
+    else
+        prompt_user "OPENAI_API_KEY: " api_key
+        if [[ -n "$api_key" ]]; then
+            export OPENAI_API_KEY="$api_key"
+            [[ -n "$shell_config" ]] && echo "export OPENAI_API_KEY=\"$api_key\"" >> "$shell_config"
+            log_success "OpenAI API 키 설정됨"
+        fi
+    fi
+    echo ""
+
+    # Google
+    echo -e "${BOLD}3/3: Google AI API Key${NC}"
+    echo -e "  발급: ${CYAN}https://aistudio.google.com/apikey${NC}"
+    if [[ -n "$GOOGLE_API_KEY" ]]; then
+        log_success "GOOGLE_API_KEY 이미 설정됨"
+    else
+        prompt_user "GOOGLE_API_KEY: " api_key
+        if [[ -n "$api_key" ]]; then
+            export GOOGLE_API_KEY="$api_key"
+            [[ -n "$shell_config" ]] && echo "export GOOGLE_API_KEY=\"$api_key\"" >> "$shell_config"
+            log_success "Google API 키 설정됨"
+        fi
+    fi
+    echo ""
+
+    if [[ -n "$shell_config" ]]; then
+        log_success "API 키가 $shell_config 에 저장됨"
+        log_info "새 터미널을 열거나 'source $shell_config' 실행하세요"
+    fi
+
+    # OpenCode 설정 파일에도 추가
+    setup_opencode_config
+}
+
+# OpenCode 설정 파일 생성
+setup_opencode_config() {
+    local config_dir="$HOME/.config/opencode"
+    local config_file="$config_dir/opencode.json"
+
+    mkdir -p "$config_dir"
+
+    cat > "$config_file" << 'EOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "anthropic": {
+      "options": {
+        "apiKey": "{env:ANTHROPIC_API_KEY}"
+      }
+    },
+    "openai": {
+      "options": {
+        "apiKey": "{env:OPENAI_API_KEY}"
+      }
+    },
+    "google": {
+      "options": {
+        "apiKey": "{env:GOOGLE_API_KEY}"
+      }
+    }
+  }
+}
+EOF
+
+    log_info "OpenCode 설정 파일 생성: $config_file"
 }
 
 # OMC 초기 설정

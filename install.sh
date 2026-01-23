@@ -307,13 +307,13 @@ install_omcm() {
             mkdir -p "$(dirname "$source_dir")"
 
             # GitHub에서 클론
-            git clone https://github.com/user/oh-my-claude-money.git "$source_dir" 2>/dev/null || {
+            git clone https://github.com/DrFREEST/oh-my-claude-money.git "$source_dir" 2>/dev/null || {
                 # 대체: 릴리스 tarball 다운로드
-                local release_url="https://github.com/user/oh-my-claude-money/archive/refs/heads/main.tar.gz"
+                local release_url="https://github.com/DrFREEST/oh-my-claude-money/archive/refs/heads/main.tar.gz"
                 mkdir -p "$source_dir"
                 curl -fsSL "$release_url" | tar -xz -C "$source_dir" --strip-components=1 || {
                     log_error "oh-my-claude-money 다운로드 실패"
-                    log_info "수동 설치: git clone https://github.com/user/oh-my-claude-money.git"
+                    log_info "수동 설치: git clone https://github.com/DrFREEST/oh-my-claude-money.git"
                     return 1
                 }
             }
@@ -353,7 +353,11 @@ setup_claude_auth() {
     echo -e "브라우저가 열리면 Anthropic 계정으로 로그인하세요."
     echo ""
 
-    read -p "지금 로그인하시겠습니까? [Y/n] " confirm
+    if [[ -t 0 ]]; then
+        read -p "지금 로그인하시겠습니까? [Y/n] " confirm
+    else
+        read -p "지금 로그인하시겠습니까? [Y/n] " confirm < /dev/tty
+    fi
     if [[ ! "$confirm" =~ ^[Nn] ]]; then
         claude login || {
             log_warn "Claude 로그인 건너뜀 (나중에 'claude login' 실행)"
@@ -386,7 +390,11 @@ setup_opencode_auth() {
     if opencode auth status anthropic &>/dev/null 2>&1; then
         log_success "Anthropic 이미 인증됨"
     else
-        read -p "Anthropic에 로그인하시겠습니까? [Y/n] " confirm
+        if [[ -t 0 ]]; then
+            read -p "Anthropic에 로그인하시겠습니까? [Y/n] " confirm
+        else
+            read -p "Anthropic에 로그인하시겠습니까? [Y/n] " confirm < /dev/tty
+        fi
         if [[ ! "$confirm" =~ ^[Nn] ]]; then
             opencode auth login anthropic || log_warn "Anthropic 로그인 실패/건너뜀"
         fi
@@ -398,7 +406,11 @@ setup_opencode_auth() {
     if opencode auth status openai &>/dev/null 2>&1; then
         log_success "OpenAI 이미 인증됨"
     else
-        read -p "OpenAI에 로그인하시겠습니까? (Oracle 에이전트용) [Y/n] " confirm
+        if [[ -t 0 ]]; then
+            read -p "OpenAI에 로그인하시겠습니까? (Oracle 에이전트용) [Y/n] " confirm
+        else
+            read -p "OpenAI에 로그인하시겠습니까? (Oracle 에이전트용) [Y/n] " confirm < /dev/tty
+        fi
         if [[ ! "$confirm" =~ ^[Nn] ]]; then
             opencode auth login openai || log_warn "OpenAI 로그인 실패/건너뜀"
         fi
@@ -410,7 +422,11 @@ setup_opencode_auth() {
     if opencode auth status google &>/dev/null 2>&1; then
         log_success "Google AI 이미 인증됨"
     else
-        read -p "Google AI에 로그인하시겠습니까? (Frontend Engineer용) [Y/n] " confirm
+        if [[ -t 0 ]]; then
+            read -p "Google AI에 로그인하시겠습니까? (Frontend Engineer용) [Y/n] " confirm
+        else
+            read -p "Google AI에 로그인하시겠습니까? (Frontend Engineer용) [Y/n] " confirm < /dev/tty
+        fi
         if [[ ! "$confirm" =~ ^[Nn] ]]; then
             opencode auth login google || log_warn "Google 로그인 실패/건너뜀"
         fi
@@ -530,7 +546,12 @@ main() {
     echo "  4. 멀티 프로바이더 API 설정"
     echo ""
 
-    read -p "계속하시겠습니까? [Y/n] " confirm
+    # curl | bash로 실행 시 /dev/tty에서 입력 받기
+    if [[ -t 0 ]]; then
+        read -p "계속하시겠습니까? [Y/n] " confirm
+    else
+        read -p "계속하시겠습니까? [Y/n] " confirm < /dev/tty
+    fi
     if [[ "$confirm" =~ ^[Nn] ]]; then
         echo "설치 취소됨"
         exit 0

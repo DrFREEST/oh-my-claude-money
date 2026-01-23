@@ -212,23 +212,51 @@ install_opencode() {
     log_info "OpenCode 설치 중..."
 
     local os=$(detect_os)
+    local installed=false
 
-    # OpenCode 공식 설치 스크립트
-    curl -fsSL https://opencode.ai/install.sh | bash 2>/dev/null || {
-        # 대체: Go로 직접 설치
-        if command -v go &> /dev/null; then
-            go install github.com/opencode-ai/opencode@latest
-        else
-            log_warn "OpenCode 자동 설치 실패. 수동 설치가 필요할 수 있습니다."
-            log_info "https://github.com/opencode-ai/opencode 참조"
-            return 1
-        fi
-    }
+    # OS별 최적 설치 방법 선택
+    case $os in
+        macos)
+            # macOS: Homebrew 우선
+            if command -v brew &> /dev/null; then
+                brew install opencode && installed=true
+            fi
+            ;;
+        linux)
+            # Linux: curl 설치 스크립트
+            curl -fsSL https://opencode.ai/install | bash 2>/dev/null && installed=true
+            ;;
+        windows)
+            # Windows (Git Bash/MSYS): npm 또는 scoop
+            if command -v scoop &> /dev/null; then
+                scoop install opencode && installed=true
+            elif command -v choco &> /dev/null; then
+                choco install opencode -y && installed=true
+            fi
+            ;;
+    esac
+
+    # 실패 시 npm으로 대체 시도
+    if [[ "$installed" == "false" ]]; then
+        log_info "npm으로 설치 시도 중..."
+        npm i -g opencode-ai@latest 2>/dev/null && installed=true
+    fi
+
+    # 여전히 실패 시 Go로 시도
+    if [[ "$installed" == "false" ]] && command -v go &> /dev/null; then
+        log_info "Go로 설치 시도 중..."
+        go install github.com/sst/opencode@latest && installed=true
+    fi
 
     if command -v opencode &> /dev/null; then
         log_success "OpenCode 설치 완료"
     else
-        log_warn "OpenCode 설치 확인 필요 (PATH에 없을 수 있음)"
+        log_warn "OpenCode 자동 설치 실패"
+        log_info "수동 설치 방법:"
+        log_info "  • npm: npm i -g opencode-ai@latest"
+        log_info "  • Scoop (Windows): scoop install opencode"
+        log_info "  • Homebrew (macOS): brew install opencode"
+        log_info "  • 참고: https://github.com/sst/opencode"
     fi
 }
 

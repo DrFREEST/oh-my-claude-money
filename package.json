@@ -1,6 +1,6 @@
 {
   "name": "oh-my-claude-money",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "Claude Code 사용량 관리 및 OpenCode 브릿지 플러그인",
   "author": "user",
   "license": "MIT",

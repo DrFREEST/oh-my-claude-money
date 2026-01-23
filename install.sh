@@ -225,32 +225,35 @@ install_opencode() {
     local os=$(detect_os)
     local installed=false
 
-    # OS별 최적 설치 방법 선택
-    case $os in
-        macos)
-            # macOS: Homebrew 우선
-            if command -v brew &> /dev/null; then
-                brew install opencode && installed=true
-            fi
-            ;;
-        linux)
-            # Linux: curl 설치 스크립트
-            curl -fsSL https://opencode.ai/install | bash 2>/dev/null && installed=true
-            ;;
-        windows)
-            # Windows (Git Bash/MSYS): npm 또는 scoop
-            if command -v scoop &> /dev/null; then
-                scoop install opencode && installed=true
-            elif command -v choco &> /dev/null; then
-                choco install opencode -y && installed=true
-            fi
-            ;;
-    esac
-
-    # 실패 시 npm으로 대체 시도
-    if [[ "$installed" == "false" ]]; then
+    # npm이 있으면 npm으로 먼저 시도 (가장 안정적)
+    if command -v npm &> /dev/null; then
         log_info "npm으로 설치 시도 중..."
-        npm i -g opencode-ai@latest 2>/dev/null && installed=true
+        if npm i -g opencode-ai@latest 2>/dev/null; then
+            installed=true
+        fi
+    fi
+
+    # npm 실패 시 OS별 방법 시도
+    if [[ "$installed" == "false" ]]; then
+        case $os in
+            macos)
+                if command -v brew &> /dev/null; then
+                    log_info "Homebrew로 설치 시도 중..."
+                    brew install opencode && installed=true
+                fi
+                ;;
+            linux)
+                log_info "curl 스크립트로 설치 시도 중..."
+                curl -fsSL https://opencode.ai/install | bash 2>/dev/null && installed=true
+                ;;
+            windows)
+                # Windows: choco 시도 (scoop은 git 설정 문제 발생 가능)
+                if command -v choco &> /dev/null; then
+                    log_info "Chocolatey로 설치 시도 중..."
+                    choco install opencode -y && installed=true
+                fi
+                ;;
+        esac
     fi
 
     # 여전히 실패 시 Go로 시도
@@ -259,15 +262,17 @@ install_opencode() {
         go install github.com/sst/opencode@latest && installed=true
     fi
 
+    # PATH 새로고침 후 재확인
+    hash -r 2>/dev/null || true
+
     if command -v opencode &> /dev/null; then
         log_success "OpenCode 설치 완료"
     else
         log_warn "OpenCode 자동 설치 실패"
-        log_info "수동 설치 방법:"
-        log_info "  • npm: npm i -g opencode-ai@latest"
-        log_info "  • Scoop (Windows): scoop install opencode"
-        log_info "  • Homebrew (macOS): brew install opencode"
-        log_info "  • 참고: https://github.com/sst/opencode"
+        log_info "수동 설치 후 새 터미널에서 다시 시도하세요:"
+        log_info "  npm i -g opencode-ai@latest"
+        log_info ""
+        log_info "참고: https://github.com/sst/opencode"
     fi
 }
 

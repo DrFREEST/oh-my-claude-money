@@ -382,303 +382,6 @@ install_omcm() {
     log_info "  플러그인: $plugin_dir"
 }
 
-# Claude Code 로그인 (Anthropic OAuth)
-setup_claude_auth() {
-    log_step "Claude Code 인증"
-
-    # 기존 인증 확인
-    if claude auth status &>/dev/null; then
-        log_success "Claude Code 이미 인증됨"
-        return 0
-    fi
-
-    echo ""
-    echo -e "${CYAN}Claude Code 로그인이 필요합니다.${NC}"
-    echo -e "브라우저가 열리면 Anthropic 계정으로 로그인하세요."
-    echo ""
-
-    prompt_user "지금 로그인하시겠습니까? [Y/n] " confirm
-    if [[ ! "$confirm" =~ ^[Nn] ]]; then
-        claude login || {
-            log_warn "Claude 로그인 건너뜀 (나중에 'claude login' 실행)"
-        }
-    else
-        log_warn "Claude 로그인 건너뜀 (나중에 'claude login' 실행)"
-    fi
-}
-
-# OpenCode 멀티 프로바이더 로그인
-setup_opencode_auth() {
-    log_step "OpenCode 멀티 프로바이더 인증"
-
-    if ! command -v opencode &>/dev/null; then
-        log_warn "OpenCode가 설치되지 않아 인증을 건너뜁니다"
-        return 0
-    fi
-
-    echo ""
-    echo -e "${CYAN}OpenCode는 여러 AI 프로바이더를 지원합니다:${NC}"
-    echo -e "  • ${GREEN}Anthropic${NC} (Claude) - 메인 모델"
-    echo -e "  • ${GREEN}OpenAI${NC} (GPT) - Oracle 에이전트"
-    echo -e "  • ${GREEN}Google${NC} (Gemini) - Frontend Engineer 에이전트"
-    echo ""
-
-    # 인증 방식 선택
-    echo -e "${BOLD}인증 방식을 선택하세요:${NC}"
-    echo "  1) OAuth 로그인 (opencode auth login) - 브라우저 인증"
-    echo "  2) API 키 직접 입력 - 환경 변수로 설정"
-    echo "  3) 건너뛰기 - 나중에 설정"
-    echo ""
-
-    prompt_user "선택 [1/2/3]: " auth_method
-
-    case "$auth_method" in
-        1)
-            setup_opencode_oauth
-            ;;
-        2)
-            setup_opencode_apikeys
-            ;;
-        *)
-            log_info "인증 건너뜀. 나중에 설정하세요:"
-            log_info "  • OAuth: opencode auth login <provider>"
-            log_info "  • API 키: 환경 변수 설정 (ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY)"
-            ;;
-    esac
-}
-
-# OpenCode OAuth 로그인
-setup_opencode_oauth() {
-    echo ""
-    log_info "OAuth 로그인을 시도합니다..."
-    log_warn "참고: 일부 환경에서 'fetch() URL is invalid' 에러가 발생할 수 있습니다."
-    log_info "에러 발생 시 API 키 방식(옵션 2)을 사용하세요."
-    echo ""
-
-    # Anthropic
-    echo -e "${BOLD}1/3: Anthropic (Claude)${NC}"
-    prompt_user "Anthropic에 로그인하시겠습니까? [Y/n] " confirm
-    if [[ ! "$confirm" =~ ^[Nn] ]]; then
-        opencode auth login anthropic 2>&1 || log_warn "Anthropic 로그인 실패"
-    fi
-    echo ""
-
-    # OpenAI
-    echo -e "${BOLD}2/3: OpenAI (GPT)${NC}"
-    prompt_user "OpenAI에 로그인하시겠습니까? [Y/n] " confirm
-    if [[ ! "$confirm" =~ ^[Nn] ]]; then
-        opencode auth login openai 2>&1 || log_warn "OpenAI 로그인 실패"
-    fi
-    echo ""
-
-    # Google
-    echo -e "${BOLD}3/3: Google AI (Gemini)${NC}"
-    prompt_user "Google AI에 로그인하시겠습니까? [Y/n] " confirm
-    if [[ ! "$confirm" =~ ^[Nn] ]]; then
-        opencode auth login google 2>&1 || log_warn "Google 로그인 실패"
-    fi
-    echo ""
-}
-
-# OpenCode API 키 설정
-setup_opencode_apikeys() {
-    echo ""
-    log_info "API 키를 환경 변수로 설정합니다."
-    log_info "각 프로바이더의 API 키를 입력하세요. (빈 값으로 건너뛰기 가능)"
-    echo ""
-
-    local shell_config=""
-    if [[ -f "$HOME/.zshrc" ]]; then
-        shell_config="$HOME/.zshrc"
-    elif [[ -f "$HOME/.bashrc" ]]; then
-        shell_config="$HOME/.bashrc"
-    elif [[ -f "$HOME/.bash_profile" ]]; then
-        shell_config="$HOME/.bash_profile"
-    fi
-
-    # Anthropic
-    echo -e "${BOLD}1/3: Anthropic API Key${NC}"
-    echo -e "  발급: ${CYAN}https://console.anthropic.com/settings/keys${NC}"
-    if [[ -n "$ANTHROPIC_API_KEY" ]]; then
-        log_success "ANTHROPIC_API_KEY 이미 설정됨"
-    else
-        prompt_user "ANTHROPIC_API_KEY: " api_key
-        if [[ -n "$api_key" ]]; then
-            export ANTHROPIC_API_KEY="$api_key"
-            [[ -n "$shell_config" ]] && echo "export ANTHROPIC_API_KEY=\"$api_key\"" >> "$shell_config"
-            log_success "Anthropic API 키 설정됨"
-        fi
-    fi
-    echo ""
-
-    # OpenAI
-    echo -e "${BOLD}2/3: OpenAI API Key${NC}"
-    echo -e "  발급: ${CYAN}https://platform.openai.com/api-keys${NC}"
-    if [[ -n "$OPENAI_API_KEY" ]]; then
-        log_success "OPENAI_API_KEY 이미 설정됨"
-    else
-        prompt_user "OPENAI_API_KEY: " api_key
-        if [[ -n "$api_key" ]]; then
-            export OPENAI_API_KEY="$api_key"
-            [[ -n "$shell_config" ]] && echo "export OPENAI_API_KEY=\"$api_key\"" >> "$shell_config"
-            log_success "OpenAI API 키 설정됨"
-        fi
-    fi
-    echo ""
-
-    # Google
-    echo -e "${BOLD}3/3: Google AI API Key${NC}"
-    echo -e "  발급: ${CYAN}https://aistudio.google.com/apikey${NC}"
-    if [[ -n "$GOOGLE_API_KEY" ]]; then
-        log_success "GOOGLE_API_KEY 이미 설정됨"
-    else
-        prompt_user "GOOGLE_API_KEY: " api_key
-        if [[ -n "$api_key" ]]; then
-            export GOOGLE_API_KEY="$api_key"
-            [[ -n "$shell_config" ]] && echo "export GOOGLE_API_KEY=\"$api_key\"" >> "$shell_config"
-            log_success "Google API 키 설정됨"
-        fi
-    fi
-    echo ""
-
-    if [[ -n "$shell_config" ]]; then
-        log_success "API 키가 $shell_config 에 저장됨"
-        log_info "새 터미널을 열거나 'source $shell_config' 실행하세요"
-    fi
-
-    # OpenCode 설정 파일에도 추가
-    setup_opencode_config
-}
-
-# OpenCode 설정 파일 생성
-setup_opencode_config() {
-    local config_dir="$HOME/.config/opencode"
-    local config_file="$config_dir/opencode.json"
-
-    mkdir -p "$config_dir"
-
-    cat > "$config_file" << 'EOF'
-{
-  "$schema": "https://opencode.ai/config.json",
-  "provider": {
-    "anthropic": {
-      "options": {
-        "apiKey": "{env:ANTHROPIC_API_KEY}"
-      }
-    },
-    "openai": {
-      "options": {
-        "apiKey": "{env:OPENAI_API_KEY}"
-      }
-    },
-    "google": {
-      "options": {
-        "apiKey": "{env:GOOGLE_API_KEY}"
-      }
-    }
-  }
-}
-EOF
-
-    log_info "OpenCode 설정 파일 생성: $config_file"
-}
-
-# OMC 초기 설정
-setup_omc() {
-    log_step "oh-my-claudecode 초기 설정"
-
-    # OMC 설정 파일 확인
-    local omc_config="$HOME/.claude/plugins/oh-my-claudecode/config.json"
-
-    if [[ -f "$omc_config" ]]; then
-        log_success "oh-my-claudecode 이미 설정됨"
-        return 0
-    fi
-
-    log_info "oh-my-claudecode 기본 설정 생성 중..."
-
-    mkdir -p "$(dirname "$omc_config")"
-
-    cat > "$omc_config" << 'EOF'
-{
-  "hud": {
-    "enabled": true,
-    "position": "top-right"
-  },
-  "ultrawork": {
-    "maxParallelAgents": 5,
-    "autoActivate": true
-  },
-  "delegation": {
-    "enforceOnSourceFiles": true,
-    "auditLog": true
-  }
-}
-EOF
-
-    log_success "oh-my-claudecode 설정 완료"
-}
-
-# OMC 원클릭 셋업 실행
-run_omc_setup() {
-    log_step "oh-my-claudecode 원클릭 셋업 (omc-setup)"
-
-    if [[ "$OMC_INSTALLED" != "true" ]]; then
-        log_warn "oh-my-claudecode가 설치되지 않아 셋업을 건너뜁니다"
-        return 0
-    fi
-
-    echo ""
-    echo -e "${CYAN}oh-my-claudecode 셋업을 실행합니다.${NC}"
-    echo -e "이 과정에서 Claude Code가 잠시 실행됩니다."
-    echo ""
-
-    prompt_user "omc-setup을 실행하시겠습니까? [Y/n] " confirm
-    if [[ "$confirm" =~ ^[Nn] ]]; then
-        log_info "omc-setup 건너뜀 (나중에 Claude Code에서 '/oh-my-claudecode:omc-setup' 실행)"
-        return 0
-    fi
-
-    # Claude Code로 omc-setup 실행
-    log_info "omc-setup 실행 중... (잠시 기다려주세요)"
-
-    # 비대화식으로 omc-setup 실행하고 출력 캡처
-    local output
-    output=$(claude --dangerously-skip-permissions -p "/oh-my-claudecode:omc-setup" --max-turns 5 2>&1) || true
-
-    # Unknown skill 에러 체크
-    if echo "$output" | grep -qi "unknown skill\|not found\|error"; then
-        log_warn "자동 셋업 실패 (플러그인이 아직 로드되지 않음)"
-        log_info "Claude Code 실행 후 '/oh-my-claudecode:omc-setup' 입력하세요"
-        setup_omc_minimal
-    else
-        log_success "omc-setup 완료"
-    fi
-}
-
-# OMC 최소 설정 (셋업 실패 시 대체)
-setup_omc_minimal() {
-    log_info "최소 설정 적용 중..."
-
-    # 글로벌 CLAUDE.md에 OMC 지시사항 추가
-    local global_claude_md="$HOME/.claude/CLAUDE.md"
-
-    if [[ ! -f "$global_claude_md" ]] || ! grep -q "oh-my-claudecode" "$global_claude_md" 2>/dev/null; then
-        mkdir -p "$(dirname "$global_claude_md")"
-
-        # OMC 기본 지시사항 추가 (최소)
-        cat >> "$global_claude_md" << 'EOF'
-
-# oh-my-claudecode
-
-You are enhanced with oh-my-claudecode multi-agent capabilities.
-For full setup, run: /oh-my-claudecode:omc-setup
-
-EOF
-        log_info "기본 지시사항 추가됨: $global_claude_md"
-    fi
-}
-
 # 설치 완료 요약
 print_summary() {
     echo ""
@@ -696,10 +399,20 @@ print_summary() {
         echo -e "  ${RED}✗${NC} Claude Code CLI"
     fi
 
+    if [[ -d "$HOME/.claude/plugins/local/oh-my-claudecode" ]]; then
+        echo -e "  ${GREEN}✓${NC} oh-my-claudecode 플러그인"
+    else
+        echo -e "  ${YELLOW}?${NC} oh-my-claudecode 플러그인"
+    fi
+
     if command -v opencode &> /dev/null; then
         echo -e "  ${GREEN}✓${NC} OpenCode CLI"
     else
-        echo -e "  ${YELLOW}?${NC} OpenCode CLI (PATH 확인 필요)"
+        echo -e "  ${YELLOW}?${NC} OpenCode CLI (새 터미널에서 확인)"
+    fi
+
+    if [[ -d "$HOME/.config/opencode" ]]; then
+        echo -e "  ${GREEN}✓${NC} oh-my-opencode 설정"
     fi
 
     if [[ -d "$HOME/.claude/plugins/local/oh-my-claude-money" ]]; then
@@ -707,40 +420,55 @@ print_summary() {
     fi
 
     echo ""
-    echo -e "${BOLD}인증 상태:${NC}"
-    if claude auth status &>/dev/null 2>&1; then
-        echo -e "  ${GREEN}✓${NC} Claude Code (Anthropic)"
-    else
-        echo -e "  ${YELLOW}?${NC} Claude Code - 'claude login' 필요"
-    fi
+}
 
-    if command -v opencode &>/dev/null; then
-        echo -e "  ${CYAN}→${NC} OpenCode 프로바이더: 'opencode auth status'로 확인"
-    fi
-
+# 다음 단계 안내
+print_next_steps() {
+    echo -e "${YELLOW}════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${YELLOW}                    다음 단계 (필수!)                            ${NC}"
+    echo -e "${YELLOW}════════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "${BOLD}사용 방법:${NC}"
+
+    echo -e "${BOLD}${CYAN}Step 1: 새 터미널 열기${NC}"
+    echo -e "  설치된 CLI가 PATH에 반영되도록 새 터미널을 여세요."
+    echo ""
+
+    echo -e "${BOLD}${CYAN}Step 2: oh-my-claudecode 셋업${NC}"
+    echo -e "  ${GREEN}claude${NC} 실행 후 다음 명령어 입력:"
+    echo -e "  ${MAGENTA}/oh-my-claudecode:omc-setup${NC}"
+    echo ""
+
+    echo -e "${BOLD}${CYAN}Step 3: OpenCode 프로바이더 인증${NC}"
+    echo -e "  GPT/Gemini 사용을 위해 API 키 설정:"
+    echo ""
+    echo -e "  ${BOLD}방법 A: 환경 변수 (권장)${NC}"
+    echo -e "    export ANTHROPIC_API_KEY=\"sk-ant-...\"  ${CYAN}# https://console.anthropic.com/settings/keys${NC}"
+    echo -e "    export OPENAI_API_KEY=\"sk-...\"         ${CYAN}# https://platform.openai.com/api-keys${NC}"
+    echo -e "    export GOOGLE_API_KEY=\"...\"            ${CYAN}# https://aistudio.google.com/apikey${NC}"
+    echo ""
+    echo -e "  ${BOLD}방법 B: OAuth 로그인${NC}"
+    echo -e "    opencode auth login anthropic"
+    echo -e "    opencode auth login openai"
+    echo -e "    opencode auth login google"
+    echo ""
+
+    echo -e "${BOLD}${CYAN}Step 4: 퓨전 플러그인 셋업${NC}"
+    echo -e "  ${GREEN}claude${NC} 실행 후 다음 명령어 입력:"
+    echo -e "  ${MAGENTA}/oh-my-claude-money:fusion-setup${NC}"
+    echo ""
+
+    echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}                    셋업 완료 후 사용법                          ${NC}"
+    echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
+    echo ""
     echo -e "  ${CYAN}claude${NC}              # Claude Code 시작"
-    echo -e "  ${CYAN}opencode${NC}            # OpenCode 시작"
-    echo ""
-    echo -e "${BOLD}퓨전 울트라워크 사용:${NC}"
-    echo -e "  ${CYAN}hulw: <작업>${NC}        # 하이브리드 울트라워크"
-    echo -e "  ${CYAN}ulw: <작업>${NC}         # 자동 퓨전 (사용량 높을 때)"
+    echo -e "  ${CYAN}hulw: <작업>${NC}        # 하이브리드 울트라워크 (퓨전 모드)"
     echo ""
     echo -e "${BOLD}토큰 절약 효과:${NC}"
     echo -e "  • 12개 에이전트 (39%)가 GPT/Gemini로 대체"
     echo -e "  • 예상 절약률: 39-67%"
     echo ""
-
-    if command -v opencode &>/dev/null; then
-        echo ""
-        echo -e "${BOLD}추가 프로바이더 로그인:${NC}"
-        echo -e "  ${CYAN}opencode auth login openai${NC}   # GPT (Oracle 에이전트)"
-        echo -e "  ${CYAN}opencode auth login google${NC}   # Gemini (Frontend 에이전트)"
-        echo ""
-    fi
-
-    echo -e "새 터미널을 열거나 ${CYAN}source ~/.bashrc${NC} 실행 후 사용하세요."
+    echo -e "자세한 내용: ${CYAN}https://github.com/DrFREEST/oh-my-claude-money${NC}"
     echo ""
 }
 
@@ -770,22 +498,9 @@ main() {
     install_opencode
     install_omo
     install_omcm
-    setup_omc
-
-    echo ""
-    echo -e "${BOLD}${MAGENTA}▶ 인증 설정${NC}"
-    echo ""
-
-    setup_claude_auth
-    setup_opencode_auth
-
-    echo ""
-    echo -e "${BOLD}${MAGENTA}▶ oh-my-claudecode 셋업${NC}"
-    echo ""
-
-    run_omc_setup
 
     print_summary
+    print_next_steps
 }
 
 # 인자 파싱

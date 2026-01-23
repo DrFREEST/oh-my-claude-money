@@ -7,11 +7,6 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #865 | 11:42 PM | 🟣 | Added /cancel-autopilot command for stopping hybrid sessions | ~441 |
-| #854 | 11:30 PM | 🟣 | Fusion Setup Command Added with Comprehensive 4-Step Installation Guide | ~779 |
 | #850 | 11:28 PM | 🟣 | Created fusion-setup slash command for guided configuration | ~505 |
-| #797 | 10:29 PM | ✅ | Initial Git Commit - oh-my-claude-money v2.0 Complete Codebase | ~729 |
-| #796 | 10:28 PM | 🟣 | Complete Plugin File Structure - 32 Files Staged for Initial Commit | ~716 |
-| #762 | 9:47 PM | 🟣 | Hybrid-ultrawork slash command with three invocation methods and orchestrator module integration | ~591 |
 | #744 | 9:24 PM | 🟣 | OpenCode Slash Command Documentation with Context Details | ~563 |
 </claude-mem-context>

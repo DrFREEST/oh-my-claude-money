@@ -322,6 +322,8 @@ abort
 | 명령어 | 설명 |
 |--------|------|
 | `/oh-my-claude-money:fusion-setup` | 퓨전 플러그인 초기 셋업 |
+| `/oh-my-claude-money:fusion-default-on` | 항상 퓨전 모드 활성화 |
+| `/oh-my-claude-money:fusion-default-off` | 퓨전 모드 기본값 비활성화 (사용량 기반 전환) |
 | `/oh-my-claude-money:hulw` | 하이브리드 울트라워크 |
 | `/oh-my-claude-money:ulw` | 자동 퓨전 울트라워크 |
 | `/oh-my-claude-money:autopilot` | 하이브리드 오토파일럿 |
@@ -334,6 +336,7 @@ abort
 
 ```json
 {
+  "fusionDefault": false,
   "threshold": 90,
   "autoHandoff": false,
   "keywords": ["opencode", "handoff", "전환", "switch to opencode"],
@@ -374,6 +377,7 @@ abort
 
 | 옵션 | 설명 | 기본값 |
 |------|------|--------|
+| `fusionDefault` | 항상 퓨전 모드 사용 | false |
 | `threshold` | 전환 알림 임계치 (%) | 90 |
 | `autoHandoff` | 자동 전환 활성화 | false |
 | `keywords` | 감지할 키워드 목록 | ["opencode", "handoff", "전환", ...] |
@@ -423,6 +427,8 @@ oh-my-claude-money/
 ├── commands/
 │   ├── opencode.md               # /opencode 명령어
 │   ├── fusion-setup.md           # /fusion-setup 초기 셋업
+│   ├── fusion-default-on.md      # 퓨전 모드 기본 활성화
+│   ├── fusion-default-off.md     # 퓨전 모드 기본 비활성화
 │   └── cancel-autopilot.md       # /cancel-autopilot 중단
 ├── skills/
 │   ├── hulw.md                   # 하이브리드 울트라워크

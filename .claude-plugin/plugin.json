@@ -2,8 +2,5 @@
   "name": "oh-my-claude-money",
   "version": "0.2.0",
   "description": "Claude Code ↔ OpenCode 퓨전 오케스트레이터",
-  "commands": "./commands",
-  "skills": "./skills",
-  "hooks": "./hooks",
-  "agents": "./agents"
+  "skills": "./skills"
 }

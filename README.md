@@ -309,14 +309,7 @@ curl -fsSL https://opencode.ai/install | bash
 - [ ] 세션 관리 구현
 
 ## 최근 수정 파일
-### 최근 커밋 변경 파일
-```
- src/auth/login.ts | 45 +++++++
- src/auth/session.ts | 23 ++++
-```
-
-## 다음 단계 지시
-위의 컨텍스트를 바탕으로 작업을 이어서 진행해주세요.
+[git diff --stat 출력]
 ```
 
 ## 참고 소스

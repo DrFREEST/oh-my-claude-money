@@ -353,11 +353,7 @@ setup_claude_auth() {
     echo -e "브라우저가 열리면 Anthropic 계정으로 로그인하세요."
     echo ""
 
-    if [[ -t 0 ]]; then
-        read -p "지금 로그인하시겠습니까? [Y/n] " confirm
-    else
-        read -p "지금 로그인하시겠습니까? [Y/n] " confirm < /dev/tty
-    fi
+    prompt_user "지금 로그인하시겠습니까? [Y/n] " confirm
     if [[ ! "$confirm" =~ ^[Nn] ]]; then
         claude login || {
             log_warn "Claude 로그인 건너뜀 (나중에 'claude login' 실행)"
@@ -390,11 +386,7 @@ setup_opencode_auth() {
     if opencode auth status anthropic &>/dev/null 2>&1; then
         log_success "Anthropic 이미 인증됨"
     else
-        if [[ -t 0 ]]; then
-            read -p "Anthropic에 로그인하시겠습니까? [Y/n] " confirm
-        else
-            read -p "Anthropic에 로그인하시겠습니까? [Y/n] " confirm < /dev/tty
-        fi
+        prompt_user "Anthropic에 로그인하시겠습니까? [Y/n] " confirm
         if [[ ! "$confirm" =~ ^[Nn] ]]; then
             opencode auth login anthropic || log_warn "Anthropic 로그인 실패/건너뜀"
         fi
@@ -406,11 +398,7 @@ setup_opencode_auth() {
     if opencode auth status openai &>/dev/null 2>&1; then
         log_success "OpenAI 이미 인증됨"
     else
-        if [[ -t 0 ]]; then
-            read -p "OpenAI에 로그인하시겠습니까? (Oracle 에이전트용) [Y/n] " confirm
-        else
-            read -p "OpenAI에 로그인하시겠습니까? (Oracle 에이전트용) [Y/n] " confirm < /dev/tty
-        fi
+        prompt_user "OpenAI에 로그인하시겠습니까? (Oracle 에이전트용) [Y/n] " confirm
         if [[ ! "$confirm" =~ ^[Nn] ]]; then
             opencode auth login openai || log_warn "OpenAI 로그인 실패/건너뜀"
         fi
@@ -422,11 +410,7 @@ setup_opencode_auth() {
     if opencode auth status google &>/dev/null 2>&1; then
         log_success "Google AI 이미 인증됨"
     else
-        if [[ -t 0 ]]; then
-            read -p "Google AI에 로그인하시겠습니까? (Frontend Engineer용) [Y/n] " confirm
-        else
-            read -p "Google AI에 로그인하시겠습니까? (Frontend Engineer용) [Y/n] " confirm < /dev/tty
-        fi
+        prompt_user "Google AI에 로그인하시겠습니까? (Frontend Engineer용) [Y/n] " confirm
         if [[ ! "$confirm" =~ ^[Nn] ]]; then
             opencode auth login google || log_warn "Google 로그인 실패/건너뜀"
         fi
@@ -546,12 +530,7 @@ main() {
     echo "  4. 멀티 프로바이더 API 설정"
     echo ""
 
-    # curl | bash로 실행 시 /dev/tty에서 입력 받기
-    if [[ -t 0 ]]; then
-        read -p "계속하시겠습니까? [Y/n] " confirm
-    else
-        read -p "계속하시겠습니까? [Y/n] " confirm < /dev/tty
-    fi
+    prompt_user "계속하시겠습니까? [Y/n] " confirm
     if [[ "$confirm" =~ ^[Nn] ]]; then
         echo "설치 취소됨"
         exit 0
@@ -576,6 +555,37 @@ main() {
     setup_opencode_auth
 
     print_summary
+}
+
+# 인자 파싱
+AUTO_YES=false
+for arg in "$@"; do
+    case $arg in
+        -y|--yes|--auto)
+            AUTO_YES=true
+            ;;
+    esac
+done
+
+# 사용자 입력 헬퍼 함수
+prompt_user() {
+    local prompt="$1"
+    local var_name="$2"
+
+    if [[ "$AUTO_YES" == "true" ]]; then
+        eval "$var_name='y'"
+        return 0
+    fi
+
+    # 다양한 환경에서 입력 받기 시도
+    if [[ -t 0 ]]; then
+        read -p "$prompt" "$var_name"
+    elif [[ -e /dev/tty ]]; then
+        read -p "$prompt" "$var_name" < /dev/tty
+    else
+        # 입력 불가능하면 기본값 yes
+        eval "$var_name='y'"
+    fi
 }
 
 # 스크립트 실행

@@ -319,6 +319,15 @@ curl -fsSL https://opencode.ai/install | bash
 위의 컨텍스트를 바탕으로 작업을 이어서 진행해주세요.
 ```
 
+## 참고 소스
+
+| 프로젝트 | 설명 | URL |
+|----------|------|-----|
+| **Claude Code** | Anthropic 공식 CLI | [anthropic.com/claude-code](https://www.anthropic.com/claude-code) |
+| **oh-my-claudecode** | Claude Code 멀티에이전트 플러그인 | [github.com/Yeachan-Heo/oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) |
+| **OpenCode** | 오픈소스 AI 코딩 에이전트 | [github.com/sst/opencode](https://github.com/sst/opencode) |
+| **OpenCode Docs** | OpenCode 공식 문서 | [opencode.ai/docs](https://opencode.ai/docs/) |
+
 ## 라이선스
 
 MIT

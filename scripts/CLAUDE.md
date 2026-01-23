@@ -8,6 +8,4 @@
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
 | #747 | 9:25 PM | ✅ | Made plugin scripts executable | ~187 |
-| #746 | " | 🟣 | Dual-implementation export script with Node.js primary and bash fallback | ~560 |
-| #745 | " | 🟣 | Handoff-to-opencode script with OpenCode validation, context export, and execution flow | ~468 |
 </claude-mem-context>

@@ -182,22 +182,33 @@ install_claude_code() {
 install_omc() {
     log_step "oh-my-claudecode 플러그인 설치"
 
-    local omc_check=$(claude mcp list 2>/dev/null | grep -i "oh-my-claudecode" || true)
+    local omc_installed=false
 
-    if [[ -n "$omc_check" ]] || [[ -d "$HOME/.claude/plugins/cache/omc" ]]; then
+    # 설치 여부 확인
+    if [[ -d "$HOME/.claude/plugins/cache/omc" ]] || [[ -d "$HOME/.claude/plugins/local/oh-my-claudecode" ]]; then
         log_success "oh-my-claudecode 이미 설치됨"
-        return 0
+        omc_installed=true
+    else
+        log_info "oh-my-claudecode 설치 중..."
+
+        # GitHub에서 직접 클론 (권장)
+        local omc_dir="$HOME/.claude/plugins/local/oh-my-claudecode"
+        mkdir -p "$(dirname "$omc_dir")"
+
+        if git clone https://github.com/Yeachan-Heo/oh-my-claudecode.git "$omc_dir" 2>/dev/null; then
+            log_success "oh-my-claudecode 설치 완료 (GitHub)"
+            omc_installed=true
+        else
+            # 대체: claude plugins install
+            claude plugins install oh-my-claudecode 2>/dev/null && omc_installed=true || {
+                log_warn "oh-my-claudecode 설치 실패"
+                log_info "수동 설치: git clone https://github.com/Yeachan-Heo/oh-my-claudecode.git ~/.claude/plugins/local/oh-my-claudecode"
+            }
+        fi
     fi
 
-    log_info "oh-my-claudecode 설치 중..."
-
-    # OMC 설치 (공식 방법)
-    claude plugins install oh-my-claudecode 2>/dev/null || {
-        # 대체 방법: npm으로 직접 설치
-        npm install -g oh-my-claudecode 2>/dev/null || true
-    }
-
-    log_success "oh-my-claudecode 설치 완료"
+    # OMC 설정 여부 저장 (나중에 setup에서 사용)
+    OMC_INSTALLED=$omc_installed
 }
 
 # OpenCode 설치
@@ -484,6 +495,65 @@ EOF
     log_success "oh-my-claudecode 설정 완료"
 }
 
+# OMC 원클릭 셋업 실행
+run_omc_setup() {
+    log_step "oh-my-claudecode 원클릭 셋업 (omc-setup)"
+
+    if [[ "$OMC_INSTALLED" != "true" ]]; then
+        log_warn "oh-my-claudecode가 설치되지 않아 셋업을 건너뜁니다"
+        return 0
+    fi
+
+    echo ""
+    echo -e "${CYAN}oh-my-claudecode 셋업을 실행합니다.${NC}"
+    echo -e "이 과정에서 Claude Code가 잠시 실행됩니다."
+    echo ""
+
+    prompt_user "omc-setup을 실행하시겠습니까? [Y/n] " confirm
+    if [[ "$confirm" =~ ^[Nn] ]]; then
+        log_info "omc-setup 건너뜀 (나중에 Claude Code에서 '/oh-my-claudecode:omc-setup' 실행)"
+        return 0
+    fi
+
+    # Claude Code로 omc-setup 실행
+    log_info "omc-setup 실행 중... (잠시 기다려주세요)"
+
+    # 비대화식으로 omc-setup 실행
+    if claude --dangerously-skip-permissions -p "/oh-my-claudecode:omc-setup" --max-turns 5 2>/dev/null; then
+        log_success "omc-setup 완료"
+    else
+        # 대체: 직접 설정 파일 복사
+        log_warn "자동 셋업 실패. 수동 셋업이 필요합니다."
+        log_info "Claude Code 실행 후 '/oh-my-claudecode:omc-setup' 입력하세요"
+
+        # 최소 설정 적용
+        setup_omc_minimal
+    fi
+}
+
+# OMC 최소 설정 (셋업 실패 시 대체)
+setup_omc_minimal() {
+    log_info "최소 설정 적용 중..."
+
+    # 글로벌 CLAUDE.md에 OMC 지시사항 추가
+    local global_claude_md="$HOME/.claude/CLAUDE.md"
+
+    if [[ ! -f "$global_claude_md" ]] || ! grep -q "oh-my-claudecode" "$global_claude_md" 2>/dev/null; then
+        mkdir -p "$(dirname "$global_claude_md")"
+
+        # OMC 기본 지시사항 추가 (최소)
+        cat >> "$global_claude_md" << 'EOF'
+
+# oh-my-claudecode
+
+You are enhanced with oh-my-claudecode multi-agent capabilities.
+For full setup, run: /oh-my-claudecode:omc-setup
+
+EOF
+        log_info "기본 지시사항 추가됨: $global_claude_md"
+    fi
+}
+
 # 설치 완료 요약
 print_summary() {
     echo ""
@@ -581,6 +651,12 @@ main() {
 
     setup_claude_auth
     setup_opencode_auth
+
+    echo ""
+    echo -e "${BOLD}${MAGENTA}▶ oh-my-claudecode 셋업${NC}"
+    echo ""
+
+    run_omc_setup
 
     print_summary
 }

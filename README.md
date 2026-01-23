@@ -88,7 +88,7 @@ hulw: 이 프로젝트 전체 리팩토링해줘
 
 ```bash
 # 모든 것을 자동으로 설치
-curl -fsSL https://raw.githubusercontent.com/user/oh-my-claude-money/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DrFREEST/oh-my-claude-money/main/install.sh | bash
 ```
 
 또는 로컬에서:

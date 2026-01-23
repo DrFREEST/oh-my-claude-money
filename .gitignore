@@ -1,0 +1,23 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# OMC state (auto-generated)
+.omc/
+CLAUDE.md
+**/CLAUDE.md
+
+# Config (user-specific)
+config.json
+
+# Logs
+*.log
+logs/

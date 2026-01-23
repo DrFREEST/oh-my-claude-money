@@ -1,0 +1,39 @@
+{
+  "name": "oh-my-claude-money",
+  "version": "1.0.0",
+  "description": "Claude Code 사용량 관리 및 OpenCode 브릿지 플러그인",
+  "author": "user",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.mjs",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "opencode",
+    "bridge",
+    "usage-tracking",
+    "rate-limit"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/oh-my-claude-money.git"
+  },
+  "scripts": {
+    "test": "node --test src/**/*.test.mjs",
+    "lint": "eslint src/",
+    "install-local": "claude plugins install --local .",
+    "export-context": "bash scripts/export-context.sh",
+    "handoff": "bash scripts/handoff-to-opencode.sh"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    ".claude-plugin/",
+    "hooks/",
+    "scripts/",
+    "commands/",
+    "src/",
+    "docs/"
+  ]
+}

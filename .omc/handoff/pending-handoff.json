@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-01-23T12:25:16.549Z",
+  "reason": "keyword",
+  "usage": {
+    "fiveHour": 18,
+    "weekly": 85,
+    "fiveHourResetsAt": "2026-01-23T13:00:00.185Z",
+    "weeklyResetsAt": "2026-01-26T22:00:00.185Z",
+    "timestamp": 1769171115253,
+    "error": false
+  },
+  "triggered": true
+}

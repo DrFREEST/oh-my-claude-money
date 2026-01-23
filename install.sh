@@ -377,9 +377,103 @@ install_omcm() {
     # 전역 변수로 저장 (나중에 참조용)
     OMCM_SOURCE_DIR="$source_dir"
 
+    # Claude Code 설정에 플러그인 등록
+    register_plugin_to_claude "$source_dir"
+
     log_success "oh-my-claude-money 설치 완료"
     log_info "  소스: $source_dir"
     log_info "  플러그인: $plugin_dir"
+}
+
+# Claude Code에 플러그인 등록
+register_plugin_to_claude() {
+    local source_dir="$1"
+    local settings_file="$HOME/.claude/settings.json"
+    local installed_file="$HOME/.claude/plugins/installed_plugins.json"
+
+    log_info "Claude Code에 플러그인 등록 중..."
+
+    # 디렉토리 생성
+    mkdir -p "$HOME/.claude/plugins"
+
+    # ==========================================
+    # 1. settings.json에 enabledPlugins 추가
+    # ==========================================
+    if [[ -f "$settings_file" ]]; then
+        # 이미 등록되어 있는지 확인
+        if grep -q '"oh-my-claude-money@local"' "$settings_file" 2>/dev/null; then
+            log_info "settings.json에 이미 등록됨"
+        else
+            # jq가 있으면 사용, 없으면 sed 사용
+            if command -v jq &> /dev/null; then
+                local tmp_file=$(mktemp)
+                jq '.enabledPlugins["oh-my-claude-money@local"] = true' "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
+                log_success "settings.json에 플러그인 활성화 추가"
+            else
+                # sed로 enabledPlugins에 추가
+                if grep -q '"enabledPlugins"' "$settings_file"; then
+                    sed -i 's/"enabledPlugins": {/"enabledPlugins": {\n    "oh-my-claude-money@local": true,/' "$settings_file"
+                    log_success "settings.json에 플러그인 활성화 추가"
+                else
+                    log_warn "settings.json에 enabledPlugins 섹션이 없습니다"
+                fi
+            fi
+        fi
+    else
+        # settings.json이 없으면 생성
+        cat > "$settings_file" << 'EOF'
+{
+  "enabledPlugins": {
+    "oh-my-claude-money@local": true
+  }
+}
+EOF
+        log_success "settings.json 생성 및 플러그인 활성화"
+    fi
+
+    # ==========================================
+    # 2. installed_plugins.json에 플러그인 등록
+    # ==========================================
+    local current_date=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+    if [[ -f "$installed_file" ]]; then
+        # 이미 등록되어 있는지 확인
+        if grep -q '"oh-my-claude-money@local"' "$installed_file" 2>/dev/null; then
+            log_info "installed_plugins.json에 이미 등록됨"
+        else
+            if command -v jq &> /dev/null; then
+                local tmp_file=$(mktemp)
+                jq --arg path "$source_dir" --arg date "$current_date" \
+                   '.plugins["oh-my-claude-money@local"] = [{"scope": "user", "installPath": $path, "version": "0.2.0", "installedAt": $date, "lastUpdated": $date}]' \
+                   "$installed_file" > "$tmp_file" && mv "$tmp_file" "$installed_file"
+                log_success "installed_plugins.json에 플러그인 등록"
+            else
+                # sed로 plugins 섹션에 추가
+                local plugin_entry='    "oh-my-claude-money@local": [{"scope": "user", "installPath": "'"$source_dir"'", "version": "0.2.0", "installedAt": "'"$current_date"'", "lastUpdated": "'"$current_date"'"}],'
+                sed -i 's/"plugins": {/"plugins": {\n'"$plugin_entry"'/' "$installed_file"
+                log_success "installed_plugins.json에 플러그인 등록"
+            fi
+        fi
+    else
+        # installed_plugins.json이 없으면 생성
+        cat > "$installed_file" << EOF
+{
+  "version": 2,
+  "plugins": {
+    "oh-my-claude-money@local": [
+      {
+        "scope": "user",
+        "installPath": "$source_dir",
+        "version": "0.2.0",
+        "installedAt": "$current_date",
+        "lastUpdated": "$current_date"
+      }
+    ]
+  }
+}
+EOF
+        log_success "installed_plugins.json 생성"
+    fi
 }
 
 # 설치 완료 요약

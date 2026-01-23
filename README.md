@@ -86,7 +86,28 @@ hulw로 빠르게 처리
 ### 6. 🔗 OMC HUD 연동
 - oh-my-claudecode HUD 캐시 활용 (추가 API 호출 없음)
 
-## 설치 및 셋업 (필독!)
+## 빠른 시작 (30초)
+
+**Claude Code 내에서 설치** (권장):
+
+```
+/plugin marketplace add https://github.com/DrFREEST/oh-my-claude-money
+/plugin install oh-my-claude-money
+```
+
+그 다음 셋업:
+
+```
+/oh-my-claude-money:fusion-setup
+```
+
+끝! 이제 `hulw` 키워드로 퓨전 모드를 사용할 수 있습니다.
+
+> **사전 요구사항**: [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)와 [OpenCode](https://github.com/sst/opencode)가 설치되어 있어야 합니다.
+
+---
+
+## 설치 및 셋업 (상세)
 
 ### 전체 설치 순서
 

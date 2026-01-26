@@ -86,8 +86,13 @@ function saveLimits(limits) {
 export function updateClaudeLimits(fiveHourPercent, weeklyPercent) {
   const limits = loadLimits();
 
-  limits.claude.fiveHour.percent = fiveHourPercent;
-  limits.claude.weekly.percent = weeklyPercent;
+  // null/undefined가 아닌 경우에만 업데이트 (HUD 싱크 버그 수정)
+  if (fiveHourPercent !== null && fiveHourPercent !== undefined) {
+    limits.claude.fiveHour.percent = fiveHourPercent;
+  }
+  if (weeklyPercent !== null && weeklyPercent !== undefined) {
+    limits.claude.weekly.percent = weeklyPercent;
+  }
   limits.claude.lastUpdated = new Date().toISOString();
 
   saveLimits(limits);

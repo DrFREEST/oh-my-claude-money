@@ -9,7 +9,7 @@ import { homedir } from 'os';
 import { join, dirname } from 'path';
 
 // 설정 파일 경로
-export const CONFIG_DIR = join(homedir(), '.claude/plugins/oh-my-claude-money');
+export const CONFIG_DIR = join(homedir(), '.claude/plugins/omcm');
 export const CONFIG_PATH = join(CONFIG_DIR, 'config.json');
 
 // 기본 설정

@@ -137,7 +137,7 @@ Claude 리밋에 따른 자동 전환:
 
 ```
 /plugin marketplace add https://github.com/DrFREEST/oh-my-claude-money
-/plugin install oh-my-claude-money
+/plugin install omcm
 ```
 
 그 다음 셋업:
@@ -289,11 +289,11 @@ Claude Code 프롬프트에서 다음 명령어 입력:
 스크립트 없이 직접 설치하려면:
 
 ```bash
-# 1. oh-my-claude-money 클론
-git clone https://github.com/DrFREEST/oh-my-claude-money.git ~/.local/share/oh-my-claude-money
+# 1. omcm 클론
+git clone https://github.com/DrFREEST/oh-my-claude-money.git ~/.local/share/omcm
 
 # 2. 플러그인 심볼릭 링크
-ln -sf ~/.local/share/oh-my-claude-money ~/.claude/plugins/local/oh-my-claude-money
+ln -sf ~/.local/share/omcm ~/.claude/plugins/local/omcm
 
 # 3. 이후 Step 2~4 진행
 ```
@@ -413,10 +413,10 @@ abort
 
 ```bash
 # 컨텍스트 저장 + OpenCode 실행
-/opt/oh-my-claude-money/scripts/handoff-to-opencode.sh
+~/.local/share/omcm/scripts/handoff-to-opencode.sh
 
 # 컨텍스트만 저장
-/opt/oh-my-claude-money/scripts/export-context.sh
+~/.local/share/omcm/scripts/export-context.sh
 ```
 
 ### 전체 명령어 목록
@@ -430,11 +430,11 @@ abort
 | `/omcm:ulw` | 자동 퓨전 울트라워크 |
 | `/omcm:autopilot` | 하이브리드 오토파일럿 |
 | `/omcm:cancel-autopilot` | 오토파일럿 중단 |
-| `/opencode` | OpenCode로 명시적 전환 |
+| `/omcm:opencode` | OpenCode로 명시적 전환 |
 
 ## 설정
 
-설정 파일: `~/.claude/plugins/oh-my-claude-money/config.json`
+설정 파일: `~/.claude/plugins/omcm/config.json`
 
 ```json
 {
@@ -594,6 +594,8 @@ curl -fsSL https://opencode.ai/install | bash
 | **oh-my-claudecode** | Claude Code 멀티에이전트 플러그인 | [github.com/Yeachan-Heo/oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) |
 | **OpenCode** | 오픈소스 AI 코딩 에이전트 | [github.com/sst/opencode](https://github.com/sst/opencode) |
 | **OpenCode Docs** | OpenCode 공식 문서 | [opencode.ai/docs](https://opencode.ai/docs/) |
+| **Claude Code Hooks 가이드** | 훅 시스템 완벽 가이드 | [dev.to - Claude Code Hooks](https://dev.to/kiwibreaksme/claude-code-hooks-wanbyeog-gaideu-aiga-maennal-ggameogneun-iyuwa-haegyeolbeob-4n03) |
+| **CodeSyncer** | 코드베이스 태그 동기화 | [github.com/bitjaru/codesyncer](https://github.com/bitjaru/codesyncer) |
 
 ## 라이선스
 

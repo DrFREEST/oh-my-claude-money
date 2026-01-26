@@ -46,18 +46,44 @@ triggers:
 | 복잡한 구현 | Claude executor | Opus | - |
 | 전략적 계획 | Claude planner | Opus | - |
 
-## 활성화 시 행동
+## 활성화 시 행동 (CRITICAL - 반드시 따를 것!)
 
-이 스킬이 활성화되면:
+이 스킬이 활성화되면 **반드시** 다음 단계를 수행하세요:
 
-1. 먼저 사용자에게 알림:
+1. **알림 출력**:
    > "**hulw 모드 활성화** - Claude + OpenCode 퓨전으로 토큰을 절약하면서 작업합니다."
 
-2. 작업을 분석하고 최적의 에이전트 조합 결정
+2. **CRITICAL: Task 도구로 에이전트 위임**
 
-3. 가능한 작업은 OpenCode 에이전트로 위임하여 Claude 토큰 절약
+   **절대 직접 작업하지 마세요!** 반드시 Task 도구를 사용하여 에이전트에게 위임하세요.
 
-4. 결과를 통합하여 최종 응답 제공
+   ```
+   Task(
+     subagent_type="oh-my-claudecode:explore",  // OMC 에이전트 지정
+     prompt="사용자 요청 내용"
+   )
+   ```
+
+   **OMCM이 자동으로 OpenCode(OMO)로 라우팅합니다:**
+   - PreToolUse hook이 Task 호출 감지
+   - OMC 에이전트 → OMO 에이전트 자동 매핑
+   - OpenCode ULW 모드로 실행
+
+3. **자동 라우팅 매핑** (OMCM이 처리):
+
+   | OMC 에이전트 | → | OMO 에이전트 | 모델 |
+   |-------------|---|-------------|------|
+   | explore, explore-* | → | Flash | Gemini |
+   | architect, architect-* | → | Oracle | GPT |
+   | researcher, researcher-* | → | Oracle | GPT |
+   | designer, designer-* | → | Flash | Gemini |
+   | writer | → | Flash | Gemini |
+   | executor, executor-* | → | Codex | GPT |
+
+4. **결과 통합**: OpenCode 결과를 받아 최종 응답 제공
+
+**핵심**: Task를 호출하기만 하면 OMCM이 자동으로 OpenCode로 라우팅합니다.
+Claude 토큰을 최대한 절약하면서 OpenCode+OMO의 성능을 활용합니다!
 
 ## 사용량 기반 자동 전환
 

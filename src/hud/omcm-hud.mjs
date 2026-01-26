@@ -53,7 +53,7 @@ function syncClaudeUsageFromOmcOutput(omcOutput) {
 }
 
 /**
- * Parse Claude token usage from stdin JSON
+ * Parse Claude token usage and request count from stdin JSON
  * Claude Code passes JSON with token data to HUD via stdin
  *
  * Expected structure:
@@ -63,14 +63,17 @@ function syncClaudeUsageFromOmcOutput(omcOutput) {
  *       "input_tokens": 12345,
  *       "output_tokens": 6789
  *     }
+ *   },
+ *   "conversation": {
+ *     "num_turns": 42
  *   }
  * }
  *
  * @param {string} stdinData - Raw stdin data (JSON string)
- * @returns {Object} - { input: number, output: number }
+ * @returns {Object} - { input: number, output: number, count: number }
  */
 function parseClaudeTokensFromStdin(stdinData) {
-  const result = { input: 0, output: 0 };
+  const result = { input: 0, output: 0, count: 0 };
 
   if (!stdinData) {
     return result;
@@ -85,38 +88,63 @@ function parseClaudeTokensFromStdin(stdinData) {
       if (data.context_window.total_input_tokens !== undefined) {
         result.input = data.context_window.total_input_tokens || 0;
         result.output = data.context_window.total_output_tokens || 0;
-        return result;
-      }
-      // fallback: current_usage (현재 요청만)
-      if (data.context_window.current_usage) {
+      } else if (data.context_window.current_usage) {
+        // fallback: current_usage (현재 요청만)
         const usage = data.context_window.current_usage;
         // input = input_tokens + cache_read_input_tokens (캐시 포함)
         const cacheRead = usage.cache_read_input_tokens || 0;
         result.input = (usage.input_tokens || 0) + cacheRead;
         result.output = usage.output_tokens || 0;
-        return result;
       }
     }
 
-    // Fallback: Look for token data in various possible structures
-    if (data.tokens) {
-      result.input = data.tokens.input || data.tokens.inputTokens || 0;
-      result.output = data.tokens.output || data.tokens.outputTokens || 0;
-    } else if (data.inputTokens !== undefined) {
-      result.input = data.inputTokens || 0;
-      result.output = data.outputTokens || 0;
-    } else if (data.usage) {
-      result.input = data.usage.input_tokens || data.usage.prompt_tokens || 0;
-      result.output = data.usage.output_tokens || data.usage.completion_tokens || 0;
+    // Parse request count - 현재 세션 턴/요청 수
+    // Try various possible field names
+    if (data.conversation) {
+      result.count = data.conversation.num_turns ||
+                     data.conversation.turn_count ||
+                     data.conversation.turns ||
+                     data.conversation.requestCount ||
+                     data.conversation.request_count || 0;
+    }
+    if (result.count === 0 && data.context_window) {
+      result.count = data.context_window.num_turns ||
+                     data.context_window.turn_count ||
+                     data.context_window.request_count || 0;
+    }
+    if (result.count === 0 && data.session) {
+      result.count = data.session.num_turns ||
+                     data.session.turn_count ||
+                     data.session.requestCount || 0;
+    }
+    if (result.count === 0 && data.num_turns !== undefined) {
+      result.count = data.num_turns || 0;
+    }
+    if (result.count === 0 && data.turn_count !== undefined) {
+      result.count = data.turn_count || 0;
     }
 
-    // Also check for session/conversation level totals
+    // Fallback: Look for token data in various possible structures
+    if (result.input === 0 && result.output === 0) {
+      if (data.tokens) {
+        result.input = data.tokens.input || data.tokens.inputTokens || 0;
+        result.output = data.tokens.output || data.tokens.outputTokens || 0;
+      } else if (data.inputTokens !== undefined) {
+        result.input = data.inputTokens || 0;
+        result.output = data.outputTokens || 0;
+      } else if (data.usage) {
+        result.input = data.usage.input_tokens || data.usage.prompt_tokens || 0;
+        result.output = data.usage.output_tokens || data.usage.completion_tokens || 0;
+      }
+    }
+
+    // Also check for session/conversation level totals (additive)
     if (data.conversation && data.conversation.tokens) {
       result.input += data.conversation.tokens.input || 0;
       result.output += data.conversation.tokens.output || 0;
     }
 
-    // Check for session totals
+    // Check for session totals (override)
     if (data.session) {
       if (data.session.inputTokens) {
         result.input = data.session.inputTokens;
@@ -400,11 +428,13 @@ async function main() {
     // Render fusion metrics
     const fusionOutput = renderFusionMetrics(fusionState);
 
-    // Get provider routing counts from OpenCode session data (more accurate)
-    // Claude count comes from stdin, OpenAI/Gemini from OpenCode sessions
+    // Get provider routing counts
+    // Claude count: stdin JSON에서 현재 세션 턴 수 (없으면 OpenCode anthropic 사용)
+    // OpenAI/Gemini: OpenCode 세션 파일에서 현재 세션 카운트
+    const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
     const sessionCounts = {
       byProvider: {
-        anthropic: openCodeTokens.anthropic.count,
+        anthropic: claudeCount,
         openai: openCodeTokens.openai.count,
         gemini: openCodeTokens.gemini.count,
       }

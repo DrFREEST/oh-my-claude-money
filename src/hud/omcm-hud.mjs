@@ -211,73 +211,70 @@ function aggregateOpenCodeTokens() {
       .filter((d) => d !== null)
       .sort((a, b) => b.mtime - a.mtime); // 가장 최근 세션이 먼저
 
-    // 가장 최근 세션 1개만 사용 (현재 세션)
-    const currentSession = sessionDirs[0];
-    if (!currentSession) {
-      openCodeTokenCache = result;
-      openCodeCacheTime = now;
-      return result;
-    }
-
-    // 현재 세션이 1시간 이내에 수정되었는지 확인 (활성 세션 판별)
+    // 1시간 이내에 수정된 모든 활성 세션 집계 (현재 세션 + 관련 세션)
     const oneHourAgo = now - (60 * 60 * 1000);
-    if (currentSession.mtime < oneHourAgo) {
-      // 1시간 이상 수정 없으면 비활성 세션으로 간주 - 빈 결과 반환
+    const activeSessions = sessionDirs.filter((s) => s.mtime >= oneHourAgo);
+
+    if (activeSessions.length === 0) {
+      // 1시간 이내 활성 세션 없음
       openCodeTokenCache = result;
       openCodeCacheTime = now;
       return result;
     }
 
-    const sessionPath = currentSession.path;
+    // 모든 활성 세션을 순회하며 집계
+    for (const activeSession of activeSessions) {
+      const sessionPath = activeSession.path;
 
-    try {
-      // 메시지 파일들 읽기
-      const msgFiles = readdirSync(sessionPath).filter((f) => f.startsWith('msg_') && f.endsWith('.json'));
+      try {
+        // 메시지 파일들 읽기
+        const msgFiles = readdirSync(sessionPath).filter((f) => f.startsWith('msg_') && f.endsWith('.json'));
 
-      for (const msgFile of msgFiles) {
-        const msgPath = join(sessionPath, msgFile);
+        for (const msgFile of msgFiles) {
+          const msgPath = join(sessionPath, msgFile);
 
-        try {
-          const content = readFileSync(msgPath, 'utf-8');
-          const msg = JSON.parse(content);
+          try {
+            const content = readFileSync(msgPath, 'utf-8');
+            const msg = JSON.parse(content);
 
-          // providerID 체크
-          const providerID = msg.providerID || (msg.model && msg.model.providerID);
-          if (!providerID) {
-            continue;
+            // providerID 체크
+            const providerID = msg.providerID || (msg.model && msg.model.providerID);
+            if (!providerID) {
+              continue;
+            }
+
+            // tokens 체크
+            const tokens = msg.tokens;
+            if (!tokens) {
+              continue;
+            }
+
+            // input = tokens.input + cache.read (캐시 포함 전체 입력)
+            const cacheRead = (tokens.cache && tokens.cache.read) || 0;
+            const inputTokens = (tokens.input || 0) + cacheRead;
+            const outputTokens = tokens.output || 0;
+
+            // 프로바이더별 집계 (토큰 + 카운트)
+            if (providerID === 'openai') {
+              result.openai.input += inputTokens;
+              result.openai.output += outputTokens;
+              result.openai.count++;
+            } else if (providerID === 'google') {
+              result.gemini.input += inputTokens;
+              result.gemini.output += outputTokens;
+              result.gemini.count++;
+            } else if (providerID === 'anthropic') {
+              result.anthropic.input += inputTokens;
+              result.anthropic.output += outputTokens;
+              result.anthropic.count++;
+            }
+          } catch (e) {
+            // 개별 파일 읽기 실패 - 무시
           }
-
-          // tokens 체크
-          const tokens = msg.tokens;
-          if (!tokens) {
-            continue;
-          }
-
-          // input = tokens.input + cache.read (캐시 포함 전체 입력)
-          const cacheRead = (tokens.cache && tokens.cache.read) || 0;
-          const inputTokens = (tokens.input || 0) + cacheRead;
-          const outputTokens = tokens.output || 0;
-
-          // 프로바이더별 집계 (토큰 + 카운트)
-          if (providerID === 'openai') {
-            result.openai.input += inputTokens;
-            result.openai.output += outputTokens;
-            result.openai.count++;
-          } else if (providerID === 'google') {
-            result.gemini.input += inputTokens;
-            result.gemini.output += outputTokens;
-            result.gemini.count++;
-          } else if (providerID === 'anthropic') {
-            result.anthropic.input += inputTokens;
-            result.anthropic.output += outputTokens;
-            result.anthropic.count++;
-          }
-        } catch (e) {
-          // 개별 파일 읽기 실패 - 무시
         }
+      } catch (e) {
+        // 세션 디렉토리 읽기 실패 - 무시하고 다음 세션 처리
       }
-    } catch (e) {
-      // 세션 디렉토리 읽기 실패 - 무시
     }
   } catch (e) {
     // 전체 실패 - graceful하게 빈 결과 반환

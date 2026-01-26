@@ -1,5 +1,4 @@
 ---
-name: fusion-setup
 description: oh-my-claude-money 퓨전 플러그인 셋업
 ---
 

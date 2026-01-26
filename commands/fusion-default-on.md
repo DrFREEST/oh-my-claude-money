@@ -1,5 +1,4 @@
 ---
-name: fusion-default-on
 description: 항상 퓨전 모드 활성화 - 모든 작업에서 OpenCode 퓨전을 기본으로 사용
 ---
 

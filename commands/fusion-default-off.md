@@ -1,5 +1,4 @@
 ---
-name: fusion-default-off
 description: 퓨전 모드 기본값 비활성화 - 사용량 기반 자동 전환으로 복귀
 ---
 

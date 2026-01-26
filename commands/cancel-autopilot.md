@@ -1,5 +1,4 @@
 ---
-name: cancel-autopilot
 description: 활성화된 하이브리드 오토파일럿 세션 취소
 ---
 

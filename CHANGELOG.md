@@ -18,6 +18,20 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.3.4] - 2026-01-26
+
+### 수정 (Fixed)
+- **스킬 디렉토리 구조 수정**: Claude Code 플러그인 표준 형식으로 변환
+  - 기존: `skills/autopilot.md` (단일 파일)
+  - 변경: `skills/autopilot/SKILL.md` (폴더 구조)
+  - 이로 인해 `/omcm:*` 커맨드가 정상 인식됨
+- **커맨드 frontmatter 수정**: `name` 필드 제거 (파일명에서 자동 추론)
+
+### 참고 (Notes)
+- 플러그인 재설치 필요: `claude plugins uninstall omcm && claude plugins install omcm`
+
+---
+
 ## [0.3.3] - 2026-01-26
 
 ### 수정 (Fixed)

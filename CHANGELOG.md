@@ -26,6 +26,14 @@ All notable changes to this project will be documented in this file.
   - 이전: `5h:[33m6%[0m` 형태로 인해 regex 매칭 실패
   - 변경: `stripAnsi()` 함수로 색상 코드 제거 후 파싱
 - **wrapper 단순화**: spawn 대신 동적 import 사용으로 안정성 향상
+- **README 파일 구조 현행화**: 실제 프로젝트 구조와 동기화
+- **README 설정 옵션 현행화**: keywords, routing 배열 실제 값과 동기화
+- **설정 경로 통일**: fusion-default-on/off 명령어의 경로를 `~/.claude/plugins/omcm/`으로 통일
+
+### 추가 (Added)
+- **fusionDefault 설정**: config.mjs에 `fusionDefault: false` 기본값 추가
+  - fusion-default-on/off 명령어와 연동
+- **버전 동기화**: package.json, plugin.json, marketplace.json 버전 통일
 
 ---
 

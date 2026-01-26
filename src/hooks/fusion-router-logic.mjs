@@ -143,6 +143,44 @@ export function mapAgentToOpenCode(agentType) {
 }
 
 /**
+ * OMO 에이전트에 해당하는 모델 정보 반환
+ * @param {string} omoAgent - OMO 에이전트 이름
+ * @returns {object} - { id: string, name: string }
+ */
+export function getModelInfoForAgent(omoAgent) {
+  // Gemini 기반 에이전트
+  var geminiAgents = ['explore', 'frontend-ui-ux-engineer', 'document-writer', 'multimodal-looker', 'Flash'];
+  // GPT Oracle 기반 에이전트
+  var oracleAgents = ['Oracle', 'librarian'];
+  // GPT Codex 기반 에이전트
+  var codexAgents = ['Codex'];
+
+  for (var i = 0; i < geminiAgents.length; i++) {
+    if (omoAgent === geminiAgents[i]) {
+      if (omoAgent === 'frontend-ui-ux-engineer') {
+        return { id: 'gemini-pro', name: 'Gemini 3 Pro' };
+      }
+      return { id: 'gemini-flash', name: 'Gemini 3 Flash' };
+    }
+  }
+
+  for (var j = 0; j < oracleAgents.length; j++) {
+    if (omoAgent === oracleAgents[j]) {
+      return { id: 'gpt-5.2', name: 'GPT 5.2 Oracle' };
+    }
+  }
+
+  for (var k = 0; k < codexAgents.length; k++) {
+    if (omoAgent === codexAgents[k]) {
+      return { id: 'gpt-5.2-codex', name: 'GPT 5.2 Codex' };
+    }
+  }
+
+  // 기본값
+  return { id: 'gpt-5.2-codex', name: 'GPT 5.2 Codex' };
+}
+
+/**
  * OpenCode로 라우팅해야 하는지 확인
  * @param {object} toolInput - 도구 입력
  * @param {object} [options] - 옵션 (테스트용 의존성 주입)
@@ -197,17 +235,18 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
     var maxPercent = Math.max(fiveHourPercent, weeklyPercent);
 
     if (maxPercent >= 90) {
-      // 에이전트 매핑 존중 (Flash/Oracle/Codex)
+      // 에이전트 매핑 존중
       var agentType = '';
       if (toolInput && toolInput.subagent_type) {
         agentType = toolInput.subagent_type.replace('oh-my-claudecode:', '');
       }
       var mappedAgent = agentType ? mapAgentToOpenCode(agentType) : 'Codex';
+      var modelInfo = getModelInfoForAgent(mappedAgent);
 
       return {
         route: true,
         reason: 'claude-limit-' + maxPercent + '%',
-        targetModel: { id: mappedAgent === 'Flash' ? 'gemini-flash' : 'gpt-5.2-codex', name: mappedAgent === 'Flash' ? 'Gemini Flash' : 'GPT-5.2 Codex' },
+        targetModel: { id: modelInfo.id, name: modelInfo.name },
         opencodeAgent: mappedAgent
       };
     }
@@ -234,13 +273,12 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
     // fusionDefault 모드에서는 planner 제외 모든 에이전트 라우팅
     if (fusionDefault && !isClaudeOnly) {
       var mappedAgent = mapAgentToOpenCode(agentType);
-      var modelId = mappedAgent === 'Flash' ? 'gemini-flash' : 'gpt-5.2-codex';
-      var modelName = mappedAgent === 'Flash' ? 'Gemini Flash' : (mappedAgent === 'Oracle' ? 'GPT Oracle' : 'GPT Codex');
+      var modelInfo = getModelInfoForAgent(mappedAgent);
 
       return {
         route: true,
         reason: 'fusion-default-' + agentType,
-        targetModel: { id: modelId, name: modelName },
+        targetModel: { id: modelInfo.id, name: modelInfo.name },
         opencodeAgent: mappedAgent
       };
     }

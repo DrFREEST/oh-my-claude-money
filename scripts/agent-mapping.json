@@ -1,105 +1,266 @@
 {
-  "description": "OMC 에이전트 → OpenCode 에이전트 매핑",
-  "version": "1.0.1",
+  "description": "OMC 에이전트 → OMO 에이전트 퓨전 매핑 (퓨전/폴백 모드 전용)",
+  "version": "2.0.0",
+  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용",
+  "models": {
+    "opus": {
+      "provider": "anthropic",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "tier": "HIGH",
+      "description": "복잡한 추론, 전략적 계획"
+    },
+    "sonnet": {
+      "provider": "openai",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
+      "tier": "MEDIUM",
+      "description": "표준 구현, 분석 작업"
+    },
+    "haiku": {
+      "provider": "google",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
+      "tier": "LOW",
+      "description": "빠른 탐색, 간단한 작업"
+    }
+  },
   "mappings": {
     "architect": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-pro",
+      "omo_agent": "build",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
       "description": "전략적 아키텍처 분석"
     },
     "architect-medium": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash",
+      "omo_agent": "build",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
       "description": "중간 복잡도 아키텍처 분석"
     },
     "architect-low": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash-lite",
+      "omo_agent": "explore",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
       "description": "간단한 코드 질문"
     },
+    "executor-high": {
+      "omo_agent": "build",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "description": "복잡한 멀티파일 구현"
+    },
+    "executor": {
+      "omo_agent": "build",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
+      "description": "표준 기능 구현"
+    },
+    "executor-low": {
+      "omo_agent": "build",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
+      "description": "간단한 싱글파일 작업"
+    },
+    "explore-high": {
+      "omo_agent": "explore",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "description": "복잡한 아키텍처 탐색"
+    },
+    "explore-medium": {
+      "omo_agent": "explore",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
+      "description": "깊은 코드베이스 탐색"
+    },
+    "explore": {
+      "omo_agent": "explore",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
+      "description": "빠른 코드베이스 탐색"
+    },
     "researcher": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-pro",
+      "omo_agent": "general",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
       "description": "외부 문서 리서치"
     },
     "researcher-low": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash-lite",
+      "omo_agent": "general",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
       "description": "빠른 문서 조회"
     },
-    "designer": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash",
-      "description": "UI/UX 디자인"
-    },
     "designer-high": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-pro",
-      "description": "복잡한 UI 시스템"
+      "omo_agent": "build",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "description": "복잡한 UI 시스템 설계"
+    },
+    "designer": {
+      "omo_agent": "build",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
+      "description": "UI/UX 디자인 구현"
     },
     "designer-low": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash-lite",
+      "omo_agent": "build",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
       "description": "간단한 스타일링"
     },
+    "writer": {
+      "omo_agent": "general",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
+      "description": "기술 문서 작성"
+    },
     "vision": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash-image",
+      "omo_agent": "general",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
       "description": "이미지/다이어그램 분석"
     },
+    "planner": {
+      "omo_agent": "plan",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "description": "전략적 계획 수립"
+    },
+    "critic": {
+      "omo_agent": "plan",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "description": "플랜 검토 및 비평"
+    },
     "analyst": {
-      "opencode_agent": "plan",
-      "model": "google/gemini-2.5-pro",
+      "omo_agent": "plan",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
       "description": "요구사항 분석"
     },
+    "qa-tester-high": {
+      "omo_agent": "build",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "description": "포괄적 프로덕션 QA"
+    },
+    "qa-tester": {
+      "omo_agent": "build",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
+      "description": "인터랙티브 CLI 테스팅"
+    },
+    "security-reviewer": {
+      "omo_agent": "build",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "description": "보안 취약점 심층 분석"
+    },
+    "security-reviewer-low": {
+      "omo_agent": "build",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
+      "description": "빠른 보안 스캔"
+    },
+    "build-fixer": {
+      "omo_agent": "build",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
+      "description": "빌드/타입 오류 수정"
+    },
+    "build-fixer-low": {
+      "omo_agent": "build",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
+      "description": "간단한 빌드 오류 수정"
+    },
+    "tdd-guide": {
+      "omo_agent": "build",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
+      "description": "TDD 워크플로우 가이드"
+    },
+    "tdd-guide-low": {
+      "omo_agent": "build",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
+      "description": "빠른 테스트 제안"
+    },
+    "code-reviewer": {
+      "omo_agent": "build",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "description": "전문 코드 리뷰"
+    },
+    "code-reviewer-low": {
+      "omo_agent": "build",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
+      "description": "빠른 코드 체크"
+    },
+    "scientist-high": {
+      "omo_agent": "build",
+      "tier": "HIGH",
+      "model": "claude-opus-4-5-20251101",
+      "thinking": true,
+      "description": "복잡한 ML/가설 검증"
+    },
     "scientist": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash",
+      "omo_agent": "build",
+      "tier": "MEDIUM",
+      "model": "gpt-5.2-codex",
+      "thinking": true,
       "description": "데이터 분석"
     },
     "scientist-low": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash-lite",
+      "omo_agent": "build",
+      "tier": "LOW",
+      "model": "gemini-3.0-flash",
+      "thinking": true,
       "description": "빠른 데이터 검사"
-    },
-    "scientist-high": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-pro",
-      "description": "복잡한 ML/가설 검증"
-    },
-    "code-reviewer": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-pro",
-      "description": "코드 리뷰"
-    },
-    "code-reviewer-low": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash-lite",
-      "description": "빠른 코드 체크"
-    },
-    "security-reviewer": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-pro",
-      "description": "보안 리뷰"
-    },
-    "security-reviewer-low": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash-lite",
-      "description": "빠른 보안 스캔"
-    },
-    "explore": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash-lite",
-      "description": "코드베이스 탐색"
-    },
-    "explore-medium": {
-      "opencode_agent": "build",
-      "model": "google/gemini-2.5-flash",
-      "description": "깊은 코드베이스 탐색"
     }
   },
   "fallback": {
-    "opencode_agent": "build",
-    "model": "google/gemini-2.5-flash-lite"
+    "omo_agent": "build",
+    "model": "gemini-3.0-flash",
+    "thinking": true
+  },
+  "statistics": {
+    "total_agents": 29,
+    "high_tier": 11,
+    "medium_tier": 10,
+    "low_tier": 8,
+    "claude_savings_percent": 62
   }
 }

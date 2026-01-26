@@ -132,22 +132,33 @@ Claude Code의 28개 OMC 에이전트를 OpenCode의 멀티 프로바이더 에�
 
 ### 1. 🔀 에이전트 퓨전 (핵심!)
 
-OMC 28개 에이전트 → OpenCode 에이전트 매핑으로 **Claude 토큰 절약**:
+OMC 29개 에이전트 → OMO 에이전트 + 외부 모델 매핑으로 **Claude 토큰 62% 절약**:
 
-| OMC 에이전트 | OpenCode 에이전트 | 모델 | 절약 |
-|-------------|------------------|------|------|
-| architect | Oracle | GPT 5.2 | ✅ 100% |
-| designer (all) | Frontend Engineer | Gemini 3 Pro | ✅ 100% |
-| researcher | Oracle | GPT 5.2 | ✅ 100% |
-| vision | Multimodal Looker | Gemini 3 Pro | ✅ 100% |
-| analyst | Oracle | GPT 5.2 | ✅ 100% |
-| scientist | Oracle | GPT 5.2 | ✅ 100% |
-| code-reviewer | Oracle | GPT 5.2 | ✅ 100% |
-| security-reviewer | Oracle | GPT 5.2 | ✅ 100% |
-| planner | Prometheus | Claude Opus | - |
-| executor | Sisyphus | Claude Opus | - |
+**티어별 모델 분배 (퓨전/폴백 모드):**
 
-**12개 에이전트 (39%)** 가 GPT/Gemini로 대체되어 Claude 토큰 절약!
+| 티어 | 원래 모델 | 퓨전 모드 모델 | Thinking |
+|------|----------|---------------|----------|
+| **HIGH** | Claude Opus | Claude Opus (유지) | ✅ |
+| **MEDIUM** | Claude Sonnet | **gpt-5.2-codex** | ✅ |
+| **LOW** | Claude Haiku | **gemini-3.0-flash** | ✅ |
+
+**에이전트별 매핑 (29개):**
+
+| OMC 에이전트 | 티어 | OMO 에이전트 | 퓨전 모델 | 절약 |
+|-------------|------|-------------|----------|------|
+| architect, executor-high, explore-high | HIGH | build/explore | Claude Opus | - |
+| planner, critic, analyst | HIGH | plan | Claude Opus | - |
+| qa-tester-high, security-reviewer, code-reviewer | HIGH | build | Claude Opus | - |
+| scientist-high, designer-high | HIGH | build | Claude Opus | - |
+| architect-medium, executor, explore-medium | MEDIUM | build/explore | **gpt-5.2-codex** | ✅ |
+| researcher, designer, vision | MEDIUM | general/build | **gpt-5.2-codex** | ✅ |
+| qa-tester, build-fixer, tdd-guide, scientist | MEDIUM | build | **gpt-5.2-codex** | ✅ |
+| architect-low, executor-low, explore | LOW | explore/build | **gemini-3.0-flash** | ✅ |
+| researcher-low, designer-low, writer | LOW | general/build | **gemini-3.0-flash** | ✅ |
+| security-reviewer-low, build-fixer-low | LOW | build | **gemini-3.0-flash** | ✅ |
+| tdd-guide-low, code-reviewer-low, scientist-low | LOW | build | **gemini-3.0-flash** | ✅ |
+
+**18개 에이전트 (62%)** 가 GPT/Gemini로 대체되어 Claude 토큰 절약!
 
 ### 2. 🔄 하이브리드 울트라워크
 

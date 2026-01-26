@@ -18,6 +18,30 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.5.0] - 2026-01-27
+
+### 추가 (Added)
+- **에이전트 퓨전 매핑 v2.0**: OMC 29개 에이전트 → OMO 에이전트 티어별 매핑
+  - HIGH (11개): Claude Opus 유지 (architect, planner, critic 등)
+  - MEDIUM (10개): **gpt-5.2-codex** (thinking) - executor, researcher, designer 등
+  - LOW (8개): **gemini-3.0-flash** (thinking) - explore, writer, *-low 에이전트들
+- **Claude 토큰 절약률 62%**: 기존 39%에서 대폭 향상
+- **Thinking 모드 기본 활성화**: 모든 외부 모델에서 thinking 모드 사용
+
+### 변경 (Changed)
+- **agent-mapping.json**: v2.0으로 전면 재작성
+  - 티어별 모델 정의 (opus/sonnet/haiku)
+  - 29개 에이전트별 OMO 에이전트 + 모델 매핑
+- **agent-fusion-map.mjs**: 새 MODELS/FUSION_MAP 구조로 리팩토링
+  - `buildOpenCodeCommand()` 함수 추가 (OpenCode 명령어 생성)
+  - `shouldUseFusionMapping()` 함수 추가 (퓨전 모드 활성화 체크)
+
+### 개선 (Improved)
+- **기본 모드 분리**: 퓨전/폴백 모드에서만 외부 모델 사용, 기본 모드는 Claude만 사용
+- **통계 함수 개선**: `getFusionStats()`, `getAgentsByTier()` 함수 추가
+
+---
+
 ## [0.4.0] - 2026-01-27
 
 ### 추가 (Added)

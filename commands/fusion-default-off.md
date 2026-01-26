@@ -31,6 +31,9 @@ description: 퓨전 모드 기본값 비활성화 - 사용량 기반 자동 전�
 다음 내용을 사용자의 설정에 적용하세요:
 
 ```bash
+# 설정 디렉토리 생성
+mkdir -p ~/.claude/plugins/omcm
+
 # fusionDefault 비활성화
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {

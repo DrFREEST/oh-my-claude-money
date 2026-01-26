@@ -32,7 +32,7 @@ description: 항상 퓨전 모드 활성화 - 모든 작업에서 OpenCode 퓨�
 
 ```bash
 # 설정 디렉토리 생성
-mkdir -p ~/.claude/plugins/oh-my-claude-money
+mkdir -p ~/.claude/plugins/omcm
 
 # fusionDefault 활성화
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'

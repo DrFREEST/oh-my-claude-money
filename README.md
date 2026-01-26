@@ -441,14 +441,14 @@ abort
   "fusionDefault": false,
   "threshold": 90,
   "autoHandoff": false,
-  "keywords": ["opencode", "handoff", "전환", "switch to opencode"],
+  "keywords": ["opencode", "handoff", "전환", "switch to opencode", "opencode로", "오픈코드"],
 
   "routing": {
     "enabled": true,
     "usageThreshold": 70,
     "maxOpencodeWorkers": 3,
-    "preferOpencode": ["explore", "researcher", "writer"],
-    "preferClaude": ["architect", "executor-high", "critic"],
+    "preferOpencode": ["explore", "explore-medium", "researcher", "researcher-low", "writer"],
+    "preferClaude": ["architect", "executor-high", "critic", "planner"],
     "autoDelegate": true
   },
 
@@ -482,7 +482,7 @@ abort
 | `fusionDefault` | 항상 퓨전 모드 사용 | false |
 | `threshold` | 전환 알림 임계치 (%) | 90 |
 | `autoHandoff` | 자동 전환 활성화 | false |
-| `keywords` | 감지할 키워드 목록 | ["opencode", "handoff", "전환", ...] |
+| `keywords` | 감지할 키워드 목록 | ["opencode", "handoff", "전환", "switch to opencode", "opencode로", "오픈코드"] |
 | **라우팅 설정** | | |
 | `routing.enabled` | 하이브리드 라우팅 활성화 | true |
 | `routing.usageThreshold` | OpenCode 분배 증가 임계치 | 70 |
@@ -507,38 +507,62 @@ abort
 ```
 oh-my-claude-money/
 ├── .claude-plugin/
+│   ├── marketplace.json          # 마켓플레이스 메타데이터
 │   └── plugin.json               # 플러그인 메타데이터
+├── agents/
+│   └── opencode-delegator.json   # 위임 에이전트
+├── commands/
+│   ├── cancel-autopilot.md       # /cancel-autopilot 중단
+│   ├── fusion-default-off.md     # 퓨전 모드 기본 비활성화
+│   ├── fusion-default-on.md      # 퓨전 모드 기본 활성화
+│   └── fusion-setup.md           # /fusion-setup 초기 셋업
 ├── hooks/
+│   ├── fusion-router.mjs         # 퓨전 라우터 훅
 │   └── hooks.json                # 훅 정의
+├── scripts/
+│   ├── agent-mapping.json        # 에이전트 매핑 정보
+│   ├── export-context.sh         # 컨텍스트 내보내기
+│   ├── fusion-bridge.sh          # 퓨전 브릿지
+│   ├── fusion.sh                 # 퓨전 실행 스크립트
+│   ├── handoff-to-opencode.sh    # OpenCode 전환
+│   ├── install-hud.sh            # HUD 설치
+│   ├── migrate-to-omcm.sh        # OMCM 마이그레이션
+│   └── uninstall-hud.sh          # HUD 제거
+├── skills/
+│   ├── autopilot.md              # 하이브리드 오토파일럿
+│   ├── hulw.md                   # 하이브리드 울트라워크
+│   ├── hybrid-ultrawork.md       # 하이브리드 울트라워크 (상세)
+│   ├── opencode.md               # OpenCode 전환 스킬
+│   └── ulw.md                    # 자동 퓨전 울트라워크
 ├── src/
+│   ├── executor/
+│   │   └── opencode-executor.mjs # OpenCode 실행기
 │   ├── hooks/
 │   │   ├── detect-handoff.mjs    # 키워드/임계치 감지
 │   │   └── session-start.mjs     # 세션 시작 경고
-│   ├── orchestrator/             # 🆕 하이브리드 오케스트레이터
+│   ├── hud/
+│   │   ├── fusion-renderer.mjs   # 퓨전 렌더러
+│   │   ├── index.mjs             # HUD 모듈 내보내기
+│   │   └── omcm-hud.mjs          # OMCM HUD
+│   ├── orchestrator/
+│   │   ├── agent-fusion-map.mjs  # 에이전트 퓨전 매핑
+│   │   ├── fallback-orchestrator.mjs # 폴백 오케스트레이터
+│   │   ├── fusion-orchestrator.mjs   # 퓨전 오케스트레이터
+│   │   ├── hybrid-ultrawork.mjs  # 하이브리드 울트라워크
 │   │   ├── index.mjs             # 모듈 내보내기
-│   │   ├── task-router.mjs       # 작업 라우팅 결정
 │   │   ├── opencode-worker.mjs   # OpenCode 워커 관리
-│   │   └── hybrid-ultrawork.mjs  # 하이브리드 울트라워크
+│   │   └── task-router.mjs       # 작업 라우팅 결정
 │   └── utils/
-│       ├── usage.mjs             # HUD 사용량 유틸리티
 │       ├── config.mjs            # 설정 관리
-│       └── context.mjs           # 컨텍스트 내보내기
-├── scripts/
-│   ├── export-context.sh         # 컨텍스트 내보내기
-│   └── handoff-to-opencode.sh    # OpenCode 전환
-├── commands/
-│   ├── opencode.md               # /opencode 명령어
-│   ├── fusion-setup.md           # /fusion-setup 초기 셋업
-│   ├── fusion-default-on.md      # 퓨전 모드 기본 활성화
-│   ├── fusion-default-off.md     # 퓨전 모드 기본 비활성화
-│   └── cancel-autopilot.md       # /cancel-autopilot 중단
-├── skills/
-│   ├── hulw.md                   # 하이브리드 울트라워크
-│   ├── ulw.md                    # 자동 퓨전 울트라워크
-│   └── autopilot.md              # 하이브리드 오토파일럿
-├── agents/
-│   └── opencode-delegator.json   # 🆕 위임 에이전트
+│       ├── context.mjs           # 컨텍스트 내보내기
+│       ├── fusion-tracker.mjs    # 퓨전 추적
+│       ├── handoff-context.mjs   # 핸드오프 컨텍스트
+│       ├── provider-limits.mjs   # 프로바이더 제한 관리
+│       └── usage.mjs             # HUD 사용량 유틸리티
+├── install.sh                    # 설치 스크립트
+├── uninstall.sh                  # 제거 스크립트
 ├── package.json
+├── CHANGELOG.md                  # 변경 이력
 └── README.md
 ```
 

@@ -14,6 +14,9 @@ export const CONFIG_PATH = join(CONFIG_DIR, 'config.json');
 
 // 기본 설정
 export const DEFAULT_CONFIG = {
+  // 퓨전 모드 기본값
+  fusionDefault: false, // true: 항상 퓨전 모드, false: 사용량 기반 자동 전환
+
   // 자동 전환 설정
   threshold: 90,
   autoHandoff: false, // true: 자동 전환, false: 알림만

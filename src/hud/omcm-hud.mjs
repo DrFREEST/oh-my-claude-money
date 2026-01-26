@@ -142,7 +142,7 @@ const CACHE_TTL_MS = 30000; // 30초 캐시
 
 /**
  * Aggregate token usage from OpenCode session files
- * Only reads files modified today (mtime 0)
+ * Only reads the MOST RECENT session (current session)
  *
  * @returns {Object} - { openai: { input, output }, gemini: { input, output } }
  */
@@ -168,80 +168,88 @@ function aggregateOpenCodeTokens() {
       return result;
     }
 
-    // 최근 7일 기준 (세션 누적을 위해)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-    const cutoffTime = sevenDaysAgo.getTime();
-
-    // 세션 디렉토리들 순회
+    // 세션 디렉토리들 - mtime 기준 정렬하여 가장 최근 세션만 사용
     const sessionDirs = readdirSync(messageDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && d.name.startsWith('ses_'));
-
-    for (const sessionDir of sessionDirs) {
-      const sessionPath = join(messageDir, sessionDir.name);
-
-      try {
-        // 디렉토리 mtime 체크 - 오늘 수정된 것만
-        const dirStat = statSync(sessionPath);
-        if (dirStat.mtimeMs < cutoffTime) {
-          continue;
+      .filter((d) => d.isDirectory() && d.name.startsWith('ses_'))
+      .map((d) => {
+        const sessionPath = join(messageDir, d.name);
+        try {
+          const stat = statSync(sessionPath);
+          return { name: d.name, path: sessionPath, mtime: stat.mtimeMs };
+        } catch (e) {
+          return null;
         }
+      })
+      .filter((d) => d !== null)
+      .sort((a, b) => b.mtime - a.mtime); // 가장 최근 세션이 먼저
 
-        // 메시지 파일들 읽기
-        const msgFiles = readdirSync(sessionPath).filter((f) => f.startsWith('msg_') && f.endsWith('.json'));
+    // 가장 최근 세션 1개만 사용 (현재 세션)
+    const currentSession = sessionDirs[0];
+    if (!currentSession) {
+      openCodeTokenCache = result;
+      openCodeCacheTime = now;
+      return result;
+    }
 
-        for (const msgFile of msgFiles) {
-          const msgPath = join(sessionPath, msgFile);
+    // 현재 세션이 1시간 이내에 수정되었는지 확인 (활성 세션 판별)
+    const oneHourAgo = now - (60 * 60 * 1000);
+    if (currentSession.mtime < oneHourAgo) {
+      // 1시간 이상 수정 없으면 비활성 세션으로 간주 - 빈 결과 반환
+      openCodeTokenCache = result;
+      openCodeCacheTime = now;
+      return result;
+    }
 
-          try {
-            // 파일 mtime 체크
-            const fileStat = statSync(msgPath);
-            if (fileStat.mtimeMs < cutoffTime) {
-              continue;
-            }
+    const sessionPath = currentSession.path;
 
-            const content = readFileSync(msgPath, 'utf-8');
-            const msg = JSON.parse(content);
+    try {
+      // 메시지 파일들 읽기
+      const msgFiles = readdirSync(sessionPath).filter((f) => f.startsWith('msg_') && f.endsWith('.json'));
 
-            // providerID 체크
-            const providerID = msg.providerID || (msg.model && msg.model.providerID);
-            if (!providerID) {
-              continue;
-            }
+      for (const msgFile of msgFiles) {
+        const msgPath = join(sessionPath, msgFile);
 
-            // tokens 체크
-            const tokens = msg.tokens;
-            if (!tokens) {
-              continue;
-            }
+        try {
+          const content = readFileSync(msgPath, 'utf-8');
+          const msg = JSON.parse(content);
 
-            // input = tokens.input + cache.read (캐시 포함 전체 입력)
-            const cacheRead = (tokens.cache && tokens.cache.read) || 0;
-            const inputTokens = (tokens.input || 0) + cacheRead;
-            const outputTokens = tokens.output || 0;
-
-            // 프로바이더별 집계 (토큰 + 카운트)
-            if (providerID === 'openai') {
-              result.openai.input += inputTokens;
-              result.openai.output += outputTokens;
-              result.openai.count++;
-            } else if (providerID === 'google') {
-              result.gemini.input += inputTokens;
-              result.gemini.output += outputTokens;
-              result.gemini.count++;
-            } else if (providerID === 'anthropic') {
-              result.anthropic.input += inputTokens;
-              result.anthropic.output += outputTokens;
-              result.anthropic.count++;
-            }
-          } catch (e) {
-            // 개별 파일 읽기 실패 - 무시
+          // providerID 체크
+          const providerID = msg.providerID || (msg.model && msg.model.providerID);
+          if (!providerID) {
+            continue;
           }
+
+          // tokens 체크
+          const tokens = msg.tokens;
+          if (!tokens) {
+            continue;
+          }
+
+          // input = tokens.input + cache.read (캐시 포함 전체 입력)
+          const cacheRead = (tokens.cache && tokens.cache.read) || 0;
+          const inputTokens = (tokens.input || 0) + cacheRead;
+          const outputTokens = tokens.output || 0;
+
+          // 프로바이더별 집계 (토큰 + 카운트)
+          if (providerID === 'openai') {
+            result.openai.input += inputTokens;
+            result.openai.output += outputTokens;
+            result.openai.count++;
+          } else if (providerID === 'google') {
+            result.gemini.input += inputTokens;
+            result.gemini.output += outputTokens;
+            result.gemini.count++;
+          } else if (providerID === 'anthropic') {
+            result.anthropic.input += inputTokens;
+            result.anthropic.output += outputTokens;
+            result.anthropic.count++;
+          }
+        } catch (e) {
+          // 개별 파일 읽기 실패 - 무시
         }
-      } catch (e) {
-        // 세션 디렉토리 읽기 실패 - 무시
       }
+    } catch (e) {
+      // 세션 디렉토리 읽기 실패 - 무시
     }
   } catch (e) {
     // 전체 실패 - graceful하게 빈 결과 반환

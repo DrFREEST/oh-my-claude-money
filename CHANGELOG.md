@@ -18,6 +18,19 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.3.3] - 2026-01-26
+
+### 수정 (Fixed)
+- **README 명령어 통일**: 모든 `/oh-my-claude-money:*` → `/omcm:*`로 변경
+- **HUD 싱크 버그 수정**: `updateClaudeLimits` null 체크 추가로 OMC HUD 값과 동기화 정확도 개선
+- **설정 파일 경로**: `~/.claude/plugins/omcm/config.json`으로 통일
+- **수동 설치 경로**: `~/.local/share/omcm`으로 통일
+
+### 추가 (Added)
+- **참고 소스 추가**: Claude Code Hooks 가이드, CodeSyncer 링크
+
+---
+
 ## [0.3.2] - 2026-01-26
 
 ### 변경 (Changed)

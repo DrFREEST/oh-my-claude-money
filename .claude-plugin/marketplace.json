@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "omcm",
+  "description": "Claude Code ↔ OpenCode 퓨전 오케스트레이터 - 토큰 절약 및 멀티 프로바이더 통합",
+  "owner": {
+    "name": "DrFREEST",
+    "email": "dalkong@dalkong.kr"
+  },
+  "plugins": [
+    {
+      "name": "oh-my-claude-money",
+      "description": "Claude Code 사용량 관리 및 OpenCode 브릿지 - 하이브리드 울트라워크, 자동 위임, 토큰 최적화",
+      "version": "0.2.0",
+      "author": {
+        "name": "DrFREEST",
+        "email": "dalkong@dalkong.kr"
+      },
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://github.com/DrFREEST/oh-my-claude-money",
+      "tags": ["fusion", "opencode", "token-saving", "multi-provider", "hybrid-ultrawork"]
+    }
+  ]
+}

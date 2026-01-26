@@ -154,9 +154,9 @@ function aggregateOpenCodeTokens() {
   }
 
   const result = {
-    openai: { input: 0, output: 0 },
-    gemini: { input: 0, output: 0 },
-    anthropic: { input: 0, output: 0 },  // OpenCode를 통한 Anthropic 사용량도 집계
+    openai: { input: 0, output: 0, count: 0 },
+    gemini: { input: 0, output: 0, count: 0 },
+    anthropic: { input: 0, output: 0, count: 0 },  // OpenCode를 통한 Anthropic 사용량도 집계
   };
 
   try {
@@ -168,10 +168,11 @@ function aggregateOpenCodeTokens() {
       return result;
     }
 
-    // 오늘 날짜 기준
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayTime = today.getTime();
+    // 최근 7일 기준 (세션 누적을 위해)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const cutoffTime = sevenDaysAgo.getTime();
 
     // 세션 디렉토리들 순회
     const sessionDirs = readdirSync(messageDir, { withFileTypes: true })
@@ -183,7 +184,7 @@ function aggregateOpenCodeTokens() {
       try {
         // 디렉토리 mtime 체크 - 오늘 수정된 것만
         const dirStat = statSync(sessionPath);
-        if (dirStat.mtimeMs < todayTime) {
+        if (dirStat.mtimeMs < cutoffTime) {
           continue;
         }
 
@@ -196,7 +197,7 @@ function aggregateOpenCodeTokens() {
           try {
             // 파일 mtime 체크
             const fileStat = statSync(msgPath);
-            if (fileStat.mtimeMs < todayTime) {
+            if (fileStat.mtimeMs < cutoffTime) {
               continue;
             }
 
@@ -220,16 +221,19 @@ function aggregateOpenCodeTokens() {
             const inputTokens = (tokens.input || 0) + cacheRead;
             const outputTokens = tokens.output || 0;
 
-            // 프로바이더별 집계
+            // 프로바이더별 집계 (토큰 + 카운트)
             if (providerID === 'openai') {
               result.openai.input += inputTokens;
               result.openai.output += outputTokens;
+              result.openai.count++;
             } else if (providerID === 'google') {
               result.gemini.input += inputTokens;
               result.gemini.output += outputTokens;
+              result.gemini.count++;
             } else if (providerID === 'anthropic') {
               result.anthropic.input += inputTokens;
               result.anthropic.output += outputTokens;
+              result.anthropic.count++;
             }
           } catch (e) {
             // 개별 파일 읽기 실패 - 무시
@@ -388,8 +392,16 @@ async function main() {
     // Render fusion metrics
     const fusionOutput = renderFusionMetrics(fusionState);
 
-    // Get provider routing counts for HUD (fusion-state.byProvider)
-    const countsOutput = renderProviderCounts(fusionState);
+    // Get provider routing counts from OpenCode session data (more accurate)
+    // Claude count comes from stdin, OpenAI/Gemini from OpenCode sessions
+    const sessionCounts = {
+      byProvider: {
+        anthropic: openCodeTokens.anthropic.count,
+        openai: openCodeTokens.openai.count,
+        gemini: openCodeTokens.gemini.count,
+      }
+    };
+    const countsOutput = renderProviderCounts(sessionCounts);
 
     // Get fallback status
     let fallbackOutput = null;

@@ -46,7 +46,19 @@ triggers:
 | 복잡한 구현 | Claude executor | Opus | - |
 | 전략적 계획 | Claude planner | Opus | - |
 
-## 활성화 시 행동 (CRITICAL - 반드시 따를 것!)
+## 병렬 처리 강제 (CRITICAL!)
+
+**hulw 모드에서는 독립적인 작업을 반드시 병렬로 Task 호출해야 합니다!**
+
+```
+❌ 잘못된 예 (순차 호출):
+Task(explore, "분석1")  // 완료 대기
+Task(explore, "분석2")  // 완료 대기
+
+✅ 올바른 예 (병렬 호출 - 한 메시지에 여러 Task):
+<function_calls>
+<invoke name="Task">...분석1...</invoke>
+<invoke name="Task">...분석2...</invoke>
 
 이 스킬이 활성화되면 **반드시** 다음 단계를 수행하세요:
 

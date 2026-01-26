@@ -28,6 +28,18 @@ ulw는 **사용량에 따라 자동으로 퓨전 모드를 결정**합니다:
 | 70-90% | 하이브리드 | 일부 작업을 OpenCode로 오프로드 |
 | > 90% | OpenCode 중심 | 대부분 OpenCode로 위임 |
 
+## 병렬 처리 강제 (CRITICAL!)
+
+**ulw 모드에서는 독립적인 작업을 반드시 병렬로 Task 호출해야 합니다!**
+
+한 메시지에 여러 Task를 동시에 호출하세요:
+```xml
+<function_calls>
+<invoke name="Task">...작업1...</invoke>
+<invoke name="Task">...작업2...</invoke>
+</function_calls>
+```
+
 ## 활성화 시 행동 (CRITICAL - 반드시 따를 것!)
 
 이 스킬이 활성화되면 **반드시** 다음 단계를 수행하세요:

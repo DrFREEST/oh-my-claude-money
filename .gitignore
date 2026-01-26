@@ -22,3 +22,6 @@ config.json
 # Logs
 *.log
 logs/
+
+# Docs (local planning documents)
+docs/

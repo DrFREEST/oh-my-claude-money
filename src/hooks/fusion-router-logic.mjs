@@ -180,35 +180,65 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
     }
   }
 
-  // fusionDefault가 true이거나 save-tokens 모드에서 특정 에이전트 타입 라우팅
+  // fusionDefault가 true이거나 save-tokens 모드에서 에이전트 라우팅
   var shouldRouteByMode = fusionDefault || (fusion && fusion.mode === 'save-tokens');
 
   if (toolInput && toolInput.subagent_type && shouldRouteByMode) {
     var agentType = toolInput.subagent_type.replace('oh-my-claudecode:', '');
-    var tokenSavingAgents = ['architect', 'architect-low', 'architect-medium',
-                            'researcher', 'researcher-low',
-                            'designer', 'designer-low', 'designer-high',
-                            'explore', 'explore-medium', 'explore-high',
-                            'scientist', 'scientist-low', 'scientist-high',
-                            'writer', 'vision',
-                            'code-reviewer', 'code-reviewer-low',
-                            'security-reviewer', 'security-reviewer-low'];
 
-    var shouldSave = false;
-    for (var i = 0; i < tokenSavingAgents.length; i++) {
-      if (agentType === tokenSavingAgents[i]) {
-        shouldSave = true;
+    // planner만 Claude에서 유지 (전략적 계획 수립)
+    // 나머지 모든 에이전트는 fusionDefault 모드에서 OpenCode로 라우팅
+    var claudeOnlyInFusion = ['planner'];
+
+    var isClaudeOnly = false;
+    for (var i = 0; i < claudeOnlyInFusion.length; i++) {
+      if (agentType === claudeOnlyInFusion[i]) {
+        isClaudeOnly = true;
         break;
       }
     }
 
-    if (shouldSave) {
+    // fusionDefault 모드에서는 planner 제외 모든 에이전트 라우팅
+    if (fusionDefault && !isClaudeOnly) {
+      var mappedAgent = mapAgentToOpenCode(agentType);
+      var modelId = mappedAgent === 'Flash' ? 'gemini-flash' : 'gpt-5.2-codex';
+      var modelName = mappedAgent === 'Flash' ? 'Gemini Flash' : (mappedAgent === 'Oracle' ? 'GPT Oracle' : 'GPT Codex');
+
       return {
         route: true,
-        reason: fusionDefault ? 'fusion-default-' + agentType : 'token-saving-agent-' + agentType,
-        targetModel: { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
-        opencodeAgent: mapAgentToOpenCode(agentType)
+        reason: 'fusion-default-' + agentType,
+        targetModel: { id: modelId, name: modelName },
+        opencodeAgent: mappedAgent
       };
+    }
+
+    // save-tokens 모드: 특정 에이전트만 라우팅
+    if (!fusionDefault && fusion && fusion.mode === 'save-tokens') {
+      var tokenSavingAgents = ['architect', 'architect-low', 'architect-medium',
+                              'researcher', 'researcher-low',
+                              'designer', 'designer-low', 'designer-high',
+                              'explore', 'explore-medium', 'explore-high',
+                              'scientist', 'scientist-low', 'scientist-high',
+                              'writer', 'vision',
+                              'code-reviewer', 'code-reviewer-low',
+                              'security-reviewer', 'security-reviewer-low'];
+
+      var shouldSave = false;
+      for (var j = 0; j < tokenSavingAgents.length; j++) {
+        if (agentType === tokenSavingAgents[j]) {
+          shouldSave = true;
+          break;
+        }
+      }
+
+      if (shouldSave) {
+        return {
+          route: true,
+          reason: 'token-saving-agent-' + agentType,
+          targetModel: { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
+          opencodeAgent: mapAgentToOpenCode(agentType)
+        };
+      }
     }
   }
 
@@ -281,24 +311,36 @@ export function updateFusionState(decision, result, currentState = null) {
 }
 
 /**
- * 라우팅 가능한 에이전트 목록
+ * 라우팅 가능한 에이전트 목록 (OpenCode로 라우팅하여 토큰 절약)
+ * fusionDefault 모드에서는 planner 제외 모든 에이전트가 라우팅됨
  */
 export const TOKEN_SAVING_AGENTS = [
+  // 분석/탐색
   'architect', 'architect-low', 'architect-medium',
   'researcher', 'researcher-low',
-  'designer', 'designer-low', 'designer-high',
   'explore', 'explore-medium', 'explore-high',
+  'analyst', 'critic',
+  // 데이터 과학
   'scientist', 'scientist-low', 'scientist-high',
+  // 프론트엔드/디자인
+  'designer', 'designer-low', 'designer-high',
+  // 문서/비전
   'writer', 'vision',
+  // 코드 리뷰/보안
   'code-reviewer', 'code-reviewer-low',
-  'security-reviewer', 'security-reviewer-low'
+  'security-reviewer', 'security-reviewer-low',
+  // 실행/구현
+  'executor', 'executor-low', 'executor-high',
+  // QA/테스트
+  'qa-tester', 'qa-tester-high',
+  'tdd-guide', 'tdd-guide-low',
+  // 빌드
+  'build-fixer', 'build-fixer-low'
 ];
 
 /**
  * 라우팅 불가능한 에이전트 목록 (Claude 전용)
+ * fusionDefault 모드에서도 planner만 Claude에서 유지 (전략적 계획 수립)
+ * 나머지 에이전트(executor, qa-tester, build-fixer, tdd-guide, critic)는 OpenCode로 라우팅
  */
-export const CLAUDE_ONLY_AGENTS = [
-  'planner', 'critic', 'executor', 'executor-low', 'executor-high',
-  'qa-tester', 'qa-tester-high', 'build-fixer', 'build-fixer-low',
-  'tdd-guide', 'tdd-guide-low'
-];
+export const CLAUDE_ONLY_AGENTS = ['planner'];

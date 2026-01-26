@@ -7,62 +7,59 @@ aliases:
 triggers:
   - "hybrid ultrawork"
   - "hybrid ulw"
-  - "hulw"
   - "claude opencode 같이"
   - "토큰 최적화"
 ---
 
 # 하이브리드 울트라워크 모드
 
+> **참고**: 이 스킬은 `hulw` 스킬과 동일합니다. `/omcm:hulw`를 권장합니다.
+
 Claude Code와 OpenCode를 함께 활용하여 **토큰 사용량을 최적화**하면서 병렬 처리를 수행합니다.
 
-## 작동 방식
+## 활성화 시 행동 (CRITICAL - 반드시 따를 것!)
 
-1. **작업 분석**: 각 작업의 유형과 복잡도 분석
-2. **라우팅 결정**: 현재 Claude 사용량과 작업 특성에 따라 분배
-3. **병렬 실행**: Claude Code와 OpenCode 에이전트가 동시에 작업
-4. **결과 통합**: 양쪽 결과를 통합하여 최종 결과 생성
+이 스킬이 활성화되면 **반드시** 다음 단계를 수행하세요:
 
-## 라우팅 규칙
+1. **알림 출력**:
+   > "**hulw 모드 활성화** - Claude + OpenCode 퓨전으로 토큰을 절약하면서 작업합니다."
 
-### Claude Code 선호 작업 (높은 정확도 필요)
-- 아키텍처 분석, 복잡한 디버깅
-- 복잡한 리팩토링
-- 전략적 계획, 플랜 검토
+2. **CRITICAL: Task 도구로 에이전트 위임**
 
-### OpenCode 선호 작업 (비용 효율적)
-- 코드베이스 탐색, 파일 검색
-- 문서 조사, API 리서치
-- 문서 작성, 간단한 UI 수정
+   **절대 직접 작업하지 마세요!** 반드시 Task 도구를 사용하여 에이전트에게 위임하세요.
 
-### 사용량 기반 동적 라우팅
-- **90%+**: 80% OpenCode 분배
-- **70-90%**: 50% OpenCode 분배
-- **50-70%**: 30% OpenCode 분배
-- **50% 미만**: 10% OpenCode 분배
+   ```
+   Task(
+     subagent_type="oh-my-claudecode:explore",  // OMC 에이전트 지정
+     prompt="사용자 요청 내용"
+   )
+   ```
 
-## 사용 예시
+   **OMCM이 자동으로 OpenCode(OMO)로 라우팅합니다:**
+   - PreToolUse hook이 Task 호출 감지
+   - OMC 에이전트 → OMO 에이전트 자동 매핑
+   - OpenCode ULW 모드로 실행
 
-```
-"hybrid ultrawork: 이 기능을 구현해줘"
-"hulw 전체 코드베이스 리팩토링"
-"토큰 최적화하면서 테스트 작성해줘"
-```
+3. **자동 라우팅 매핑** (OMCM이 처리):
 
-## OpenCode 에이전트 매핑
+   | OMC 에이전트 | → | OMO 에이전트 | 모델 |
+   |-------------|---|-------------|------|
+   | explore, explore-* | → | Flash | Gemini |
+   | architect, architect-* | → | Oracle | GPT |
+   | researcher, researcher-* | → | Oracle | GPT |
+   | designer, designer-* | → | Flash | Gemini |
+   | writer | → | Flash | Gemini |
+   | executor, executor-* | → | Codex | GPT |
 
-| OMC 에이전트 | OpenCode 에이전트 |
-|-------------|------------------|
-| explore | Librarian |
-| researcher | Oracle (GPT 5.2) |
-| designer | Frontend Engineer (Gemini 3) |
-| executor | Sisyphus (Opus) |
-| writer | Librarian |
+4. **결과 통합**: OpenCode 결과를 받아 최종 응답 제공
 
-## 활성화 조건
+## 사용량 기반 동적 라우팅
 
-- OpenCode 설치 필요 (`which opencode`)
-- oh-my-opencode 확장 권장
+OMCM이 자동으로 처리:
+- **90%+**: 대부분 OpenCode로 라우팅
+- **70-90%**: 하이브리드 라우팅
+- **50-70%**: 일부 OpenCode 라우팅
+- **50% 미만**: 최소 OpenCode 라우팅
 
 ## 설정
 
@@ -70,18 +67,10 @@ Claude Code와 OpenCode를 함께 활용하여 **토큰 사용량을 최적화**
 
 ```json
 {
-  "routing": {
-    "enabled": true,
-    "usageThreshold": 70,
-    "maxOpencodeWorkers": 3,
-    "preferOpencode": ["explore", "researcher", "writer"]
-  }
+  "fusionDefault": true,  // 항상 퓨전 모드
+  "threshold": 90,
+  "autoHandoff": false
 }
 ```
 
-## 실시간 상태
-
-현재 세션에서 hybrid-ultrawork 활성화 시:
-- Claude 사용량 표시
-- 라우팅 결정 로그
-- 토큰 절감량 추정
+**핵심**: Task를 호출하기만 하면 OMCM이 자동으로 OpenCode로 라우팅합니다!

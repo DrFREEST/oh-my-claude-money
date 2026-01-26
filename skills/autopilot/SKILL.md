@@ -23,90 +23,68 @@ triggers:
 - `만들어줘`
 - `I want a`
 
-예시:
-- "/autopilot REST API 만들어줘"
-- "autopilot으로 대시보드 구현"
-- "build me a todo app"
-- "로그인 기능 만들어줘"
+## 활성화 시 행동 (CRITICAL - 반드시 따를 것!)
 
-## 하이브리드 오토파일럿
+이 스킬이 활성화되면 **반드시** 다음 단계를 수행하세요:
 
-oh-my-claude-money의 autopilot은 **퓨전 모드를 지원**합니다:
+1. **알림 출력**:
+   > "**autopilot 활성화** - [일반/하이브리드] 모드로 자율 실행합니다."
 
-### 일반 오토파일럿 (사용량 낮을 때)
-- Claude 에이전트들로 자율 실행
-- 계획 → 구현 → 테스트 → 검증 자동화
+2. **CRITICAL: Task 도구로 에이전트 위임**
 
-### 하이브리드 오토파일럿 (사용량 높거나 명시적 요청)
-- OpenCode 에이전트 활용으로 토큰 절약
-- Claude는 핵심 의사결정만 담당
+   **절대 직접 작업하지 마세요!** 반드시 Task 도구를 사용하여 에이전트에게 위임하세요.
+
+   ```
+   Task(
+     subagent_type="oh-my-claudecode:planner",  // 또는 적절한 에이전트
+     prompt="사용자 요청 내용"
+   )
+   ```
+
+   **OMCM이 자동으로 처리합니다:**
+   - fusionDefault: true 설정 시 → OpenCode로 라우팅
+   - OMC 에이전트 → OMO 에이전트 자동 매핑
+   - OpenCode ULW 모드로 실행
+
+3. **오토파일럿 워크플로우**:
+
+   ```
+   1. 요구사항 분석 → Task(architect 또는 analyst)
+   2. 계획 수립 → Task(planner)
+   3. 코드 탐색 → Task(explore) → OMCM이 OpenCode로 라우팅
+   4. 구현 → Task(executor) → OMCM이 라우팅 결정
+   5. 검증 → Task(architect)
+   6. 완료 보고
+   ```
+
+4. **퓨전 모드 에이전트 라우팅** (OMCM이 자동 처리):
+
+   | 단계 | OMC 에이전트 | → | OMO 에이전트 |
+   |------|-------------|---|-------------|
+   | 요구사항 분석 | analyst | → | Oracle (GPT) |
+   | 코드 탐색 | explore | → | Flash (Gemini) |
+   | UI 구현 | designer | → | Flash (Gemini) |
+   | 리서치 | researcher | → | Oracle (GPT) |
+   | 계획 수립 | planner | → | Claude (유지) |
+   | 최종 검증 | architect | → | Claude (유지) |
+
+5. **완료 보고**:
+   > "**autopilot 완료** - [작업 요약] / 토큰 절약: [X]%"
 
 ## 활성화 조건
 
 ### 자동 하이브리드 전환
+- fusionDefault: true 설정 시
 - 5시간/주간 사용량 70% 이상
-- "hulw", "hybrid", "퓨전" 키워드 함께 사용
 
 ### 명시적 하이브리드 요청
 - "autopilot hulw"
 - "hybrid autopilot"
 - "퓨전 오토파일럿"
 
-## 오토파일럿 워크플로우
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  1. 요구사항 분석                                            │
-│     └─ 사용량 체크 → 퓨전 모드 결정                          │
-│                         ↓                                   │
-│  2. 자동 계획 수립                                           │
-│     └─ 일반: Claude planner                                 │
-│     └─ 퓨전: OpenCode Oracle + Claude 검증                  │
-│                         ↓                                   │
-│  3. 병렬 구현                                                │
-│     └─ 일반: Claude executor 병렬                           │
-│     └─ 퓨전: OpenCode + Claude 혼합                         │
-│                         ↓                                   │
-│  4. 자동 테스트 & 검증                                       │
-│     └─ Claude architect 최종 검증                           │
-│                         ↓                                   │
-│  5. 완료 보고                                                │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 퓨전 모드 에이전트 분배
-
-| 단계 | 일반 모드 | 퓨전 모드 |
-|------|----------|----------|
-| 요구사항 분석 | Claude analyst | OpenCode Oracle |
-| 코드 탐색 | Claude explore | OpenCode Librarian |
-| 계획 수립 | Claude planner | Claude planner |
-| UI 구현 | Claude designer | OpenCode Frontend |
-| 백엔드 구현 | Claude executor | Claude executor |
-| 리서치 | Claude researcher | OpenCode Oracle |
-| 최종 검증 | Claude architect | Claude architect |
-
-## 활성화 시 행동
-
-1. 사용량 확인 및 모드 결정:
-   > "**autopilot 활성화** - [일반/하이브리드] 모드로 자율 실행합니다."
-
-2. 요구사항 분석 및 계획 수립
-
-3. 작업 분해 및 병렬 실행
-
-4. 지속적 검증 및 자동 수정
-
-5. 완료 보고:
-   > "**autopilot 완료** - [작업 요약] / 토큰 절약: [X]%"
-
 ## 중단 방법
 
 - "stop", "cancel", "중단" 키워드
-- `/oh-my-claude-money:cancel-autopilot`
+- `/omcm:cancel-autopilot`
 
-## 주의사항
-
-- 복잡한 프로젝트는 중간 확인을 위해 인터랙티브 모드 권장
-- 민감한 작업(배포, 삭제 등)은 사용자 확인 요청
-- OpenCode 프로바이더 미인증 시 Claude로 폴백
+**핵심**: Task를 호출하기만 하면 OMCM이 자동으로 OpenCode로 라우팅합니다!

@@ -18,56 +18,60 @@ triggers:
 - `ultrawork`
 - `울트라워크`
 
-예시:
-- "/ulw 버그 수정해줘"
-- "이거 ulw로 빠르게"
-- "울트라워크 모드로 진행"
-
 ## 동작 방식
 
 ulw는 **사용량에 따라 자동으로 퓨전 모드를 결정**합니다:
 
-### 사용량 < 70%: 일반 울트라워크
-- oh-my-claudecode의 기본 ultrawork 사용
-- Claude 에이전트들로 병렬 실행
+| 사용량 | 모드 | 동작 |
+|--------|------|------|
+| < 70% | 일반 울트라워크 | Claude 에이전트로 병렬 실행 |
+| 70-90% | 하이브리드 | 일부 작업을 OpenCode로 오프로드 |
+| > 90% | OpenCode 중심 | 대부분 OpenCode로 위임 |
 
-### 사용량 70-90%: 하이브리드 모드 (자동 전환)
-- hulw 모드로 자동 전환
-- 일부 작업을 OpenCode로 오프로드
-- Claude 토큰 절약
+## 활성화 시 행동 (CRITICAL - 반드시 따를 것!)
 
-### 사용량 > 90%: OpenCode 중심 모드
-- 대부분의 작업을 OpenCode로 위임
-- Claude는 최종 통합/검증만 담당
-- 최대 토큰 절약
+이 스킬이 활성화되면 **반드시** 다음 단계를 수행하세요:
 
-## 사용량 확인
-
-HUD 캐시에서 실시간 사용량 확인:
-- `~/.claude/plugins/oh-my-claudecode/.usage-cache.json`
-
-```json
-{
-  "fiveHourPercent": 45,
-  "weeklyPercent": 30
-}
-```
-
-## 활성화 시 행동
-
-1. 사용량 확인
-2. 적절한 모드 선택:
+1. **알림 출력** (사용량에 따라):
    - 낮음 → "**ulw 모드** - Claude 에이전트로 병렬 실행"
    - 중간 → "**ulw → hulw 자동 전환** - 토큰 절약을 위해 퓨전 모드로 전환"
    - 높음 → "**ulw → OpenCode 중심** - 사용량이 높아 OpenCode 위주로 진행"
 
-3. 선택된 모드로 작업 실행
+2. **CRITICAL: Task 도구로 에이전트 위임**
+
+   **절대 직접 작업하지 마세요!** 반드시 Task 도구를 사용하여 에이전트에게 위임하세요.
+
+   ```
+   Task(
+     subagent_type="oh-my-claudecode:explore",  // OMC 에이전트 지정
+     prompt="사용자 요청 내용"
+   )
+   ```
+
+   **OMCM이 자동으로 처리합니다:**
+   - fusionDefault: true 설정 시 → 항상 OpenCode로 라우팅
+   - 사용량 90%+ 시 → 자동으로 OpenCode로 라우팅
+   - OMC 에이전트 → OMO 에이전트 자동 매핑
+
+3. **자동 라우팅 매핑** (OMCM이 처리):
+
+   | OMC 에이전트 | → | OMO 에이전트 | 모델 |
+   |-------------|---|-------------|------|
+   | explore, explore-* | → | Flash | Gemini |
+   | architect, architect-* | → | Oracle | GPT |
+   | researcher, researcher-* | → | Oracle | GPT |
+   | designer, designer-* | → | Flash | Gemini |
+   | writer | → | Flash | Gemini |
+   | executor, executor-* | → | Codex | GPT |
+
+4. **결과 통합**: OpenCode 결과를 받아 최종 응답 제공
 
 ## ulw vs hulw 차이
 
 | 항목 | ulw | hulw |
 |------|-----|------|
-| 기본 동작 | Claude 우선 | OpenCode 퓨전 |
-| 사용량 기반 | 자동 전환 | 항상 퓨전 |
+| 기본 동작 | 사용량 기반 자동 결정 | 항상 OpenCode 퓨전 |
 | 토큰 절약 | 조건부 | 항상 |
-| 적합한 상황 | 일반 작업 | 토큰 절약 필요 시 |
+| 적합한 상황 | 일반 작업 | 토큰 절약이 항상 필요할 때 |
+
+**핵심**: Task를 호출하기만 하면 OMCM이 사용량과 설정에 따라 자동으로 라우팅합니다!

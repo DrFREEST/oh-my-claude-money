@@ -6,10 +6,13 @@
  * Claude: OAuth API
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 
 const LIMITS_FILE = join(process.env.HOME || '', '.omcm', 'provider-limits.json');
+
+// mtime 기반 캐싱
+let limitsCache = { data: null, mtime: 0 };
 
 // Gemini Tier별 기본 리밋
 const GEMINI_TIER_LIMITS = {
@@ -20,7 +23,7 @@ const GEMINI_TIER_LIMITS = {
 };
 
 /**
- * 리밋 상태 로드
+ * 리밋 상태 로드 (mtime 기반 캐싱)
  */
 function loadLimits() {
   if (!existsSync(LIMITS_FILE)) {
@@ -28,7 +31,18 @@ function loadLimits() {
   }
 
   try {
-    return JSON.parse(readFileSync(LIMITS_FILE, 'utf-8'));
+    const stat = statSync(LIMITS_FILE);
+    
+    // 파일이 변경되지 않았으면 캐시 반환
+    if (limitsCache.data && stat.mtimeMs <= limitsCache.mtime) {
+      return limitsCache.data;
+    }
+    
+    // 파일 읽고 캐시 업데이트
+    const data = JSON.parse(readFileSync(LIMITS_FILE, 'utf-8'));
+    limitsCache.data = data;
+    limitsCache.mtime = stat.mtimeMs;
+    return data;
   } catch (e) {
     return getDefaultLimits();
   }
@@ -65,7 +79,7 @@ function getDefaultLimits() {
 }
 
 /**
- * 리밋 저장
+ * 리밋 저장 (캐시 동기화)
  */
 function saveLimits(limits) {
   const dir = dirname(LIMITS_FILE);
@@ -74,6 +88,17 @@ function saveLimits(limits) {
   }
   limits.lastUpdated = new Date().toISOString();
   writeFileSync(LIMITS_FILE, JSON.stringify(limits, null, 2));
+  
+  // 캐시 업데이트 (저장 후 stat으로 최신 mtime 반영)
+  try {
+    const stat = statSync(LIMITS_FILE);
+    limitsCache.data = limits;
+    limitsCache.mtime = stat.mtimeMs;
+  } catch (e) {
+    // 캐시 무효화 (다음 loadLimits에서 파일 재로드)
+    limitsCache.data = null;
+    limitsCache.mtime = 0;
+  }
 }
 
 // ============================================================================

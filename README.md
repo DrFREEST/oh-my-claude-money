@@ -25,6 +25,76 @@
   ╚═══════════════════════════════════════════════════════════════╝
 ```
 
+---
+
+## English
+
+# oh-my-claude-money (OMCM)
+
+**Claude Code ↔ OpenCode Fusion Orchestrator** for intelligent cost optimization and multi-provider integration.
+
+### What is OMCM?
+
+OMCM fuses 28 Claude Code agents with OpenCode's multi-provider agents, enabling **39% token savings** by intelligently routing tasks to the optimal LLM (Claude, GPT, or Gemini).
+
+### Key Features
+
+1. **Automatic Fallback (90% threshold)** - Seamlessly switches to OpenCode when Claude reaches rate limits
+2. **Smart Agent Routing** - Analysis agents → OpenCode (GPT/Gemini), execution agents → Claude
+3. **Real-time Tracking** - HUD integration shows usage and fusion status
+4. **Hybrid Ultrawork (`hulw`)** - Instant fusion mode with maximum parallelism
+5. **Token Savings** - 12 agents offloaded to other providers automatically
+
+### Quick Start
+
+```bash
+# Install
+/plugin marketplace add https://github.com/DrFREEST/oh-my-claude-money
+/plugin install omcm
+
+# Setup
+/omcm:fusion-setup
+```
+
+Then use these commands:
+- `/hulw` - Hybrid ultrawork (always fusion mode)
+- `/ulw` - Auto fusion based on usage
+- `/autopilot hulw` - Full autonomous execution with fusion
+
+### Prerequisites
+
+- **OpenCode CLI** installed
+- **oh-my-claudecode** plugin active
+- Provider API keys configured (OpenAI, Google Anthropic)
+
+### How It Works
+
+```
+User Request
+    ↓
+Claude Opus 4.5 (Conductor)
+    ↓
+├─→ Analysis task? → Route to OpenCode (GPT/Gemini) ✅ Save tokens
+├─→ Execution task? → Route to Claude (high quality)
+└─→ Usage > 90%? → Automatic fallback to OpenCode
+```
+
+### Configuration
+
+See `~/.claude/plugins/omcm/config.json` for detailed options:
+- Fusion mode defaults
+- Usage thresholds
+- Context handling
+- Provider preferences
+
+### Full Documentation
+
+See sections below for complete setup guide, configuration, and troubleshooting.
+
+---
+
+## 한국어
+
 # oh-my-claude-money
 
 **Claude Code ↔ OpenCode 퓨전 오케스트레이터** | 토큰 절약 & 멀티 프로바이더 통합
@@ -130,6 +200,35 @@ Claude 리밋에 따른 자동 전환:
 
 ### 7. 🔗 OMC HUD 연동
 - oh-my-claudecode HUD 캐시 활용 (추가 API 호출 없음)
+
+### 8. 📊 HUD 토큰 표시 (v0.4.0+)
+
+프로바이더별 실시간 토큰 사용량을 HUD에 표시합니다.
+
+```
+C:1.2k↓ 567↑|O:25.8k↓ 9↑|G:165.3k↓ 1.4k↑
+```
+
+| 기호 | 의미 |
+|------|------|
+| `C:` | Claude (Cyan) |
+| `O:` | OpenAI (Green) |
+| `G:` | Gemini (Yellow) |
+| `↓` | Input tokens |
+| `↑` | Output tokens |
+| `k` | ×1000 |
+
+### 9. 🔌 MCP 서버 연동 (v0.4.0+)
+
+Claude Code에서 OpenCode를 MCP로 호출할 수 있습니다.
+
+**설정 위치**: `~/.claude/mcp-config.json`
+
+**사용 가능한 도구**:
+- `opencode_run` - 간단한 실행
+- `opencode_get_status` - 상태 확인
+- `opencode_list_models` - 모델 목록
+- `opencode_export_session` - 세션 내보내기
 
 ## 빠른 시작 (30초)
 
@@ -565,6 +664,18 @@ oh-my-claude-money/
 ├── CHANGELOG.md                  # 변경 이력
 └── README.md
 ```
+
+## 테스트
+
+```bash
+npm test
+```
+
+**커버리지**:
+- 전체: 159개 테스트
+- provider-limits: ~90%
+- fusion-tracker: ~85%
+- fusion-router: 63개 테스트 (v0.4.0+)
 
 ## 의존성
 

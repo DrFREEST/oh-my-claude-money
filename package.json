@@ -1,6 +1,6 @@
 {
   "name": "omcm",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "description": "Claude Code 사용량 관리 및 OpenCode 브릿지 플러그인",
   "author": "user",
   "license": "MIT",
@@ -19,7 +19,7 @@
     "url": "https://github.com/user/oh-my-claude-money.git"
   },
   "scripts": {
-    "test": "node --test src/**/*.test.mjs",
+    "test": "node --test tests/**/*.test.mjs",
     "lint": "eslint src/",
     "install-local": "claude plugins install --local .",
     "export-context": "bash scripts/export-context.sh",

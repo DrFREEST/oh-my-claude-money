@@ -33,8 +33,9 @@ description: 항상 퓨전 모드 활성화 - 모든 작업에서 OpenCode 퓨�
 ```bash
 # 설정 디렉토리 생성
 mkdir -p ~/.claude/plugins/omcm
+mkdir -p ~/.omcm
 
-# fusionDefault 활성화
+# fusionDefault 활성화 (config.json)
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "fusionDefault": true,
@@ -42,6 +43,33 @@ cat > ~/.claude/plugins/omcm/config.json << 'EOF'
   "autoHandoff": false
 }
 EOF
+
+# fusion-state.json도 활성화 (enabled: true)
+if [ -f ~/.omcm/fusion-state.json ]; then
+  # 기존 파일이 있으면 enabled만 업데이트
+  node -e "
+    const fs = require('fs');
+    const path = require('path').join(process.env.HOME, '.omcm', 'fusion-state.json');
+    let state = JSON.parse(fs.readFileSync(path, 'utf-8'));
+    state.enabled = true;
+    state.lastUpdated = new Date().toISOString();
+    fs.writeFileSync(path, JSON.stringify(state, null, 2));
+  "
+else
+  # 새로 생성
+  cat > ~/.omcm/fusion-state.json << 'EOF'
+{
+  "enabled": true,
+  "mode": "balanced",
+  "totalTasks": 0,
+  "routedToOpenCode": 0,
+  "routingRate": 0,
+  "estimatedSavedTokens": 0,
+  "byProvider": { "gemini": 0, "openai": 0, "anthropic": 0 },
+  "lastUpdated": null
+}
+EOF
+fi
 ```
 
 ## 확인 메시지

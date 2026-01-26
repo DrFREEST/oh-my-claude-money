@@ -84,22 +84,6 @@ export function renderFusionMetrics(state) {
     parts.push(`${GREEN}${formatTokens(savedTokens)}↗${RESET}`);
   }
 
-  // Provider breakdown (only if any OpenCode tasks)
-  const byProvider = state.byProvider || {};
-  const gemini = byProvider.gemini || 0;
-  const openai = byProvider.openai || 0;
-
-  if (gemini > 0 || openai > 0) {
-    const providerParts = [];
-    if (gemini > 0) {
-      providerParts.push(`G:${gemini}`);
-    }
-    if (openai > 0) {
-      providerParts.push(`O:${openai}`);
-    }
-    parts.push(`${DIM}${providerParts.join('|')}${RESET}`);
-  }
-
   // Current mode
   const modeAbbrev = getModeAbbrev(state.mode);
   parts.push(`${DIM}${modeAbbrev}${RESET}`);
@@ -157,7 +141,7 @@ export function renderProviderLimits(limits) {
     const percent = limits.claude.percent || 0;
     const isLimited = limits.claude.isLimited || false;
     const color = getLimitColor(percent, isLimited);
-    parts.push('CL:' + color + percent + '%' + RESET);
+    parts.push('C:' + color + percent + '%' + RESET);
   }
 
   // OpenAI
@@ -165,7 +149,7 @@ export function renderProviderLimits(limits) {
     const percent = limits.openai.percent || 0;
     const isLimited = limits.openai.isLimited || false;
     const color = getLimitColor(percent, isLimited);
-    parts.push('OAI:' + color + percent + '%' + RESET);
+    parts.push('O:' + color + percent + '%' + RESET);
   }
 
   // Gemini (추정치 표시)
@@ -174,7 +158,7 @@ export function renderProviderLimits(limits) {
     const isLimited = limits.gemini.isLimited || false;
     const color = getLimitColor(percent, isLimited);
     const tilde = limits.gemini.isEstimated ? '~' : '';
-    parts.push('GEM:' + color + tilde + percent + '%' + RESET);
+    parts.push('G:' + color + tilde + percent + '%' + RESET);
   }
 
   if (parts.length === 0) {
@@ -182,6 +166,32 @@ export function renderProviderLimits(limits) {
   }
 
   return parts.join(' ');
+}
+
+/**
+ * Render provider routing counts
+ * Format: CL:7|O:8|G:1 (라우팅 카운트, 항상 모든 프로바이더 표시)
+ *
+ * @param {Object|null} fusionState - Fusion state with byProvider counts
+ * @returns {string|null} - Formatted output or null if no data
+ */
+export function renderProviderCounts(fusionState) {
+  if (!fusionState || !fusionState.byProvider) {
+    return null;
+  }
+
+  const bp = fusionState.byProvider;
+
+  // Claude (Anthropic) - 항상 표시
+  const cCount = typeof bp.anthropic === 'number' ? bp.anthropic : 0;
+
+  // OpenAI - 항상 표시
+  const oCount = typeof bp.openai === 'number' ? bp.openai : 0;
+
+  // Gemini - 항상 표시
+  const gCount = typeof bp.gemini === 'number' ? bp.gemini : 0;
+
+  return `C:${cCount}|O:${oCount}|G:${gCount}`;
 }
 
 /**
@@ -224,6 +234,52 @@ export function renderProviderInfo(limits, fallbackState) {
   }
   if (fallbackOutput) {
     parts.push(fallbackOutput);
+  }
+
+  if (parts.length === 0) {
+    return null;
+  }
+
+  return parts.join(' | ');
+}
+
+/**
+ * Render provider token usage
+ * Format: C:1.2k↓0.5k↑|O:3.4k↓1.2k↑|G:0.8k↓0.3k↑
+ * ↓ = input tokens, ↑ = output tokens
+ *
+ * @param {Object} tokenData - Token data by provider
+ * @param {Object} tokenData.claude - { input, output }
+ * @param {Object} tokenData.openai - { input, output }
+ * @param {Object} tokenData.gemini - { input, output }
+ * @returns {string|null} - Formatted output or null if no data
+ */
+export function renderProviderTokens(tokenData) {
+  if (!tokenData) {
+    return null;
+  }
+
+  const parts = [];
+
+  // Claude (C:)
+  if (tokenData.claude && (tokenData.claude.input > 0 || tokenData.claude.output > 0)) {
+    const input = formatTokens(tokenData.claude.input || 0);
+    const output = formatTokens(tokenData.claude.output || 0);
+    parts.push(`${CYAN}C${RESET}:${input}↓ ${output}↑`);
+  }
+
+  // OpenAI (O:)
+  if (tokenData.openai && (tokenData.openai.input > 0 || tokenData.openai.output > 0)) {
+    const input = formatTokens(tokenData.openai.input || 0);
+    const output = formatTokens(tokenData.openai.output || 0);
+    parts.push(`${GREEN}O${RESET}:${input}↓ ${output}↑`);
+  }
+
+  // Gemini (G:)
+  if (tokenData.gemini && (tokenData.gemini.input > 0 || tokenData.gemini.output > 0)) {
+    const input = formatTokens(tokenData.gemini.input || 0);
+    const output = formatTokens(tokenData.gemini.output || 0);
+    parts.push(`${YELLOW}G${RESET}:${input}↓ ${output}↑`);
   }
 
   if (parts.length === 0) {

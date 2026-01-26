@@ -18,6 +18,66 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.4.0] - 2026-01-27
+
+### 추가 (Added)
+- **HUD 토큰 표시**: 프로바이더별 input/output 토큰 실시간 표시
+  - Claude: stdin JSON에서 파싱 (`context_window.current_usage`)
+  - OpenAI/Gemini: OpenCode 세션 파일 집계 (`~/.local/share/opencode/storage/message/`)
+  - 표시 형식: `C:1.2k↓ 567↑|O:25.8k↓ 9↑|G:165.3k↓ 1.4k↑`
+- **MCP 서버 연동**: `nosolosoft/opencode-mcp` 통합
+  - 6개 도구: `opencode_run`, `opencode_get_status` 등
+  - Claude Code에서 OpenCode CLI 직접 호출 가능
+- **fusion-router 테스트**: 63개 테스트 케이스 추가
+  - shouldRouteToOpenCode(), mapAgentToOpenCode(), wrapWithUlwCommand() 등
+
+### 개선 (Improved)
+- **mtime 캐싱**: provider-limits.mjs에 이미 구현됨 확인 (성능 최적화)
+- **HUD 가독성**: 토큰 표시 간격 개선 (`↓ ↑` 공백 추가)
+- **토큰 계산 정확도**: OpenCode cache.read 토큰 포함
+
+### 수정 (Fixed)
+- **HUD 중복 제거**: renderFusionMetrics의 O:x|G:y 중복 출력 제거
+
+---
+
+## [0.3.8] - 2026-01-26
+
+### 수정 (Fixed)
+- **[P0] OpenCode CLI 호출 방식 수정**: 라우팅된 작업이 실제로 OpenCode에서 실행되지 않던 문제 해결
+  - 이전: `opencode -a Codex` (잘못된 플래그)
+  - 변경: `opencode run --agent Codex prompt` (올바른 서브커맨드 및 플래그)
+- **프롬프트 전달 방식 개선**: stdin 대신 positional argument로 전달
+- **Hook 파일 동기화**: 개발 버전과 설치된 버전 불일치 문제 해결
+- **[P0] Gemini Flash 라우팅 수정**: Claude 90%+ 시에도 에이전트 매핑 존중
+  - 이전: Claude 리밋 도달 시 모든 에이전트가 무조건 Codex로 라우팅
+  - 변경: explore → Flash, architect → Oracle 등 에이전트별 매핑 유지
+- **HUD 표시 개선**: API 사용량(%) 대신 라우팅 카운트 표시
+  - 이전: `CL:100% OAI:0% GEM:~0%` (업데이트 안됨)
+  - 변경: `CL:7 OAI:8 GEM:1` (실제 라우팅 카운트)
+
+### 추가 (Added)
+- **SQLite 마이그레이션 스키마**: `migrations/001-add-aggregation-tables.sql` (v1.1.0 준비)
+- **README 영문 섹션**: 국제 사용자를 위한 영문 문서 추가
+- **데이터 관리 설계서**: `docs/SQLITE-DATA-MANAGEMENT.md`
+
+---
+
+## [0.3.7] - 2026-01-26
+
+### 수정 (Fixed)
+- **[P0] fusionDefault 라우팅 버그 수정**: `fusionDefault: true` 설정 시 실제 라우팅이 발생하지 않던 문제 해결
+  - 이전: `shouldRouteToOpenCode()`가 `~/.claude/plugins/omcm/config.json`의 `fusionDefault` 설정을 읽지 않음
+  - 변경: `fusionDefault: true`일 때 자동으로 에이전트 기반 라우팅 수행
+  - 영향: HUD의 퓨전 메트릭(⚡50% 3.0k↗ O:3)이 정상 업데이트됨
+- **라우팅 대상 에이전트 확장**: 더 많은 에이전트 타입이 OpenCode로 라우팅됨
+  - 추가: `architect-low`, `architect-medium`, `explore-medium`, `explore-high`, `designer-high`, `scientist-high`, `writer`, `vision`, `code-reviewer`, `code-reviewer-low`, `security-reviewer`, `security-reviewer-low`
+
+### 변경 (Changed)
+- **fusion-default-on.md**: `~/.omcm/fusion-state.json`도 함께 업데이트하도록 개선
+
+---
+
 ## [0.3.6] - 2026-01-26
 
 ### 수정 (Fixed)

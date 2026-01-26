@@ -7,9 +7,10 @@
  */
 
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
-import { renderFusionMetrics, renderProviderLimits, renderFallbackStatus } from './fusion-renderer.mjs';
+import { homedir } from 'os';
+import { renderFusionMetrics, renderProviderLimits, renderProviderCounts, renderFallbackStatus, renderProviderTokens } from './fusion-renderer.mjs';
 import { readFusionState } from '../utils/fusion-tracker.mjs';
 import { getLimitsForHUD, updateClaudeLimits } from '../utils/provider-limits.mjs';
 import { getFallbackOrchestrator } from '../orchestrator/fallback-orchestrator.mjs';
@@ -49,6 +50,202 @@ function syncClaudeUsageFromOmcOutput(omcOutput) {
   } catch (e) {
     // 파싱 실패 시 무시 (HUD 출력에 영향 없도록)
   }
+}
+
+/**
+ * Parse Claude token usage from stdin JSON
+ * Claude Code passes JSON with token data to HUD via stdin
+ *
+ * Expected structure:
+ * {
+ *   "context_window": {
+ *     "current_usage": {
+ *       "input_tokens": 12345,
+ *       "output_tokens": 6789
+ *     }
+ *   }
+ * }
+ *
+ * @param {string} stdinData - Raw stdin data (JSON string)
+ * @returns {Object} - { input: number, output: number }
+ */
+function parseClaudeTokensFromStdin(stdinData) {
+  const result = { input: 0, output: 0 };
+
+  if (!stdinData) {
+    return result;
+  }
+
+  try {
+    const data = JSON.parse(stdinData);
+
+    // Primary: context_window 세션 누적 토큰 (total_input/output_tokens)
+    if (data.context_window) {
+      // 세션 누적치 우선 사용
+      if (data.context_window.total_input_tokens !== undefined) {
+        result.input = data.context_window.total_input_tokens || 0;
+        result.output = data.context_window.total_output_tokens || 0;
+        return result;
+      }
+      // fallback: current_usage (현재 요청만)
+      if (data.context_window.current_usage) {
+        const usage = data.context_window.current_usage;
+        // input = input_tokens + cache_read_input_tokens (캐시 포함)
+        const cacheRead = usage.cache_read_input_tokens || 0;
+        result.input = (usage.input_tokens || 0) + cacheRead;
+        result.output = usage.output_tokens || 0;
+        return result;
+      }
+    }
+
+    // Fallback: Look for token data in various possible structures
+    if (data.tokens) {
+      result.input = data.tokens.input || data.tokens.inputTokens || 0;
+      result.output = data.tokens.output || data.tokens.outputTokens || 0;
+    } else if (data.inputTokens !== undefined) {
+      result.input = data.inputTokens || 0;
+      result.output = data.outputTokens || 0;
+    } else if (data.usage) {
+      result.input = data.usage.input_tokens || data.usage.prompt_tokens || 0;
+      result.output = data.usage.output_tokens || data.usage.completion_tokens || 0;
+    }
+
+    // Also check for session/conversation level totals
+    if (data.conversation && data.conversation.tokens) {
+      result.input += data.conversation.tokens.input || 0;
+      result.output += data.conversation.tokens.output || 0;
+    }
+
+    // Check for session totals
+    if (data.session) {
+      if (data.session.inputTokens) {
+        result.input = data.session.inputTokens;
+      }
+      if (data.session.outputTokens) {
+        result.output = data.session.outputTokens;
+      }
+    }
+  } catch (e) {
+    // JSON 파싱 실패 - 무시
+  }
+
+  return result;
+}
+
+/**
+ * Token cache for OpenCode files
+ * Prevents reading all files on every HUD refresh
+ */
+let openCodeTokenCache = null;
+let openCodeCacheTime = 0;
+const CACHE_TTL_MS = 30000; // 30초 캐시
+
+/**
+ * Aggregate token usage from OpenCode session files
+ * Only reads files modified today (mtime 0)
+ *
+ * @returns {Object} - { openai: { input, output }, gemini: { input, output } }
+ */
+function aggregateOpenCodeTokens() {
+  // 캐시 체크
+  const now = Date.now();
+  if (openCodeTokenCache && (now - openCodeCacheTime) < CACHE_TTL_MS) {
+    return openCodeTokenCache;
+  }
+
+  const result = {
+    openai: { input: 0, output: 0 },
+    gemini: { input: 0, output: 0 },
+    anthropic: { input: 0, output: 0 },  // OpenCode를 통한 Anthropic 사용량도 집계
+  };
+
+  try {
+    const messageDir = join(homedir(), '.local', 'share', 'opencode', 'storage', 'message');
+
+    if (!existsSync(messageDir)) {
+      openCodeTokenCache = result;
+      openCodeCacheTime = now;
+      return result;
+    }
+
+    // 오늘 날짜 기준
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+
+    // 세션 디렉토리들 순회
+    const sessionDirs = readdirSync(messageDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && d.name.startsWith('ses_'));
+
+    for (const sessionDir of sessionDirs) {
+      const sessionPath = join(messageDir, sessionDir.name);
+
+      try {
+        // 디렉토리 mtime 체크 - 오늘 수정된 것만
+        const dirStat = statSync(sessionPath);
+        if (dirStat.mtimeMs < todayTime) {
+          continue;
+        }
+
+        // 메시지 파일들 읽기
+        const msgFiles = readdirSync(sessionPath).filter((f) => f.startsWith('msg_') && f.endsWith('.json'));
+
+        for (const msgFile of msgFiles) {
+          const msgPath = join(sessionPath, msgFile);
+
+          try {
+            // 파일 mtime 체크
+            const fileStat = statSync(msgPath);
+            if (fileStat.mtimeMs < todayTime) {
+              continue;
+            }
+
+            const content = readFileSync(msgPath, 'utf-8');
+            const msg = JSON.parse(content);
+
+            // providerID 체크
+            const providerID = msg.providerID || (msg.model && msg.model.providerID);
+            if (!providerID) {
+              continue;
+            }
+
+            // tokens 체크
+            const tokens = msg.tokens;
+            if (!tokens) {
+              continue;
+            }
+
+            // input = tokens.input + cache.read (캐시 포함 전체 입력)
+            const cacheRead = (tokens.cache && tokens.cache.read) || 0;
+            const inputTokens = (tokens.input || 0) + cacheRead;
+            const outputTokens = tokens.output || 0;
+
+            // 프로바이더별 집계
+            if (providerID === 'openai') {
+              result.openai.input += inputTokens;
+              result.openai.output += outputTokens;
+            } else if (providerID === 'google') {
+              result.gemini.input += inputTokens;
+              result.gemini.output += outputTokens;
+            } else if (providerID === 'anthropic') {
+              result.anthropic.input += inputTokens;
+              result.anthropic.output += outputTokens;
+            }
+          } catch (e) {
+            // 개별 파일 읽기 실패 - 무시
+          }
+        }
+      } catch (e) {
+        // 세션 디렉토리 읽기 실패 - 무시
+      }
+    }
+  } catch (e) {
+    // 전체 실패 - graceful하게 빈 결과 반환
+  }
+
+  openCodeTokenCache = result;
+  openCodeCacheTime = now;
+  return result;
 }
 
 // Find OMC HUD path
@@ -169,20 +366,30 @@ async function main() {
     // OMC 출력에서 Claude 사용량 파싱하여 동기화
     syncClaudeUsageFromOmcOutput(omcOutput);
 
+    // Parse Claude tokens from stdin
+    const claudeTokens = parseClaudeTokensFromStdin(stdinData);
+
+    // Aggregate OpenCode tokens (OpenAI, Gemini, etc.)
+    const openCodeTokens = aggregateOpenCodeTokens();
+
+    // Combine all token data for rendering
+    const tokenData = {
+      claude: claudeTokens,
+      openai: openCodeTokens.openai,
+      gemini: openCodeTokens.gemini,
+    };
+
+    // Render token usage: C:1.2k↓0.5k↑|O:3.4k↓1.2k↑|G:0.8k↓0.3k↑
+    const tokenOutput = renderProviderTokens(tokenData);
+
     // Read fusion state
     const fusionState = readFusionState();
 
     // Render fusion metrics
     const fusionOutput = renderFusionMetrics(fusionState);
 
-    // Get provider limits for HUD
-    let providerLimits = null;
-    try {
-      providerLimits = getLimitsForHUD();
-    } catch (e) {
-      // 리밋 정보 없음
-    }
-    const limitsOutput = renderProviderLimits(providerLimits);
+    // Get provider routing counts for HUD (fusion-state.byProvider)
+    const countsOutput = renderProviderCounts(fusionState);
 
     // Get fallback status
     let fallbackOutput = null;
@@ -196,11 +403,17 @@ async function main() {
 
     // Combine all outputs
     const extraParts = [];
+
+    // Token usage first (most important)
+    if (tokenOutput) {
+      extraParts.push(tokenOutput);
+    }
+
     if (fusionOutput) {
       extraParts.push(fusionOutput);
     }
-    if (limitsOutput) {
-      extraParts.push(limitsOutput);
+    if (countsOutput) {
+      extraParts.push(countsOutput);
     }
     if (fallbackOutput) {
       extraParts.push(fallbackOutput);

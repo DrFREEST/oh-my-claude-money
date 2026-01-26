@@ -11,6 +11,32 @@ import { join } from 'path';
 const OMCM_DIR = join(process.env.HOME || '', '.omcm');
 
 /**
+ * OpenCode ULW 모드 프롬프트 래핑
+ * 핵심: 모든 OpenCode 호출에 /ulw 커맨드를 포함시켜 최대 성능 모드 활성화
+ *
+ * @param {string} prompt - 원본 프롬프트
+ * @param {Object} options - 옵션
+ * @param {boolean} options.disableUlw - true면 ulw 래핑 비활성화
+ * @returns {string} /ulw가 포함된 프롬프트
+ */
+export function wrapWithUlwCommand(prompt, options) {
+  options = options || {};
+
+  // ulw 모드 비활성화 옵션이 있으면 원본 반환
+  if (options.disableUlw) {
+    return prompt;
+  }
+
+  // 이미 /ulw 또는 /ultrawork가 포함되어 있으면 그대로 사용
+  if (prompt.includes('/ulw') || prompt.includes('/ultrawork')) {
+    return prompt;
+  }
+
+  // /ulw 커맨드를 프롬프트 앞에 추가
+  return '/ulw ' + prompt;
+}
+
+/**
  * OMCM 디렉토리 존재 확인 및 생성
  */
 function ensureOmcmDir() {
@@ -68,6 +94,12 @@ export async function executeOpenCode(options) {
   var cwd = options.cwd || process.cwd();
   var timeout = options.timeout || 5 * 60 * 1000;  // 5분 기본
   var onOutput = options.onOutput;
+  var enableUlw = options.enableUlw !== false;  // 기본 활성화
+
+  // ⭐ 핵심: ULW 모드 활성화를 위한 커맨드 래핑
+  if (enableUlw) {
+    prompt = wrapWithUlwCommand(prompt, { disableUlw: options.disableUlw });
+  }
 
   return new Promise(function(resolve) {
     var args = ['-a', agent];

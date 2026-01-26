@@ -34,7 +34,7 @@ description: 퓨전 모드 기본값 비활성화 - 사용량 기반 자동 전�
 # 설정 디렉토리 생성
 mkdir -p ~/.claude/plugins/omcm
 
-# fusionDefault 비활성화
+# fusionDefault 비활성화 (config.json)
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "fusionDefault": false,
@@ -42,6 +42,8 @@ cat > ~/.claude/plugins/omcm/config.json << 'EOF'
   "autoHandoff": false
 }
 EOF
+
+# fusion-state.json의 enabled는 유지 (사용량 기반 자동 전환에 필요)
 ```
 
 ## 확인 메시지

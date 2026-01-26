@@ -613,6 +613,59 @@ EOF
     fi
 }
 
+# HUD 파일 복사
+install_hud_files() {
+    local source_dir="$1"
+    local hud_dir="$HOME/.claude/hud"
+
+    log_step "HUD 파일 복사"
+
+    mkdir -p "$hud_dir"
+
+    # HUD 파일들 복사
+    if [[ -f "$source_dir/src/hud/omcm-hud.mjs" ]]; then
+        cp "$source_dir/src/hud/omcm-hud.mjs" "$hud_dir/omcm-hud.mjs"
+        chmod +x "$hud_dir/omcm-hud.mjs"
+        log_success "omcm-hud.mjs 복사 완료"
+    fi
+
+    if [[ -f "$source_dir/src/hud/fusion-renderer.mjs" ]]; then
+        cp "$source_dir/src/hud/fusion-renderer.mjs" "$hud_dir/fusion-renderer.mjs"
+        log_success "fusion-renderer.mjs 복사 완료"
+    fi
+}
+
+# MCP 서버 설치 (선택사항)
+install_mcp_server() {
+    log_step "MCP 서버 설치 확인"
+
+    # opencode-mcp 패키지 존재 여부 확인
+    if npm list -g opencode-mcp &> /dev/null; then
+        log_success "opencode-mcp 이미 설치됨"
+        return 0
+    fi
+
+    # 사용자에게 선택권 제공 (자동 모드가 아닐 때만)
+    if [[ "$AUTO_YES" != "true" ]]; then
+        echo ""
+        log_info "MCP 서버를 설치하면 Claude Code에서 OpenCode를 도구로 호출할 수 있습니다."
+        log_info "설치하지 않아도 OMCM의 기본 기능은 모두 사용 가능합니다."
+        echo ""
+
+        prompt_user "opencode-mcp를 설치하시겠습니까? [y/N] " install_mcp
+
+        if [[ ! "$install_mcp" =~ ^[Yy] ]]; then
+            log_info "MCP 서버 설치 건너뜀"
+            return 0
+        fi
+    fi
+
+    # opencode-mcp 설치 (현재는 패키지가 없으므로 안내만)
+    log_info "opencode-mcp는 현재 개발 중입니다"
+    log_info "수동 설치가 필요하면 다음 문서를 참고하세요:"
+    log_info "  https://github.com/DrFREEST/oh-my-claude-money#mcp-setup"
+}
+
 # 설치 완료 요약
 print_summary() {
     echo ""
@@ -650,6 +703,15 @@ print_summary() {
         echo -e "  ${GREEN}✓${NC} oh-my-claude-money 퓨전 플러그인"
     fi
 
+    if [[ -f "$HOME/.claude/hud/omcm-hud.mjs" ]]; then
+        echo -e "  ${GREEN}✓${NC} OMCM HUD (토큰 추적)"
+    fi
+
+    echo ""
+    echo -e "${BOLD}v0.4.0 새 기능:${NC}"
+    echo -e "  • 프로바이더별 토큰 사용량 실시간 표시"
+    echo -e "  • OpenCode 세션 토큰 자동 집계"
+    echo -e "  • HUD에서 Claude/OpenAI/Gemini 토큰 분리 표시"
     echo ""
 }
 
@@ -715,6 +777,11 @@ print_next_steps() {
     echo -e "  • 12개 에이전트 (39%)가 GPT/Gemini로 대체"
     echo -e "  • 예상 절약률: 39-67%"
     echo ""
+    echo -e "${BOLD}v0.4.0 주요 기능:${NC}"
+    echo -e "  • ${CYAN}HUD 토큰 표시${NC}: C:1.2k↓0.5k↑|O:3.4k↓1.2k↑|G:0.8k↓0.3k↑"
+    echo -e "  • ${CYAN}자동 토큰 집계${NC}: OpenCode 세션 파일에서 자동 수집"
+    echo -e "  • ${CYAN}프로바이더 분리${NC}: Claude/OpenAI/Gemini 사용량 개별 추적"
+    echo ""
     echo -e "자세한 내용: ${CYAN}https://github.com/DrFREEST/oh-my-claude-money${NC}"
     echo ""
 }
@@ -751,7 +818,11 @@ main() {
     # Hooks 설정 (OMCM_SOURCE_DIR는 install_omcm에서 설정됨)
     if [[ -n "$OMCM_SOURCE_DIR" ]]; then
         setup_claude_hooks "$OMCM_SOURCE_DIR"
+        install_hud_files "$OMCM_SOURCE_DIR"
     fi
+
+    # MCP 서버 설치 (선택사항)
+    install_mcp_server
 
     print_summary
     print_next_steps

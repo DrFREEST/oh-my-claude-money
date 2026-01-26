@@ -18,6 +18,26 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.3.5] - 2026-01-26
+
+### 수정 (Fixed)
+- **commands 디렉토리 누락 파일 추가**: `/omcm:hulw`, `/omcm:ulw`, `/omcm:autopilot`, `/omcm:opencode` 커맨드 파일 추가
+  - 이전: skills 디렉토리에만 존재하여 슬래시 명령어로 인식 안됨
+  - 변경: commands 디렉토리에도 추가하여 `/omcm:*` 형태로 호출 가능
+- **HUD wrapper 경로 수정**: 플러그인 캐시 경로를 동적으로 찾도록 개선
+  - 이전: 하드코딩된 `/opt/oh-my-claude-money` 경로 사용
+  - 변경: `~/.claude/plugins/cache/omcm/omcm/{version}` 경로 자동 탐색
+- **설정 파일 경로 통일**: 모든 파일에서 `~/.claude/plugins/omcm/config.json` 경로 사용
+
+### 추가 (Added)
+- **HUD wrapper 파일**: `src/hud/omcm-hud-wrapper.mjs` 추가 (설치 시 복사용)
+
+### 참고 (Notes)
+- 플러그인 재설치 필요: `claude plugins uninstall omcm && claude plugins install omcm`
+- HUD wrapper 수동 복사: `cp ~/.claude/plugins/cache/omcm/omcm/0.3.5/src/hud/omcm-hud-wrapper.mjs ~/.claude/hud/omcm-hud.mjs`
+
+---
+
 ## [0.3.4] - 2026-01-26
 
 ### 수정 (Fixed)

@@ -14,7 +14,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRIDGE_SCRIPT="${SCRIPT_DIR}/fusion-bridge.sh"
-CONFIG_FILE="${HOME}/.claude/plugins/oh-my-claude-money/config.json"
+CONFIG_FILE="${HOME}/.claude/plugins/omcm/config.json"
 
 # 색상 정의
 GREEN='\033[0;32m'

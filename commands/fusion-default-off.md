@@ -17,7 +17,7 @@ description: 퓨전 모드 기본값 비활성화 - 사용량 기반 자동 전�
 ## 설정 저장 위치
 
 ```
-~/.claude/plugins/oh-my-claude-money/config.json
+~/.claude/plugins/omcm/config.json
 ```
 
 ```json
@@ -32,7 +32,7 @@ description: 퓨전 모드 기본값 비활성화 - 사용량 기반 자동 전�
 
 ```bash
 # fusionDefault 비활성화
-cat > ~/.claude/plugins/oh-my-claude-money/config.json << 'EOF'
+cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "fusionDefault": false,
   "threshold": 90,

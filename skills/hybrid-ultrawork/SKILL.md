@@ -66,7 +66,7 @@ Claude Code와 OpenCode를 함께 활용하여 **토큰 사용량을 최적화**
 
 ## 설정
 
-`~/.claude/plugins/oh-my-claude-money/config.json`:
+`~/.claude/plugins/omcm/config.json`:
 
 ```json
 {

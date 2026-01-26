@@ -17,7 +17,7 @@ description: 항상 퓨전 모드 활성화 - 모든 작업에서 OpenCode 퓨�
 ## 설정 저장 위치
 
 ```
-~/.claude/plugins/oh-my-claude-money/config.json
+~/.claude/plugins/omcm/config.json
 ```
 
 ```json
@@ -35,7 +35,7 @@ description: 항상 퓨전 모드 활성화 - 모든 작업에서 OpenCode 퓨�
 mkdir -p ~/.claude/plugins/oh-my-claude-money
 
 # fusionDefault 활성화
-cat > ~/.claude/plugins/oh-my-claude-money/config.json << 'EOF'
+cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "fusionDefault": true,
   "threshold": 90,

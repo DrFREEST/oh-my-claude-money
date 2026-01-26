@@ -15,6 +15,15 @@ import { getLimitsForHUD, updateClaudeLimits } from '../utils/provider-limits.mj
 import { getFallbackOrchestrator } from '../orchestrator/fallback-orchestrator.mjs';
 
 /**
+ * ANSI 색상 코드 제거
+ */
+function stripAnsi(str) {
+  if (!str) return str;
+  // ANSI escape sequences: \x1b[...m or \033[...m
+  return str.replace(/\x1b\[[0-9;]*m/g, '').replace(/\033\[[0-9;]*m/g, '');
+}
+
+/**
  * OMC HUD 출력에서 Claude 사용량 파싱 및 동기화
  * 패턴: "5h:28%(1h41m) wk:96%(13h41m)"
  */
@@ -22,10 +31,13 @@ function syncClaudeUsageFromOmcOutput(omcOutput) {
   if (!omcOutput) return;
 
   try {
+    // ANSI 색상 코드 제거 후 파싱
+    const cleanOutput = stripAnsi(omcOutput);
+
     // 5시간 사용량 파싱: "5h:28%" 또는 "5h:28%(..."
-    const fiveHourMatch = omcOutput.match(/5h:(\d+)%/);
+    const fiveHourMatch = cleanOutput.match(/5h:(\d+)%/);
     // 주간 사용량 파싱: "wk:96%" 또는 "wk:96%(..."
-    const weeklyMatch = omcOutput.match(/wk:(\d+)%/);
+    const weeklyMatch = cleanOutput.match(/wk:(\d+)%/);
 
     if (fiveHourMatch || weeklyMatch) {
       const fiveHourPercent = fiveHourMatch ? parseInt(fiveHourMatch[1], 10) : null;

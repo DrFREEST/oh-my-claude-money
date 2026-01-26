@@ -18,6 +18,17 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.3.6] - 2026-01-26
+
+### 수정 (Fixed)
+- **HUD 2중 출력 버그 수정**: wrapper에서 setTimeout/stdin 중복 실행 제거
+- **사용량 동기화 버그 수정**: ANSI 색상 코드 제거 후 파싱하도록 개선
+  - 이전: `5h:[33m6%[0m` 형태로 인해 regex 매칭 실패
+  - 변경: `stripAnsi()` 함수로 색상 코드 제거 후 파싱
+- **wrapper 단순화**: spawn 대신 동적 import 사용으로 안정성 향상
+
+---
+
 ## [0.3.5] - 2026-01-26
 
 ### 수정 (Fixed)

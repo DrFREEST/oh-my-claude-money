@@ -691,7 +691,7 @@ print_next_steps() {
 
     echo -e "${BOLD}${CYAN}Step 4: 퓨전 플러그인 셋업${NC}"
     echo -e "  ${GREEN}claude${NC} 실행 후 다음 명령어 입력:"
-    echo -e "  ${MAGENTA}/oh-my-claude-money:fusion-setup${NC}"
+    echo -e "  ${MAGENTA}/omcm:fusion-setup${NC}"
     echo ""
 
     echo -e "${GREEN}════════════════════════════════════════════════════════════════${NC}"
@@ -708,8 +708,8 @@ print_next_steps() {
     echo -e "  ${CYAN}stop${NC}, ${CYAN}cancel${NC}, ${CYAN}중단${NC}, ${CYAN}취소${NC}      # 진행 중인 작업 중단"
     echo ""
     echo -e "${BOLD}퓨전 기본값 설정:${NC}"
-    echo -e "  ${MAGENTA}/oh-my-claude-money:fusion-default-on${NC}   # 항상 퓨전 모드"
-    echo -e "  ${MAGENTA}/oh-my-claude-money:fusion-default-off${NC}  # 사용량 기반 (기본)"
+    echo -e "  ${MAGENTA}/omcm:fusion-default-on${NC}   # 항상 퓨전 모드"
+    echo -e "  ${MAGENTA}/omcm:fusion-default-off${NC}  # 사용량 기반 (기본)"
     echo ""
     echo -e "${BOLD}토큰 절약 효과:${NC}"
     echo -e "  • 12개 에이전트 (39%)가 GPT/Gemini로 대체"

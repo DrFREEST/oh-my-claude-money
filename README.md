@@ -143,7 +143,7 @@ Claude 리밋에 따른 자동 전환:
 그 다음 셋업:
 
 ```
-/oh-my-claude-money:fusion-setup
+/omcm:fusion-setup
 ```
 
 끝! 이제 `hulw` 키워드로 퓨전 모드를 사용할 수 있습니다.
@@ -167,7 +167,7 @@ Claude 리밋에 따른 자동 전환:
 │  Step 3: OpenCode 프로바이더 인증                            │
 │    └─ Anthropic, OpenAI, Google API 키 설정                 │
 │                         ↓                                   │
-│  Step 4: Claude Code에서 /oh-my-claude-money:fusion-setup   │
+│  Step 4: Claude Code에서 /omcm:fusion-setup   │
 │    └─ 퓨전 오케스트레이터 활성화                              │
 │                         ↓                                   │
 │  ✅ 설치 완료! hulw: 명령어로 퓨전 모드 사용 가능             │
@@ -277,7 +277,7 @@ claude
 Claude Code 프롬프트에서 다음 명령어 입력:
 
 ```
-/oh-my-claude-money:fusion-setup
+/omcm:fusion-setup
 ```
 
 안내에 따라 `~/.claude/CLAUDE.md`에 퓨전 지시사항을 추가하면 **설치 완료**입니다!
@@ -313,7 +313,7 @@ ln -sf ~/.local/share/oh-my-claude-money ~/.claude/plugins/local/oh-my-claude-mo
 /hulw 이 프로젝트 리팩토링해줘
 이 프로젝트 리팩토링해줘 hulw
 hulw로 빠르게 처리해줘
-/oh-my-claude-money:hulw 작업내용
+/omcm:hulw 작업내용
 ```
 
 #### ⚡ ulw (자동 퓨전 울트라워크)
@@ -363,7 +363,7 @@ abort
 
 또는 명시적 명령어:
 ```
-/oh-my-claude-money:cancel-autopilot
+/omcm:cancel-autopilot
 ```
 
 ### 키워드 요약
@@ -382,12 +382,12 @@ abort
 
 #### 항상 퓨전 모드 활성화
 ```
-/oh-my-claude-money:fusion-default-on
+/omcm:fusion-default-on
 ```
 
 #### 사용량 기반 자동 전환 (기본값)
 ```
-/oh-my-claude-money:fusion-default-off
+/omcm:fusion-default-off
 ```
 
 #### 동작 차이
@@ -423,13 +423,13 @@ abort
 
 | 명령어 | 설명 |
 |--------|------|
-| `/oh-my-claude-money:fusion-setup` | 퓨전 플러그인 초기 셋업 |
-| `/oh-my-claude-money:fusion-default-on` | 항상 퓨전 모드 활성화 |
-| `/oh-my-claude-money:fusion-default-off` | 퓨전 모드 기본값 비활성화 (사용량 기반 전환) |
-| `/oh-my-claude-money:hulw` | 하이브리드 울트라워크 |
-| `/oh-my-claude-money:ulw` | 자동 퓨전 울트라워크 |
-| `/oh-my-claude-money:autopilot` | 하이브리드 오토파일럿 |
-| `/oh-my-claude-money:cancel-autopilot` | 오토파일럿 중단 |
+| `/omcm:fusion-setup` | 퓨전 플러그인 초기 셋업 |
+| `/omcm:fusion-default-on` | 항상 퓨전 모드 활성화 |
+| `/omcm:fusion-default-off` | 퓨전 모드 기본값 비활성화 (사용량 기반 전환) |
+| `/omcm:hulw` | 하이브리드 울트라워크 |
+| `/omcm:ulw` | 자동 퓨전 울트라워크 |
+| `/omcm:autopilot` | 하이브리드 오토파일럿 |
+| `/omcm:cancel-autopilot` | 오토파일럿 중단 |
 | `/opencode` | OpenCode로 명시적 전환 |
 
 ## 설정

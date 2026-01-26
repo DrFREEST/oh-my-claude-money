@@ -7,6 +7,5 @@
 
 | ID | Time | T | Title | Read |
 |----|------|---|-------|------|
-| #850 | 11:28 PM | 🟣 | Created fusion-setup slash command for guided configuration | ~505 |
 | #744 | 9:24 PM | 🟣 | OpenCode Slash Command Documentation with Context Details | ~563 |
 </claude-mem-context>

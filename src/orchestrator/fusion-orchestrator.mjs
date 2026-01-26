@@ -9,6 +9,9 @@ import { FUSION_MAP, OPENCODE_AGENTS, getFusionInfo, getTokenSavingAgents, estim
 import { OpenCodeWorkerPool } from './opencode-worker.mjs';
 import { getUsageFromCache, getUsageLevel, checkThreshold } from '../utils/usage.mjs';
 import { loadConfig } from '../utils/config.mjs';
+import { recordRouting, setFusionMode as updateFusionMode } from '../utils/fusion-tracker.mjs';
+import { getFallbackOrchestrator } from './fallback-orchestrator.mjs';
+import { updateOpenAILimitsFromHeaders, recordGeminiRequest, recordGemini429 } from '../utils/provider-limits.mjs';
 
 // =============================================================================
 // 퓨전 오케스트레이터
@@ -19,6 +22,7 @@ export class FusionOrchestrator {
     this.projectDir = options.projectDir || process.cwd();
     this.config = loadConfig();
     this.opencodePool = null;
+    this.fallbackOrchestrator = null;
     this.mode = 'balanced'; // 'save-tokens' | 'balanced' | 'quality-first'
     this.stats = {
       totalTasks: 0,
@@ -49,17 +53,25 @@ export class FusionOrchestrator {
     try {
       this.opencodePool = new OpenCodeWorkerPool({
         projectDir: this.projectDir,
-        maxWorkers: this.config.routing?.maxOpencodeWorkers || 3,
+        maxWorkers: (this.config.routing && this.config.routing.maxOpencodeWorkers) ? this.config.routing.maxOpencodeWorkers : 3,
       });
     } catch (e) {
       // OpenCode 미설치
       this.opencodePool = null;
     }
 
+    // Fallback 오케스트레이터 초기화
+    try {
+      this.fallbackOrchestrator = getFallbackOrchestrator();
+    } catch (e) {
+      this.fallbackOrchestrator = null;
+    }
+
     return {
       initialized: true,
       mode: this.mode,
       opencodeAvailable: this.opencodePool !== null,
+      fallbackAvailable: this.fallbackOrchestrator !== null,
       usage: usage,
       usageLevel: usageLevel,
       tokenSavingAgents: getTokenSavingAgents(),
@@ -72,6 +84,7 @@ export class FusionOrchestrator {
    */
   setMode(mode) {
     this.mode = mode;
+    updateFusionMode(mode);
     return { mode: this.mode };
   }
 
@@ -239,6 +252,10 @@ export class FusionOrchestrator {
         this.stats.estimatedSavedTokens += task.estimatedTokens || 1000;
       }
 
+      // Record to fusion state file for HUD
+      const provider = this._getProviderFromAgent(routing.agent);
+      recordRouting('opencode', provider, task.estimatedTokens || 1000);
+
       // OpenCode 실행
       const prompt = this._buildOpenCodePrompt(task, routing);
       const result = await this.opencodePool.submit(prompt, {
@@ -253,6 +270,9 @@ export class FusionOrchestrator {
       };
     } else {
       this.stats.omcTasks++;
+
+      // Record to fusion state file for HUD
+      recordRouting('omc', 'anthropic', 0);
 
       // OMC 실행 (콜백)
       const result = await omcExecutor(task);
@@ -304,7 +324,8 @@ export class FusionOrchestrator {
       if (result.status === 'fulfilled') {
         results.push(result.value);
       } else {
-        results.push({ error: result.reason?.message });
+        const errorMsg = result.reason && result.reason.message ? result.reason.message : 'Unknown error';
+        results.push({ error: errorMsg });
       }
     }
 
@@ -314,6 +335,23 @@ export class FusionOrchestrator {
       savings,
       stats: this.stats,
     };
+  }
+
+  /**
+   * Get provider name from OpenCode agent
+   */
+  _getProviderFromAgent(agentName) {
+    const agent = OPENCODE_AGENTS[agentName];
+    if (!agent) return 'unknown';
+
+    const model = agent.model || '';
+    if (model.includes('gemini') || model.includes('google')) {
+      return 'gemini';
+    }
+    if (model.includes('gpt') || model.includes('openai')) {
+      return 'openai';
+    }
+    return 'unknown';
   }
 
   /**
@@ -402,4 +440,117 @@ export function getRecommendedMode() {
     default:
       return { mode: 'quality-first', reason: '사용량 정상 - 품질 우선 권장' };
   }
+}
+
+// =============================================================================
+// Fallback-Aware Execution (폴백 인식 실행)
+// =============================================================================
+
+/**
+ * 폴백을 체크하고 필요시 전환 후 작업 실행
+ *
+ * @param {Object} task - 실행할 작업
+ * @param {Function} omcExecutor - OMC 작업 실행 함수
+ * @param {FusionOrchestrator} orchestrator - 오케스트레이터 인스턴스
+ * @returns {Promise<Object>} 실행 결과
+ */
+export async function executeWithFallbackCheck(task, omcExecutor, orchestrator) {
+  // Fallback 오케스트레이터 가져오기
+  const fallback = getFallbackOrchestrator();
+
+  // 폴백 체크 및 필요시 전환
+  const fallbackResult = await fallback.checkAndFallback();
+
+  if (fallbackResult.action === 'fallback') {
+    // 폴백 발생 알림
+    console.error('[OMCM] Switching to ' + fallbackResult.to.name + ' (Claude limit: ' + fallbackResult.claudeLimit.max + '%)');
+  } else if (fallbackResult.action === 'recover') {
+    // 복구 알림
+    console.error('[OMCM] Recovered to ' + fallbackResult.to.name);
+  }
+
+  // 현재 오케스트레이터 상태 확인
+  const current = fallback.getCurrentOrchestrator();
+
+  if (current.fallbackActive) {
+    // 폴백 모드: OpenCode로 실행
+    return executeViaOpenCode(task, current.model, orchestrator);
+  } else {
+    // 정상 모드: 일반 퓨전 실행
+    return orchestrator.executeTask(task, omcExecutor);
+  }
+}
+
+/**
+ * OpenCode를 통해 작업 실행 (폴백 모델 사용)
+ *
+ * @param {Object} task - 실행할 작업
+ * @param {Object} model - 사용할 모델 정보
+ * @param {FusionOrchestrator} orchestrator - 오케스트레이터 인스턴스
+ * @returns {Promise<Object>} 실행 결과
+ */
+async function executeViaOpenCode(task, model, orchestrator) {
+  if (!orchestrator.opencodePool) {
+    throw new Error('OpenCode not available for fallback execution');
+  }
+
+  const prompt = buildFallbackPrompt(task, model);
+
+  const result = await orchestrator.opencodePool.submit(prompt, {
+    enableUltrawork: true,
+    agent: model.opencodeAgent,
+  });
+
+  // Provider limit 추적
+  if (model.provider === 'openai') {
+    // OpenAI 헤더가 있으면 업데이트
+    if (result && result.headers) {
+      updateOpenAILimitsFromHeaders(result.headers);
+    }
+  } else if (model.provider === 'google') {
+    // Gemini 사용량 기록
+    const estimatedTokens = task.estimatedTokens || 500;
+    recordGeminiRequest(estimatedTokens);
+  }
+
+  return {
+    task,
+    routing: {
+      target: 'opencode',
+      agent: model.opencodeAgent,
+      reason: 'Fallback execution via ' + model.name,
+      savesTokens: true,
+    },
+    result,
+    source: 'opencode-fallback',
+    fallbackModel: model,
+  };
+}
+
+/**
+ * 폴백 실행용 프롬프트 빌드
+ */
+function buildFallbackPrompt(task, model) {
+  let prompt = '## Fallback Task Execution\n\n';
+  prompt += '**Using Model:** ' + model.name + '\n\n';
+
+  if (task.context) {
+    prompt += '### Context\n' + task.context + '\n\n';
+  }
+
+  prompt += '### Instruction\n' + task.prompt + '\n';
+
+  return prompt;
+}
+
+/**
+ * 모든 프로바이더 리밋 상태 조회 (디버깅용)
+ */
+export function getProviderLimitStatus() {
+  const fallback = getFallbackOrchestrator();
+  return {
+    fallback: fallback.getCurrentOrchestrator(),
+    limits: fallback.getAllLimits(),
+    chain: fallback.getFallbackChain(),
+  };
 }

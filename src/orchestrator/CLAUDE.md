@@ -15,4 +15,13 @@
 | #761 | 9:47 PM | ✅ | Created orchestrator module barrel export | ~255 |
 | #758 | 9:46 PM | 🟣 | Hybrid Ultrawork orchestrator for Claude Code + OpenCode parallel execution | ~686 |
 | #757 | " | 🟣 | OpenCode Worker Pool Implementation for Programmatic Task Execution | ~616 |
+
+### Jan 26, 2026
+
+| ID | Time | T | Title | Read |
+|----|------|---|-------|------|
+| #1025 | 4:17 PM | 🔵 | Fallback orchestrator uses hardcoded .omc path and implements 4-tier model switching | ~489 |
+| #1023 | 4:16 PM | 🔵 | OMCM codebase architecture mapping for .omc to .omcm migration | ~406 |
+| #1022 | 3:35 PM | 🟣 | Fusion Mode Metrics Added to OMC HUD | ~534 |
+| #1021 | 3:33 PM | 🔵 | HUD Architecture and Fusion Mode State Understanding | ~593 |
 </claude-mem-context>

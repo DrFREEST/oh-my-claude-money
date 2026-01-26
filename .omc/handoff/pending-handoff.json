@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-01-23T12:25:16.549Z",
-  "reason": "keyword",
+  "timestamp": "2026-01-26T07:28:23.719Z",
+  "reason": "usage_threshold",
   "usage": {
-    "fiveHour": 18,
-    "weekly": 85,
-    "fiveHourResetsAt": "2026-01-23T13:00:00.185Z",
-    "weeklyResetsAt": "2026-01-26T22:00:00.185Z",
-    "timestamp": 1769171115253,
+    "fiveHour": 24,
+    "weekly": 95,
+    "fiveHourResetsAt": "2026-01-26T09:59:59.842Z",
+    "weeklyResetsAt": "2026-01-26T21:59:59.842Z",
+    "timestamp": 1769412397910,
     "error": false
   },
   "triggered": true

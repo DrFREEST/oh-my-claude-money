@@ -107,7 +107,7 @@ ${decisions}
  */
 export function saveContext(projectDir, options = {}) {
   const context = exportContext(projectDir, options);
-  const handoffDir = join(projectDir, '.omc/handoff');
+  const handoffDir = join(projectDir, '.omcm/handoff');
 
   if (!existsSync(handoffDir)) {
     mkdirSync(handoffDir, { recursive: true });
@@ -133,7 +133,7 @@ export function saveContext(projectDir, options = {}) {
  * 현재 작업 가져오기
  */
 function getCurrentTask(projectDir) {
-  const boulderFile = join(projectDir, '.omc/boulder.json');
+  const boulderFile = join(projectDir, '.omcm/boulder.json');
 
   if (existsSync(boulderFile)) {
     try {
@@ -152,7 +152,7 @@ function getCurrentTask(projectDir) {
  */
 function getTodos(projectDir) {
   // 1. boulder.json에서 활성 플랜 확인
-  const boulderFile = join(projectDir, '.omc/boulder.json');
+  const boulderFile = join(projectDir, '.omcm/boulder.json');
   if (existsSync(boulderFile)) {
     try {
       const boulder = JSON.parse(readFileSync(boulderFile, 'utf-8'));
@@ -230,7 +230,7 @@ function getRecentFiles(projectDir, limit = 10) {
  * 결정 사항 가져오기
  */
 function getDecisions(projectDir) {
-  const wisdomDir = join(projectDir, '.omc/notepads');
+  const wisdomDir = join(projectDir, '.omcm/notepads');
 
   if (!existsSync(wisdomDir)) {
     return '(결정 사항 없음)';

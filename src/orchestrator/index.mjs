@@ -16,3 +16,6 @@ export * from './agent-fusion-map.mjs';
 
 // 퓨전 오케스트레이터 (메인)
 export * from './fusion-orchestrator.mjs';
+
+// 폴백 오케스트레이터
+export * from './fallback-orchestrator.mjs';

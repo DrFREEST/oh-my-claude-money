@@ -126,7 +126,7 @@ function detectKeyword(prompt, keywords) {
 // =============================================================================
 
 function saveHandoffState(reason, usage, projectDir) {
-  const handoffDir = join(projectDir || process.cwd(), '.omc/handoff');
+  const handoffDir = join(projectDir || process.cwd(), '.omcm/handoff');
 
   try {
     if (!existsSync(handoffDir)) {

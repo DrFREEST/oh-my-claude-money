@@ -385,6 +385,139 @@ install_omcm() {
     log_info "  플러그인: $plugin_dir"
 }
 
+# Claude Code Hooks 설정
+setup_claude_hooks() {
+    local source_dir="$1"
+    local settings_file="$HOME/.claude/settings.json"
+
+    log_step "Claude Code Hooks 설정"
+
+    # settings.json 백업
+    if [[ -f "$settings_file" ]]; then
+        cp "$settings_file" "$settings_file.backup.$(date +%s)"
+    fi
+
+    # jq 확인
+    if ! command -v jq &> /dev/null; then
+        log_warn "jq가 설치되지 않아 hooks 설정을 건너뜁니다"
+        log_info "수동 설정: ~/.claude/settings.json에 hooks 추가 필요"
+        return 0
+    fi
+
+    # 기존 settings 읽기
+    local existing_settings="{}"
+    if [[ -f "$settings_file" ]]; then
+        existing_settings=$(cat "$settings_file")
+    fi
+
+    # PreToolUse hook 추가 (Task 라우팅용)
+    local hook_command="node $source_dir/hooks/fusion-router.mjs"
+
+    # hooks.PreToolUse 배열에 추가
+    local updated_settings
+    updated_settings=$(echo "$existing_settings" | jq --arg cmd "$hook_command" '
+      .hooks = (.hooks // {}) |
+      .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{
+        "matcher": "Task",
+        "hooks": [{
+          "type": "command",
+          "command": $cmd
+        }]
+      }] | unique_by(.matcher))
+    ')
+
+    echo "$updated_settings" > "$settings_file"
+    log_success "PreToolUse hook 설정 완료"
+}
+
+# Handoff 디렉토리 설정
+setup_handoff_directory() {
+    log_step "Handoff 디렉토리 설정"
+
+    # 글로벌 handoff 디렉토리
+    mkdir -p "$HOME/.omcm/handoff"
+
+    # 기본 상태 파일 생성
+    if [[ ! -f "$HOME/.omcm/fusion-state.json" ]]; then
+        cat > "$HOME/.omcm/fusion-state.json" << 'FUSION_EOF'
+{
+  "enabled": true,
+  "mode": "balanced",
+  "totalTasks": 0,
+  "routedToOpenCode": 0,
+  "routingRate": 0,
+  "estimatedSavedTokens": 0,
+  "byProvider": {
+    "gemini": 0,
+    "openai": 0,
+    "anthropic": 0
+  },
+  "lastUpdated": null
+}
+FUSION_EOF
+        log_success "fusion-state.json 생성"
+    fi
+
+    if [[ ! -f "$HOME/.omcm/fallback-state.json" ]]; then
+        cat > "$HOME/.omcm/fallback-state.json" << 'FALLBACK_EOF'
+{
+  "currentModel": {
+    "id": "claude-opus-4-5",
+    "name": "Claude Opus 4.5",
+    "provider": "anthropic",
+    "type": "primary"
+  },
+  "fallbackActive": false,
+  "fallbackReason": null,
+  "fallbackStartedAt": null,
+  "history": []
+}
+FALLBACK_EOF
+        log_success "fallback-state.json 생성"
+    fi
+
+    if [[ ! -f "$HOME/.omcm/provider-limits.json" ]]; then
+        cat > "$HOME/.omcm/provider-limits.json" << 'LIMITS_EOF'
+{
+  "claude": {
+    "fiveHour": { "used": 0, "limit": 100, "percent": 0 },
+    "weekly": { "used": 0, "limit": 100, "percent": 0 },
+    "lastUpdated": null
+  },
+  "openai": {
+    "requests": { "remaining": null, "limit": null, "reset": null, "percent": 0 },
+    "tokens": { "remaining": null, "limit": null, "reset": null, "percent": 0 },
+    "lastUpdated": null
+  },
+  "gemini": {
+    "tier": "free",
+    "rpm": { "used": 0, "limit": 15 },
+    "tpm": { "used": 0, "limit": 32000 },
+    "rpd": { "used": 0, "limit": 1000 },
+    "lastUpdated": null
+  },
+  "lastUpdated": null
+}
+LIMITS_EOF
+        log_success "provider-limits.json 생성"
+    fi
+
+    log_success "Handoff 디렉토리 설정 완료"
+}
+
+# CodeSyncer 설치 확인 및 안내
+check_codesyncer() {
+    log_step "CodeSyncer 확인"
+
+    if command -v codesyncer &> /dev/null; then
+        log_success "CodeSyncer 설치됨: $(codesyncer --version 2>/dev/null || echo 'installed')"
+    else
+        log_info "CodeSyncer는 선택적 의존성입니다"
+        log_info "태그 기반 코드 동기화가 필요하면 설치하세요:"
+        log_info "  npm install -g codesyncer"
+    fi
+}
+
 # Claude Code에 플러그인 등록
 register_plugin_to_claude() {
     local source_dir="$1"
@@ -395,6 +528,7 @@ register_plugin_to_claude() {
 
     # 디렉토리 생성
     mkdir -p "$HOME/.claude/plugins"
+    mkdir -p "$HOME/.claude/hud"
 
     # ==========================================
     # 1. settings.json에 enabledPlugins 추가
@@ -535,15 +669,21 @@ print_next_steps() {
     echo -e "${BOLD}${CYAN}Step 3: OpenCode 프로바이더 인증${NC}"
     echo -e "  GPT/Gemini 사용을 위해 프로바이더 인증:"
     echo ""
-    echo -e "  ${BOLD}방법 A: OAuth 로그인 (권장)${NC}"
-    echo -e "    opencode auth login anthropic"
-    echo -e "    opencode auth login openai"
-    echo -e "    opencode auth login google"
+    echo -e "  ${BOLD}방법 A: 대화형 로그인 (권장)${NC}"
+    echo -e "    ${GREEN}opencode auth login${NC}"
+    echo -e "    (대화형 메뉴에서 프로바이더 선택 후 로그인)"
+    echo ""
+    echo -e "  ${BOLD}여러 프로바이더 사용 시:${NC}"
+    echo -e "    opencode auth login  ${CYAN}# 메뉴에서 OpenAI 선택${NC}"
+    echo -e "    opencode auth login  ${CYAN}# 메뉴에서 Google 선택${NC}"
     echo ""
     echo -e "  ${BOLD}방법 B: 환경 변수${NC}"
     echo -e "    export ANTHROPIC_API_KEY=\"sk-ant-...\"  ${CYAN}# https://console.anthropic.com/settings/keys${NC}"
     echo -e "    export OPENAI_API_KEY=\"sk-...\"         ${CYAN}# https://platform.openai.com/api-keys${NC}"
     echo -e "    export GOOGLE_API_KEY=\"...\"            ${CYAN}# https://aistudio.google.com/apikey${NC}"
+    echo ""
+    echo -e "  ${BOLD}인증 상태 확인:${NC}"
+    echo -e "    opencode auth status"
     echo ""
 
     echo -e "${BOLD}${CYAN}Step 4: 퓨전 플러그인 셋업${NC}"
@@ -602,6 +742,13 @@ main() {
     install_opencode
     install_omo
     install_omcm
+    setup_handoff_directory
+    check_codesyncer
+
+    # Hooks 설정 (OMCM_SOURCE_DIR는 install_omcm에서 설정됨)
+    if [[ -n "$OMCM_SOURCE_DIR" ]]; then
+        setup_claude_hooks "$OMCM_SOURCE_DIR"
+    fi
 
     print_summary
     print_next_steps

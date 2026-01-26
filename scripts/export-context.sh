@@ -54,7 +54,7 @@ try {
 # =============================================================================
 
 export_context_fallback() {
-    local handoff_dir="${PROJECT_DIR}/.omc/handoff"
+    local handoff_dir="${PROJECT_DIR}/.omcm/handoff"
     mkdir -p "$handoff_dir"
 
     local context_file="${handoff_dir}/context.md"

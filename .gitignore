@@ -10,8 +10,8 @@ Thumbs.db
 .vscode/
 .idea/
 
-# OMC state (auto-generated)
-.omc/
+# OMCM state (auto-generated)
+.omcm/
 CLAUDE.md
 **/CLAUDE.md
 

@@ -14,7 +14,7 @@ arguments:
 ## 전환 프로세스
 
 1. **컨텍스트 수집**: 현재 작업 상태, TODO, 최근 수정 파일, 결정 사항 수집
-2. **컨텍스트 저장**: `.omc/handoff/context.md`에 마크다운 형식으로 저장
+2. **컨텍스트 저장**: `.omcm/handoff/context.md`에 마크다운 형식으로 저장
 3. **OpenCode 실행**: 수집된 컨텍스트와 함께 OpenCode 시작
 
 ## 실행

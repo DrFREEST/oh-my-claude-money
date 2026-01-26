@@ -76,14 +76,32 @@ hulw로 빠르게 처리
 | UI 작업 | OpenCode (Gemini) | 특화 모델 |
 | 복잡한 구현 | Claude | 품질 우선 |
 
-### 4. 🚨 자동 전환 감지
+### 4. 🚨 자동 폴백 시스템 (v2.1+)
+
+Claude 리밋에 따른 자동 전환:
+
+| 상태 | 임계값 | 동작 |
+|------|--------|------|
+| **폴백 활성화** | Claude >= 90% | GPT-5.2-Codex로 자동 전환 |
+| **복구** | Claude < 85% | Claude Opus 4.5로 자동 복귀 |
+
+**폴백 체인:**
+1. Claude Opus 4.5 (기본)
+2. GPT-5.2-Codex (1차 폴백)
+3. Gemini 2.5 Flash (2차 폴백)
+4. GPT-5.2 (3차 폴백)
+
+**핸드오프 컨텍스트:**
+전환 시 `.omcm/handoff/context.md` 파일이 생성되어 작업 상태를 새 모델에 전달합니다.
+
+### 5. 🔍 키워드/임계치 감지
 - **키워드 감지**: "opencode", "전환", "handoff" 입력 시 알림
 - **사용량 임계치**: 5시간/주간 90% 도달 시 경고
 
-### 5. 📋 상세 컨텍스트 전달
+### 6. 📋 상세 컨텍스트 전달
 - 현재 작업 상태 + TODO + 최근 수정 파일 + 결정 사항
 
-### 6. 🔗 OMC HUD 연동
+### 7. 🔗 OMC HUD 연동
 - oh-my-claudecode HUD 캐시 활용 (추가 API 호출 없음)
 
 ## 빠른 시작 (30초)
@@ -178,17 +196,25 @@ Claude Code 프롬프트에서 다음 명령어 입력:
 
 OpenCode에서 GPT/Gemini를 사용하려면 프로바이더 인증이 필요합니다.
 
-#### 방법 A: OpenCode OAuth 로그인 (권장)
+#### 방법 A: 대화형 로그인 (권장)
 
 ```bash
-opencode auth login anthropic
-opencode auth login openai
-opencode auth login google
+opencode auth login
 ```
 
-> ⚠️ **참고:** 일부 환경에서 `fetch() URL is invalid` 에러가 발생할 수 있습니다.
-> 이 경우 방법 B(환경 변수)를 사용하세요.
-> [관련 이슈](https://github.com/sst/opencode/issues/3335)
+**인증 과정:**
+1. `opencode auth login` 실행
+2. 대화형 메뉴에서 프로바이더 선택:
+   - `OpenAI` - GPT-5.2, GPT-5.2-Codex 사용
+   - `Google` - Gemini 2.5 Pro/Flash 사용
+   - `Anthropic` - Claude 모델 사용
+3. 각 프로바이더별로 API 키 입력 또는 OAuth 로그인
+4. 여러 프로바이더를 사용하려면 각각 개별 로그인 필요
+
+```bash
+# 인증 상태 확인
+opencode auth status
+```
 
 #### 방법 B: 환경 변수
 
@@ -505,7 +531,7 @@ curl -fsSL https://opencode.ai/install | bash
 
 ## 컨텍스트 파일 형식
 
-전환 시 생성되는 컨텍스트 파일 (`.omc/handoff/context.md`):
+전환 시 생성되는 컨텍스트 파일 (`.omcm/handoff/context.md`):
 
 ```markdown
 # 작업 핸드오프 컨텍스트

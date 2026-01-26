@@ -74,7 +74,7 @@ export_context() {
     else
         log_warn "export-context.sh를 찾을 수 없습니다. 직접 실행합니다."
         # 직접 컨텍스트 생성
-        local handoff_dir="${PROJECT_DIR}/.omc/handoff"
+        local handoff_dir="${PROJECT_DIR}/.omcm/handoff"
         mkdir -p "$handoff_dir"
 
         local context_file="${handoff_dir}/context.md"
@@ -101,7 +101,7 @@ EOF
 # =============================================================================
 
 load_context() {
-    local context_file="${PROJECT_DIR}/.omc/handoff/context.md"
+    local context_file="${PROJECT_DIR}/.omcm/handoff/context.md"
 
     if [[ ! -f "$context_file" ]]; then
         log_error "컨텍스트 파일이 없습니다: ${context_file}"

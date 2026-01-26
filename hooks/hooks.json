@@ -1,6 +1,19 @@
 {
   "description": "oh-my-claude-money - 사용량 관리 및 OpenCode 브릿지 훅",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/fusion-router.mjs",
+            "timeout": 120,
+            "statusMessage": "퓨전 라우팅 확인 중..."
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [

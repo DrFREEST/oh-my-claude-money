@@ -57,16 +57,18 @@ triggers:
    6. 완료 보고
    ```
 
-4. **퓨전 모드 에이전트 라우팅** (OMCM이 자동 처리):
+4. **퓨전 모드 에이전트 라우팅** (OMCM 자동 처리 - OMC 3.6.0 → OMO 3.1.0):
 
-   | 단계 | OMC 에이전트 | → | OMO 에이전트 |
-   |------|-------------|---|-------------|
-   | 요구사항 분석 | analyst | → | Oracle (GPT) |
-   | 코드 탐색 | explore | → | Flash (Gemini) |
-   | UI 구현 | designer | → | Flash (Gemini) |
-   | 리서치 | researcher | → | Oracle (GPT) |
-   | 계획 수립 | planner | → | Claude (유지) |
-   | 최종 검증 | architect | → | Claude (유지) |
+   | 단계 | OMC 에이전트 | → | OMO 에이전트 | 모델 |
+   |------|-------------|---|-------------|------|
+   | 요구사항 분석 | analyst | → | Oracle | GPT 5.2 |
+   | 코드 탐색 | explore | → | explore | Gemini Flash |
+   | UI 구현 | designer | → | frontend-ui-ux-engineer | Gemini Pro |
+   | 리서치 | researcher | → | Oracle | GPT 5.2 |
+   | 실행/구현 | executor | → | Codex | GPT 5.2 Codex |
+   | 조율 | orchestrator | → | Oracle | GPT 5.2 |
+   | 계획 수립 | planner | → | Claude (유지) | - |
+   | 최종 검증 | architect | → | Oracle | GPT 5.2 |
 
 5. **완료 보고**:
    > "**autopilot 완료** - [작업 요약] / 토큰 절약: [X]%"

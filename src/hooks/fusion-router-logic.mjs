@@ -68,43 +68,76 @@ export function logRouting(decision) {
 
 /**
  * OMC 에이전트를 OpenCode 에이전트로 매핑
+ *
+ * OMC 3.6.0 기준 에이전트: architect, researcher, explore, executor, designer,
+ *                        writer, vision, critic, analyst, orchestrator, planner, qa-tester
+ *
+ * OMO 3.1.0 기준 에이전트: Oracle (GPT), Flash (Gemini), Codex (GPT),
+ *                        explore, librarian, frontend-ui-ux-engineer, document-writer, multimodal-looker
+ *
  * @param {string} agentType - OMC 에이전트 타입
- * @returns {string} - OpenCode 에이전트 (Oracle, Flash, Codex)
+ * @returns {string} - OpenCode 에이전트
  */
 export function mapAgentToOpenCode(agentType) {
   var mapping = {
+    // 분석/아키텍처 (GPT Oracle - 복잡한 추론)
     'architect': 'Oracle',
-    'architect-low': 'Flash',
+    'architect-low': 'explore',      // 빠른 분석은 explore
     'architect-medium': 'Oracle',
-    'researcher': 'Oracle',
-    'researcher-low': 'Flash',
-    'designer': 'Flash',
-    'designer-low': 'Flash',
-    'designer-high': 'Codex',
-    'explore': 'Flash',
-    'explore-medium': 'Oracle',
-    'explore-high': 'Oracle',
-    'scientist': 'Oracle',
-    'scientist-low': 'Flash',
-    'scientist-high': 'Oracle',
-    'executor': 'Codex',
-    'executor-low': 'Flash',
-    'executor-high': 'Codex',
-    'writer': 'Flash',
-    'planner': 'Oracle',
-    'critic': 'Oracle',
     'analyst': 'Oracle',
-    'vision': 'Flash',
+    'critic': 'Oracle',
+
+    // 연구/문서 (GPT Oracle)
+    'researcher': 'Oracle',
+    'researcher-low': 'librarian',   // 문서 탐색은 librarian
+
+    // 탐색 (Gemini Flash - 빠른 탐색)
+    'explore': 'explore',
+    'explore-medium': 'explore',
+    'explore-high': 'Oracle',
+
+    // 데이터 과학 (GPT Oracle - 분석)
+    'scientist': 'Oracle',
+    'scientist-low': 'explore',
+    'scientist-high': 'Oracle',
+
+    // 프론트엔드/디자인 (Gemini - UI 전문)
+    'designer': 'frontend-ui-ux-engineer',
+    'designer-low': 'frontend-ui-ux-engineer',
+    'designer-high': 'frontend-ui-ux-engineer',
+
+    // 문서 작성 (Gemini Flash)
+    'writer': 'document-writer',
+
+    // 비전/멀티모달 (Gemini - 이미지 처리)
+    'vision': 'multimodal-looker',
+
+    // 실행/구현 (GPT Codex - 코딩)
+    'executor': 'Codex',
+    'executor-low': 'Codex',
+    'executor-high': 'Codex',
+
+    // 테스트/QA (GPT Codex)
     'qa-tester': 'Codex',
     'qa-tester-high': 'Codex',
-    'security-reviewer': 'Oracle',
-    'security-reviewer-low': 'Flash',
-    'build-fixer': 'Codex',
-    'build-fixer-low': 'Flash',
     'tdd-guide': 'Codex',
-    'tdd-guide-low': 'Flash',
+    'tdd-guide-low': 'Codex',
+
+    // 빌드/에러 수정 (GPT Codex)
+    'build-fixer': 'Codex',
+    'build-fixer-low': 'Codex',
+
+    // 코드 리뷰/보안 (GPT Oracle - 분석)
     'code-reviewer': 'Oracle',
-    'code-reviewer-low': 'Flash'
+    'code-reviewer-low': 'explore',
+    'security-reviewer': 'Oracle',
+    'security-reviewer-low': 'explore',
+
+    // 조율 (OMC 3.6.0 신규)
+    'orchestrator': 'Oracle',
+
+    // 계획 (Claude 유지 권장, 하지만 폴백 시 Oracle)
+    'planner': 'Oracle'
   };
   return mapping[agentType] || 'Codex';
 }
@@ -212,16 +245,25 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
       };
     }
 
-    // save-tokens 모드: 특정 에이전트만 라우팅
+    // save-tokens 모드: 특정 에이전트만 라우팅 (분석/탐색 위주)
     if (!fusionDefault && fusion && fusion.mode === 'save-tokens') {
-      var tokenSavingAgents = ['architect', 'architect-low', 'architect-medium',
-                              'researcher', 'researcher-low',
-                              'designer', 'designer-low', 'designer-high',
-                              'explore', 'explore-medium', 'explore-high',
-                              'scientist', 'scientist-low', 'scientist-high',
-                              'writer', 'vision',
-                              'code-reviewer', 'code-reviewer-low',
-                              'security-reviewer', 'security-reviewer-low'];
+      var tokenSavingAgents = [
+        // 분석/아키텍처
+        'architect', 'architect-low', 'architect-medium',
+        'analyst', 'critic', 'orchestrator',
+        // 연구
+        'researcher', 'researcher-low',
+        // 탐색
+        'explore', 'explore-medium', 'explore-high',
+        // 데이터 과학
+        'scientist', 'scientist-low', 'scientist-high',
+        // 디자인/문서/비전
+        'designer', 'designer-low', 'designer-high',
+        'writer', 'vision',
+        // 코드 리뷰/보안
+        'code-reviewer', 'code-reviewer-low',
+        'security-reviewer', 'security-reviewer-low'
+      ];
 
       var shouldSave = false;
       for (var j = 0; j < tokenSavingAgents.length; j++) {
@@ -312,29 +354,32 @@ export function updateFusionState(decision, result, currentState = null) {
 
 /**
  * 라우팅 가능한 에이전트 목록 (OpenCode로 라우팅하여 토큰 절약)
+ * OMC 3.6.0 + OMO 3.1.0 기준
  * fusionDefault 모드에서는 planner 제외 모든 에이전트가 라우팅됨
  */
 export const TOKEN_SAVING_AGENTS = [
-  // 분석/탐색
+  // 분석/아키텍처 (→ Oracle)
   'architect', 'architect-low', 'architect-medium',
+  'analyst', 'critic', 'orchestrator',
+  // 연구 (→ Oracle/librarian)
   'researcher', 'researcher-low',
+  // 탐색 (→ explore)
   'explore', 'explore-medium', 'explore-high',
-  'analyst', 'critic',
-  // 데이터 과학
+  // 데이터 과학 (→ Oracle)
   'scientist', 'scientist-low', 'scientist-high',
-  // 프론트엔드/디자인
+  // 프론트엔드/디자인 (→ frontend-ui-ux-engineer)
   'designer', 'designer-low', 'designer-high',
-  // 문서/비전
+  // 문서/비전 (→ document-writer/multimodal-looker)
   'writer', 'vision',
-  // 코드 리뷰/보안
+  // 코드 리뷰/보안 (→ Oracle/explore)
   'code-reviewer', 'code-reviewer-low',
   'security-reviewer', 'security-reviewer-low',
-  // 실행/구현
+  // 실행/구현 (→ Codex)
   'executor', 'executor-low', 'executor-high',
-  // QA/테스트
+  // QA/테스트 (→ Codex)
   'qa-tester', 'qa-tester-high',
   'tdd-guide', 'tdd-guide-low',
-  // 빌드
+  // 빌드 (→ Codex)
   'build-fixer', 'build-fixer-low'
 ];
 

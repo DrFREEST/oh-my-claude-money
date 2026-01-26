@@ -53,16 +53,20 @@ ulw는 **사용량에 따라 자동으로 퓨전 모드를 결정**합니다:
    - 사용량 90%+ 시 → 자동으로 OpenCode로 라우팅
    - OMC 에이전트 → OMO 에이전트 자동 매핑
 
-3. **자동 라우팅 매핑** (OMCM이 처리):
+3. **자동 라우팅 매핑** (OMCM이 처리 - OMC 3.6.0 → OMO 3.1.0):
 
    | OMC 에이전트 | → | OMO 에이전트 | 모델 |
    |-------------|---|-------------|------|
-   | explore, explore-* | → | Flash | Gemini |
-   | architect, architect-* | → | Oracle | GPT |
-   | researcher, researcher-* | → | Oracle | GPT |
-   | designer, designer-* | → | Flash | Gemini |
-   | writer | → | Flash | Gemini |
-   | executor, executor-* | → | Codex | GPT |
+   | explore, explore-* | → | explore | Gemini Flash |
+   | architect, architect-* | → | Oracle | GPT 5.2 |
+   | researcher | → | Oracle | GPT 5.2 |
+   | researcher-low | → | librarian | GLM |
+   | designer, designer-* | → | frontend-ui-ux-engineer | Gemini Pro |
+   | writer | → | document-writer | Gemini Flash |
+   | vision | → | multimodal-looker | Gemini Flash |
+   | executor, executor-* | → | Codex | GPT 5.2 Codex |
+   | orchestrator | → | Oracle | GPT 5.2 |
+   | analyst, critic | → | Oracle | GPT 5.2 |
 
 4. **결과 통합**: OpenCode 결과를 받아 최종 응답 제공
 

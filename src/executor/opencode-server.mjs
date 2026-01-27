@@ -140,6 +140,7 @@ export async function ensureServer(options = {}) {
  * @param {string} prompt - 실행할 프롬프트
  * @param {Object} options - 실행 옵션
  * @param {string} options.model - 모델 이름
+ * @param {string} options.agent - OpenCode 에이전트 이름
  * @param {string[]} options.files - 첨부할 파일 경로 목록
  * @param {boolean} options.disableUlw - ulw 모드 비활성화 여부
  * @param {number} options.timeout - 타임아웃 (ms, 기본: 5분)
@@ -161,6 +162,10 @@ export async function runWithServer(prompt, options = {}) {
 
   if (options.model) {
     args.push('--model', options.model);
+  }
+
+  if (options.agent) {
+    args.push('--agent', options.agent);
   }
 
   if (options.files && Array.isArray(options.files)) {

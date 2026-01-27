@@ -5,69 +5,42 @@
  * When fallback is active, intercepts Task calls and routes to OpenCode
  */
 
-import { spawn } from 'child_process';
 import {
   shouldRouteToOpenCode,
   mapAgentToOpenCode,
-  wrapWithUlwCommand,
   updateFusionState,
   logRouting
 } from '../src/hooks/fusion-router-logic.mjs';
+import { runWithServer } from '../src/executor/opencode-server.mjs';
 
 /**
- * OpenCode를 통해 작업 실행
+ * OpenCode를 통해 작업 실행 (서버 모드)
  */
-function executeViaOpenCode(toolInput, decision) {
-  return new Promise(function(resolve) {
-    var prompt = toolInput.prompt || '';
-    var agent = decision.opencodeAgent || 'Codex';
+async function executeViaOpenCode(toolInput, decision) {
+  var prompt = toolInput.prompt || '';
+  var agent = decision.opencodeAgent || 'Codex';
 
-    // /ulw 커맨드 래핑으로 ULW 모드 활성화
-    prompt = wrapWithUlwCommand(prompt);
+  console.error('[OMCM] Routing to OpenCode agent: ' + agent);
+  console.error('[OMCM] Using serve mode for faster execution');
+  console.error('[OMCM] Reason: ' + decision.reason);
 
-    console.error('[OMCM] Routing to OpenCode agent: ' + agent);
-    console.error('[OMCM] Prompt wrapped with /ulw command');
-    console.error('[OMCM] Reason: ' + decision.reason);
-
-    // 'run' 서브커맨드 사용 + --agent 플래그 + 프롬프트를 인자로 전달
-    var args = ['run', '--agent', agent, prompt];
-
-    var child = spawn('opencode', args, {
-      stdio: ['inherit', 'pipe', 'pipe'],
-      env: Object.assign({}, process.env, { OPENCODE_NON_INTERACTIVE: '1' })
+  try {
+    var result = await runWithServer(prompt, {
+      agent: agent,
+      timeout: 5 * 60 * 1000
     });
 
-    var stdout = '';
-    var stderr = '';
-
-    child.stdout.on('data', function(data) {
-      stdout += data.toString();
-      // 출력 스트리밍
-      process.stderr.write(data);
-    });
-
-    child.stderr.on('data', function(data) {
-      stderr += data.toString();
-    });
-
-    child.on('close', function(code) {
-      if (code === 0) {
-        resolve({ success: true, output: stdout, stderr: stderr });
-      } else {
-        resolve({ success: false, error: 'Exit code ' + code, output: stdout, stderr: stderr });
-      }
-    });
-
-    child.on('error', function(err) {
-      resolve({ success: false, error: err.message });
-    });
-
-    // 5분 타임아웃
-    setTimeout(function() {
-      child.kill('SIGTERM');
-      resolve({ success: false, error: 'Timeout after 5 minutes' });
-    }, 5 * 60 * 1000);
-  });
+    return {
+      success: true,
+      output: result.stdout || JSON.stringify(result.result || result),
+      stderr: result.stderr || ''
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message
+    };
+  }
 }
 
 /**

@@ -44,6 +44,21 @@ cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 EOF
 
 # fusion-state.json의 enabled는 유지 (사용량 기반 자동 전환에 필요)
+
+# 서버 풀 중지 (리소스 절약)
+echo "서버 풀 중지 중..."
+if [ -f ~/.claude/plugins/marketplaces/omcm/scripts/start-server-pool.sh ]; then
+  ~/.claude/plugins/marketplaces/omcm/scripts/start-server-pool.sh stop
+elif [ -f ~/.local/share/omcm/scripts/start-server-pool.sh ]; then
+  ~/.local/share/omcm/scripts/start-server-pool.sh stop
+else
+  # 단일 서버 폴백 중지
+  if [ -f ~/.omcm/server-pool/server-4096.pid ]; then
+    kill $(cat ~/.omcm/server-pool/server-4096.pid) 2>/dev/null || true
+    rm -f ~/.omcm/server-pool/server-4096.pid
+    echo "서버 중지됨 (포트 4096)"
+  fi
+fi
 ```
 
 ## 확인 메시지
@@ -51,11 +66,12 @@ EOF
 설정 완료 후 사용자에게 알림:
 
 > **퓨전 모드 기본값 비활성화** - 이제 사용량 기반으로 자동 전환됩니다.
+> **서버 풀 중지됨** - 리소스가 해제되었습니다.
 > - 사용량 < 70%: Claude 에이전트 사용
 > - 사용량 70-90%: 하이브리드 모드
 > - 사용량 > 90%: OpenCode 중심 모드
 >
-> 다시 활성화하려면 `/oh-my-claude-money:fusion-default-on`을 실행하세요.
+> 다시 활성화하려면 `/omcm:fusion-default-on`을 실행하세요.
 
 ## 효과
 

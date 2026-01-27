@@ -80,60 +80,60 @@ export function logRouting(decision) {
  */
 export function mapAgentToOpenCode(agentType) {
   var mapping = {
-    // 분석/아키텍처 (GPT Oracle - 복잡한 추론)
-    'architect': 'Oracle',
-    'architect-low': 'explore',      // 빠른 분석은 explore
+    // 분석/아키텍처
+    'architect': 'Oracle',           // 복잡한 추론
+    'architect-low': 'Flash',        // 빠른 분석
     'architect-medium': 'Oracle',
     'analyst': 'Oracle',
     'critic': 'Oracle',
 
-    // 연구/문서 (GPT Oracle)
+    // 연구/문서
     'researcher': 'Oracle',
-    'researcher-low': 'librarian',   // 문서 탐색은 librarian
+    'researcher-low': 'Flash',       // 빠른 조회
 
-    // 탐색 (Gemini Flash - 빠른 탐색)
-    'explore': 'explore',
-    'explore-medium': 'explore',
-    'explore-high': 'Oracle',
+    // 탐색
+    'explore': 'Flash',              // 빠른 탐색
+    'explore-medium': 'Oracle',      // 중간 복잡도
+    'explore-high': 'Oracle',        // 복잡한 탐색
 
-    // 데이터 과학 (GPT Oracle - 분석)
+    // 데이터 과학
     'scientist': 'Oracle',
-    'scientist-low': 'explore',
+    'scientist-low': 'Flash',
     'scientist-high': 'Oracle',
 
-    // 프론트엔드/디자인 (Gemini - UI 전문)
-    'designer': 'frontend-ui-ux-engineer',
-    'designer-low': 'frontend-ui-ux-engineer',
-    'designer-high': 'frontend-ui-ux-engineer',
+    // 프론트엔드/디자인
+    'designer': 'Flash',             // 빠른 UI 작업
+    'designer-low': 'Flash',
+    'designer-high': 'Codex',        // 복잡한 UI 구현
 
-    // 문서 작성 (Gemini Flash)
-    'writer': 'document-writer',
+    // 문서 작성
+    'writer': 'Flash',               // 빠른 문서 작성
 
-    // 비전/멀티모달 (Gemini - 이미지 처리)
-    'vision': 'multimodal-looker',
+    // 비전/멀티모달
+    'vision': 'Flash',               // 이미지 분석
 
-    // 실행/구현 (GPT Codex - 코딩)
-    'executor': 'Codex',
-    'executor-low': 'Codex',
-    'executor-high': 'Codex',
+    // 실행/구현
+    'executor': 'Codex',             // 코드 작성
+    'executor-low': 'Flash',         // 간단한 수정
+    'executor-high': 'Codex',        // 복잡한 구현
 
-    // 테스트/QA (GPT Codex)
+    // 테스트/QA
     'qa-tester': 'Codex',
     'qa-tester-high': 'Codex',
     'tdd-guide': 'Codex',
-    'tdd-guide-low': 'Codex',
+    'tdd-guide-low': 'Flash',
 
-    // 빌드/에러 수정 (GPT Codex)
+    // 빌드/에러 수정
     'build-fixer': 'Codex',
-    'build-fixer-low': 'Codex',
+    'build-fixer-low': 'Flash',      // 간단한 빌드 수정
 
-    // 코드 리뷰/보안 (GPT Oracle - 분석)
+    // 코드 리뷰/보안
     'code-reviewer': 'Oracle',
-    'code-reviewer-low': 'explore',
+    'code-reviewer-low': 'Flash',
     'security-reviewer': 'Oracle',
-    'security-reviewer-low': 'explore',
+    'security-reviewer-low': 'Flash',
 
-    // 조율 (OMC 3.6.0 신규)
+    // 조율
     'orchestrator': 'Oracle',
 
     // 계획 (Claude 유지 권장, 하지만 폴백 시 Oracle)
@@ -284,11 +284,11 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
     }
 
     // save-tokens 모드: 특정 에이전트만 라우팅 (분석/탐색 위주)
+    // executor, critic, planner, qa-tester, build-fixer, tdd-guide는 Claude 전용
     if (!fusionDefault && fusion && fusion.mode === 'save-tokens') {
       var tokenSavingAgents = [
         // 분석/아키텍처
         'architect', 'architect-low', 'architect-medium',
-        'analyst', 'critic', 'orchestrator',
         // 연구
         'researcher', 'researcher-low',
         // 탐색
@@ -398,32 +398,148 @@ export function updateFusionState(decision, result, currentState = null) {
 export const TOKEN_SAVING_AGENTS = [
   // 분석/아키텍처 (→ Oracle)
   'architect', 'architect-low', 'architect-medium',
-  'analyst', 'critic', 'orchestrator',
   // 연구 (→ Oracle/librarian)
   'researcher', 'researcher-low',
+  // 프론트엔드/디자인 (→ frontend-ui-ux-engineer)
+  'designer', 'designer-low', 'designer-high',
   // 탐색 (→ explore)
   'explore', 'explore-medium', 'explore-high',
   // 데이터 과학 (→ Oracle)
   'scientist', 'scientist-low', 'scientist-high',
-  // 프론트엔드/디자인 (→ frontend-ui-ux-engineer)
-  'designer', 'designer-low', 'designer-high',
   // 문서/비전 (→ document-writer/multimodal-looker)
   'writer', 'vision',
   // 코드 리뷰/보안 (→ Oracle/explore)
   'code-reviewer', 'code-reviewer-low',
-  'security-reviewer', 'security-reviewer-low',
-  // 실행/구현 (→ Codex)
-  'executor', 'executor-low', 'executor-high',
-  // QA/테스트 (→ Codex)
-  'qa-tester', 'qa-tester-high',
-  'tdd-guide', 'tdd-guide-low',
-  // 빌드 (→ Codex)
-  'build-fixer', 'build-fixer-low'
+  'security-reviewer', 'security-reviewer-low'
 ];
 
 /**
  * 라우팅 불가능한 에이전트 목록 (Claude 전용)
- * fusionDefault 모드에서도 planner만 Claude에서 유지 (전략적 계획 수립)
- * 나머지 에이전트(executor, qa-tester, build-fixer, tdd-guide, critic)는 OpenCode로 라우팅
+ * 실행, 테스트, 빌드 등 정확도가 중요한 작업은 Claude에서만 실행
+ * planner, critic, executor*, qa-tester*, build-fixer*, tdd-guide*
  */
-export const CLAUDE_ONLY_AGENTS = ['planner'];
+export const CLAUDE_ONLY_AGENTS = [
+  'planner', 'critic', 'executor', 'executor-low', 'executor-high',
+  'qa-tester', 'qa-tester-high', 'build-fixer', 'build-fixer-low',
+  'tdd-guide', 'tdd-guide-low'
+];
+
+// =============================================================================
+// v0.8.0 모듈 통합 - 동적 매핑, 규칙 엔진, 캐시
+// =============================================================================
+
+import { getAgentMapping, getDynamicMapping } from '../router/mapping.mjs';
+import { evaluateRouting, interpretAction } from '../router/rules.mjs';
+import { getCachedRoute, cacheRoute, getCacheStats } from '../router/cache.mjs';
+
+/**
+ * v0.8.0 향상된 라우팅 결정
+ *
+ * 1. 캐시 확인
+ * 2. 동적 매핑 확인
+ * 3. 조건부 규칙 평가
+ * 4. 기본 로직 폴백
+ *
+ * @param {object} toolInput - 도구 입력
+ * @param {object} context - 추가 컨텍스트 (usage, mode, task 정보)
+ * @param {object} [options] - 옵션 (테스트용 의존성 주입)
+ * @returns {object} - 라우팅 결정
+ */
+export function shouldRouteToOpenCodeV2(toolInput, context = {}, options = {}) {
+  // 에이전트 타입 추출
+  var agentType = '';
+  if (toolInput && toolInput.subagent_type) {
+    agentType = toolInput.subagent_type.replace('oh-my-claudecode:', '');
+  }
+
+  if (!agentType) {
+    return { route: false, reason: 'no-agent-type' };
+  }
+
+  // 1. 캐시 확인
+  var cached = getCachedRoute(agentType, context);
+  if (cached) {
+    return { ...cached, fromCache: true };
+  }
+
+  // 2. 조건부 규칙 평가
+  var ruleContext = {
+    usage: context.usage || {},
+    mode: context.mode || {},
+    task: context.task || {},
+    agent: { type: agentType },
+  };
+
+  var ruleResult = evaluateRouting(ruleContext);
+
+  if (ruleResult.matched) {
+    var action = interpretAction(ruleResult.action);
+
+    // prefer 또는 force 액션 모두 적용 (preferredProvider가 있으면)
+    if (action.preferredProvider) {
+      var decision = {
+        route: action.preferredProvider === 'opencode',
+        reason: 'rule-' + ruleResult.rule.id,
+        ruleApplied: ruleResult.rule,
+        matched: true,
+      };
+
+      if (decision.route) {
+        var mappedAgent = mapAgentToOpenCode(agentType);
+        decision.opencodeAgent = mappedAgent;
+        decision.targetModel = getModelInfoForAgent(mappedAgent);
+      }
+
+      cacheRoute(agentType, context, decision);
+      return decision;
+    }
+  }
+
+  // 3. 동적 매핑 확인
+  var dynamicMapping = getAgentMapping(agentType);
+
+  if (dynamicMapping) {
+    var decision = {
+      route: dynamicMapping.provider === 'opencode',
+      reason: 'dynamic-mapping-' + agentType,
+      targetModel: {
+        id: dynamicMapping.model,
+        name: dynamicMapping.model,
+      },
+      opencodeAgent: dynamicMapping.target,
+      tier: dynamicMapping.tier,
+    };
+
+    cacheRoute(agentType, context, decision);
+    return decision;
+  }
+
+  // 4. 기본 로직 (v0.7.0 호환)
+  var baseDecision = shouldRouteToOpenCode(toolInput, options);
+
+  // 캐시에 저장
+  cacheRoute(agentType, context, baseDecision);
+
+  return baseDecision;
+}
+
+/**
+ * 라우팅 통계 조회 (v0.8.0)
+ */
+export function getRoutingStats() {
+  var fusionState = readJsonFile(FUSION_STATE_FILE) || {};
+  var cacheStats = getCacheStats();
+  var dynamicMapping = getDynamicMapping();
+
+  return {
+    fusion: {
+      totalTasks: fusionState.totalTasks || 0,
+      routedToOpenCode: fusionState.routedToOpenCode || 0,
+      routingRate: fusionState.routingRate || 0,
+      estimatedSavedTokens: fusionState.estimatedSavedTokens || 0,
+      byProvider: fusionState.byProvider || {},
+    },
+    cache: cacheStats,
+    dynamicMappings: dynamicMapping.mappings ? dynamicMapping.mappings.length : 0,
+  };
+}

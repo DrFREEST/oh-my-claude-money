@@ -35,7 +35,7 @@
 
 ### What is OMCM?
 
-OMCM fuses 28 Claude Code agents with OpenCode's multi-provider agents, enabling **39% token savings** by intelligently routing tasks to the optimal LLM (Claude, GPT, or Gemini).
+OMCM fuses 32 Claude Code agents with OpenCode's multi-provider agents, enabling **62% token savings** by intelligently routing tasks to the optimal LLM (Claude, GPT, or Gemini).
 
 ### Key Features
 
@@ -43,7 +43,7 @@ OMCM fuses 28 Claude Code agents with OpenCode's multi-provider agents, enabling
 2. **Smart Agent Routing** - Analysis agents → OpenCode (GPT/Gemini), execution agents → Claude
 3. **Real-time Tracking** - HUD integration shows usage and fusion status
 4. **Hybrid Ultrawork (`hulw`)** - Instant fusion mode with maximum parallelism
-5. **Token Savings** - 12 agents offloaded to other providers automatically
+5. **Token Savings** - 18 agents offloaded to other providers automatically
 
 ### Quick Start
 
@@ -79,26 +79,28 @@ Claude Opus 4.5 (Conductor)
 └─→ Usage > 90%? → Automatic fallback to OpenCode
 ```
 
-### OpenCode Server Mode (Performance)
+### OpenCode Server Pool (Performance)
 
-OMCM uses OpenCode's serve mode for **10x faster** fusion routing:
+OMCM uses a **flexible server pool** to reduce **routing call latency by ~90%** compared to CLI mode:
 
 ```bash
-# Start OpenCode server (recommended)
+# Server pool is managed automatically in parallel modes (ultrapilot, ultrawork)
+# Manual server control is still available:
 ./scripts/opencode-server.sh start
-
-# Or manually
-opencode serve --port 4096 &
 ```
 
 **Performance Comparison:**
 
 | Mode | First Call | Subsequent Calls |
 |------|------------|------------------|
-| Without Server | ~10-15s (cold boot) | ~10-15s |
-| **With Server** | ~5s (server start) | **~1s** |
+| CLI Mode (no server) | ~10-15s (cold boot) | ~10-15s |
+| **Server Pool Mode** | ~5s (pool start) | **~1s** |
 
-The server pre-initializes MCP connections, eliminating cold boot overhead.
+**Server Pool Features:**
+- **Dynamic Scaling**: 1-5 servers based on load (configurable via `maxOpencodeWorkers`)
+- **Auto-Recovery**: Failed servers are automatically restarted
+- **Load Balancing**: Round-robin distribution across idle servers
+- **Resource Usage**: ~250-300MB per server instance (~1.5GB for 5 servers)
 
 **Server Management:**
 ```bash
@@ -130,8 +132,8 @@ See sections below for complete setup guide, configuration, and troubleshooting.
 
 ## 개요
 
-Claude Code의 28개 OMC 에이전트를 OpenCode의 멀티 프로바이더 에이전트로 **퓨전**하여:
-- **Claude 토큰 39% 절약**: 12개 에이전트를 GPT/Gemini로 오프로드
+Claude Code의 32개 OMC 에이전트를 OpenCode의 멀티 프로바이더 에이전트로 **퓨전**하여:
+- **Claude 토큰 62% 절약**: 18개 에이전트를 GPT/Gemini로 오프로드
 - **메인 오케스트레이터**: Opus 4.5가 지휘, 서브 에이전트는 최적 LLM으로 분배
 - **자동 라우팅**: 사용량/작업 유형 기반 지능형 분배
 
@@ -161,7 +163,7 @@ Claude Code의 28개 OMC 에이전트를 OpenCode의 멀티 프로바이더 에�
 
 ### 1. 🔀 에이전트 퓨전 (핵심!)
 
-OMC 29개 에이전트 → OMO 에이전트 + 외부 모델 매핑으로 **Claude 토큰 62% 절약**:
+OMC 32개 에이전트 → OMO 에이전트 + 외부 모델 매핑으로 **Claude 토큰 62% 절약**:
 
 **티어별 모델 분배 (퓨전/폴백 모드):**
 
@@ -269,6 +271,34 @@ Claude Code에서 OpenCode를 MCP로 호출할 수 있습니다.
 - `opencode_get_status` - 상태 확인
 - `opencode_list_models` - 모델 목록
 - `opencode_export_session` - 세션 내보내기
+
+### 10. 🚀 v1.0.0 신규 기능
+
+#### 실시간 추적 시스템 (`src/tracking/`)
+- **RealtimeTracker**: RingBuffer 기반 이벤트 실시간 추적
+- **MetricsCollector**: 프로바이더별 라우팅/토큰/에러 메트릭 수집
+- **TimeBucket**: 시간 범위별 통계 집계 (분/시간/일)
+
+#### 컨텍스트 전달 시스템 (`src/context/`)
+- **buildContext()**: 현재 작업 컨텍스트 자동 빌드
+  - 최근 수정 파일, TODO 상태, 세션 학습 사항 수집
+- **ContextSynchronizer**: OpenCode와 실시간 컨텍스트 동기화
+- **핸드오프 히스토리 관리**: 프로바이더 전환 기록 추적
+
+#### 다중 프로바이더 밸런싱 (`src/router/balancer.mjs`)
+- **4가지 밸런싱 전략**:
+  - `round-robin`: 순차 순환
+  - `weighted`: 가중치 기반 (claude:3, openai:2, gemini:2)
+  - `latency`: 응답 시간 기반 선택
+  - `usage`: 사용량 기반 부하 분산
+- **ProviderBalancer**: 통합 밸런서 인터페이스
+
+#### 병렬 실행기 (`src/orchestrator/`)
+- **ParallelExecutor**: 병렬/순차/하이브리드 실행 모드
+  - 파일 충돌 자동 검사
+  - 의존성 기반 작업 그룹화
+  - 자동 프로바이더 라우팅
+- **ExecutionStrategy**: 작업 유형별 전략 선택 (run/serve/acp)
 
 ## 빠른 시작 (30초)
 
@@ -571,26 +601,38 @@ abort
 | `/omcm:cancel-autopilot` | 오토파일럿 중단 |
 | `/omcm:opencode` | OpenCode로 명시적 전환 |
 
-### OpenCode 서버 모드 (성능 최적화)
+### OpenCode 서버 풀 (성능 최적화)
 
-OMCM은 OpenCode의 serve 모드를 사용하여 **10배 빠른** 퓨전 라우팅을 제공합니다:
+OMCM은 **플렉서블 서버 풀**을 사용하여 CLI 모드 대비 **라우팅 호출 대기 시간을 ~90% 단축**합니다:
 
 ```bash
-# OpenCode 서버 시작 (권장)
+# 서버 풀은 병렬 모드(ultrapilot, ultrawork)에서 자동 관리됩니다
+# 수동 서버 제어도 가능:
 ./scripts/opencode-server.sh start
-
-# 또는 수동 실행
-opencode serve --port 4096 &
 ```
 
 **성능 비교:**
 
 | 모드 | 첫 호출 | 이후 호출 |
 |------|--------|----------|
-| 서버 없음 | ~10-15초 (cold boot) | ~10-15초 |
-| **서버 사용** | ~5초 (서버 시작) | **~1초** |
+| CLI 모드 (서버 없음) | ~10-15초 (cold boot) | ~10-15초 |
+| **서버 풀 모드** | ~5초 (풀 시작) | **~1초** |
 
-서버가 MCP 연결을 미리 초기화하여 cold boot 오버헤드를 제거합니다.
+**서버 풀 특징:**
+- **동적 스케일링**: 부하에 따라 1~5개 서버 자동 조절 (`maxOpencodeWorkers`로 설정)
+- **자동 복구**: 실패한 서버 자동 재시작
+- **로드 밸런싱**: 라운드로빈 방식으로 idle 서버에 분배
+- **리소스 사용량**: 서버당 ~250-300MB (5개 서버 ≈ 1.5GB)
+
+**대규모 병렬 시나리오:**
+```
+퓨전 울트라파일럿
+└─ 메인 오케스트레이터 (5개 병렬 워커)
+   └─ 각 워커가 ulw 활성화 → 5개 하위 작업
+      = 총 25개 동시 작업 처리 가능
+```
+
+25개 이상 동시 작업 시 `maxOpencodeWorkers` 조정 권장 (메모리 고려: 25개 ≈ 6.25GB)
 
 **서버 관리:**
 ```bash
@@ -654,7 +696,7 @@ opencode serve --port 4096 &
 | **라우팅 설정** | | |
 | `routing.enabled` | 하이브리드 라우팅 활성화 | true |
 | `routing.usageThreshold` | OpenCode 분배 증가 임계치 | 70 |
-| `routing.maxOpencodeWorkers` | 동시 OpenCode 워커 수 | 3 |
+| `routing.maxOpencodeWorkers` | 서버 풀 최대 서버 수 (1~25 권장, 메모리 고려) | 5 |
 | `routing.autoDelegate` | 자동 위임 활성화 | true |
 | **컨텍스트 설정** | | |
 | `context.includeRecentFiles` | 최근 수정 파일 포함 | true |
@@ -703,30 +745,47 @@ oh-my-claude-money/
 │   ├── opencode.md               # OpenCode 전환 스킬
 │   └── ulw.md                    # 자동 퓨전 울트라워크
 ├── src/
-│   ├── executor/
-│   │   └── opencode-executor.mjs # OpenCode 실행기
-│   ├── hooks/
-│   │   ├── detect-handoff.mjs    # 키워드/임계치 감지
-│   │   └── session-start.mjs     # 세션 시작 경고
-│   ├── hud/
-│   │   ├── fusion-renderer.mjs   # 퓨전 렌더러
-│   │   ├── index.mjs             # HUD 모듈 내보내기
-│   │   └── omcm-hud.mjs          # OMCM HUD
+│   ├── context/                    # v1.0.0 컨텍스트 전달
+│   │   ├── context-builder.mjs     # 컨텍스트 빌드
+│   │   ├── context-serializer.mjs  # 직렬화
+│   │   ├── context-sync.mjs        # 동기화
+│   │   └── index.mjs               # 모듈 익스포트
+│   ├── tracking/                   # v1.0.0 실시간 추적
+│   │   ├── realtime-tracker.mjs    # 이벤트 추적
+│   │   ├── metrics-collector.mjs   # 메트릭 수집
+│   │   └── index.mjs               # 모듈 익스포트
+│   ├── router/
+│   │   ├── balancer.mjs            # v1.0.0 프로바이더 밸런싱
+│   │   ├── cache.mjs               # v0.8.0 LRU 캐시
+│   │   ├── mapping.mjs             # v0.8.0 동적 매핑
+│   │   └── rules.mjs               # v0.8.0 규칙 엔진
 │   ├── orchestrator/
-│   │   ├── agent-fusion-map.mjs  # 에이전트 퓨전 매핑
+│   │   ├── parallel-executor.mjs   # v1.0.0 병렬 실행기
+│   │   ├── execution-strategy.mjs  # v1.0.0 실행 전략
+│   │   ├── agent-fusion-map.mjs    # 에이전트 퓨전 매핑
 │   │   ├── fallback-orchestrator.mjs # 폴백 오케스트레이터
 │   │   ├── fusion-orchestrator.mjs   # 퓨전 오케스트레이터
-│   │   ├── hybrid-ultrawork.mjs  # 하이브리드 울트라워크
-│   │   ├── index.mjs             # 모듈 내보내기
-│   │   ├── opencode-worker.mjs   # OpenCode 워커 관리
-│   │   └── task-router.mjs       # 작업 라우팅 결정
+│   │   ├── hybrid-ultrawork.mjs    # 하이브리드 울트라워크
+│   │   ├── index.mjs               # 모듈 내보내기
+│   │   ├── opencode-worker.mjs     # OpenCode 워커 관리
+│   │   └── task-router.mjs         # 작업 라우팅 결정
+│   ├── executor/
+│   │   ├── opencode-executor.mjs   # OpenCode CLI 실행기
+│   │   └── opencode-server-pool.mjs # v1.0.0 플렉서블 서버 풀
+│   ├── hooks/
+│   │   ├── detect-handoff.mjs      # 키워드/임계치 감지
+│   │   └── session-start.mjs       # 세션 시작 경고
+│   ├── hud/
+│   │   ├── fusion-renderer.mjs     # 퓨전 렌더러
+│   │   ├── index.mjs               # HUD 모듈 내보내기
+│   │   └── omcm-hud.mjs            # OMCM HUD
 │   └── utils/
-│       ├── config.mjs            # 설정 관리
-│       ├── context.mjs           # 컨텍스트 내보내기
-│       ├── fusion-tracker.mjs    # 퓨전 추적
-│       ├── handoff-context.mjs   # 핸드오프 컨텍스트
-│       ├── provider-limits.mjs   # 프로바이더 제한 관리
-│       └── usage.mjs             # HUD 사용량 유틸리티
+│       ├── config.mjs              # 설정 관리
+│       ├── context.mjs             # 컨텍스트 내보내기
+│       ├── fusion-tracker.mjs      # 퓨전 추적
+│       ├── handoff-context.mjs     # 핸드오프 컨텍스트
+│       ├── provider-limits.mjs     # 프로바이더 제한 관리
+│       └── usage.mjs               # HUD 사용량 유틸리티
 ├── install.sh                    # 설치 스크립트
 ├── uninstall.sh                  # 제거 스크립트
 ├── package.json
@@ -741,10 +800,15 @@ npm test
 ```
 
 **커버리지**:
-- 전체: 159개 테스트
-- provider-limits: ~90%
-- fusion-tracker: ~85%
-- fusion-router: 63개 테스트 (v0.4.0+)
+- 전체: **361개 테스트** (100% PASS)
+- v0.8.0 통합 테스트: 19개
+- v1.0.0 테스트: 342개
+  - tracking: 32개
+  - context: 26개
+  - balancer: 49개
+  - parallel-executor: 19개
+  - server-pool: 신규
+  - orchestrator: 신규
 
 ## 의존성
 

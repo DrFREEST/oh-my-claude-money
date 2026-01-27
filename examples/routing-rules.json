@@ -1,0 +1,62 @@
+{
+  "$schema": "https://omcm.dev/schemas/routing-rules.json",
+  "description": "OMCM 조건부 라우팅 규칙 설정 예제",
+  "rules": [
+    {
+      "id": "high-usage-opencode",
+      "condition": "usage.fiveHour > 90",
+      "action": "prefer_opencode",
+      "priority": 100,
+      "description": "5시간 사용량 90% 초과 시 OpenCode 우선"
+    },
+    {
+      "id": "weekly-limit-opencode",
+      "condition": "usage.weekly > 85",
+      "action": "prefer_opencode",
+      "priority": 90,
+      "description": "주간 사용량 85% 초과 시 OpenCode 우선"
+    },
+    {
+      "id": "ecomode-active",
+      "condition": "mode.ecomode == true",
+      "action": "prefer_opencode",
+      "priority": 95,
+      "description": "Ecomode 활성화 시 OpenCode 우선"
+    },
+    {
+      "id": "complex-task-claude",
+      "condition": "task.complexity == \"high\"",
+      "action": "prefer_claude",
+      "priority": 80,
+      "description": "복잡한 작업은 Claude 우선"
+    },
+    {
+      "id": "security-review-claude",
+      "condition": "agent.type == \"security-reviewer\"",
+      "action": "prefer_claude",
+      "priority": 85,
+      "description": "보안 검토는 Claude 우선"
+    },
+    {
+      "id": "planner-claude",
+      "condition": "agent.type == \"planner\"",
+      "action": "force_claude",
+      "priority": 88,
+      "description": "전략적 계획은 반드시 Claude"
+    },
+    {
+      "id": "critic-claude",
+      "condition": "agent.type == \"critic\"",
+      "action": "force_claude",
+      "priority": 88,
+      "description": "플랜 비평은 반드시 Claude"
+    },
+    {
+      "id": "low-usage-claude",
+      "condition": "usage.fiveHour < 50",
+      "action": "prefer_claude",
+      "priority": 30,
+      "description": "사용량 낮을 때 Claude 우선"
+    }
+  ]
+}

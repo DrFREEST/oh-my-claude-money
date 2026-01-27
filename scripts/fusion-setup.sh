@@ -1,18 +1,21 @@
 #!/bin/bash
 # ============================================================================
-# fusion-setup.sh - OMCM 퓨전 모드 자동 셋업 스크립트
+# fusion-setup.sh - OMCM 퓨전 모드 자동 셋업 스크립트 v2
 # ============================================================================
 #
-# 이 스크립트는 다음을 자동으로 설정합니다:
-#   1. fusionDefault 설정 (config.json)
-#   2. CLAUDE.md 퓨전 지시사항 추가
-#   3. OpenCode 프로바이더 인증 상태 확인
-#   4. OpenCode 서버 모드 시작 (선택적)
+# 사용자 피로도를 줄이기 위해 최소한의 설정만 진행합니다.
+# 모든 설정은 기본값을 사용하며, 필요시 스킵 가능합니다.
+#
+# 필수 단계:
+#   1. OpenCode 서버 실행 (필수 - 스킵 불가)
+#   2. fusionDefault 설정 (기본: true, 스킵 가능)
+#   3. CLAUDE.md 퓨전 지시사항 (자동, 스킵 가능)
+#   4. OpenCode 프로바이더 인증 확인 (안내만)
 #
 # 사용법:
-#   ./scripts/fusion-setup.sh
-#   또는
-#   /omcm:fusion-setup (Claude Code 내에서)
+#   ./scripts/fusion-setup.sh           # 인터랙티브 모드
+#   ./scripts/fusion-setup.sh --quick   # 모든 기본값 사용
+#   ./scripts/fusion-setup.sh --help    # 도움말
 #
 # ============================================================================
 
@@ -24,51 +27,172 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+BOLD='\033[1m'
 NC='\033[0m'
+
+# 기본값
+QUICK_MODE=false
+FUSION_DEFAULT=true
+THRESHOLD=90
+SERVER_PORT=4096
+TIMEOUT=300000
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 log_error() { echo -e "${RED}[✗]${NC} $1"; }
-log_step() { echo -e "\n${CYAN}▶ $1${NC}"; }
+log_step() { echo -e "\n${BOLD}${MAGENTA}▶ $1${NC}"; }
+
+# 도움말
+show_help() {
+    echo "OMCM 퓨전 셋업 스크립트"
+    echo ""
+    echo "사용법: $0 [옵션]"
+    echo ""
+    echo "옵션:"
+    echo "  --quick, -q     모든 기본값 사용 (인터랙티브 없음)"
+    echo "  --help, -h      이 도움말 표시"
+    echo ""
+    echo "기본값:"
+    echo "  fusionDefault: true"
+    echo "  threshold: 90%"
+    echo "  serverPort: 4096"
+    echo "  timeout: 5분"
+    exit 0
+}
+
+# 사용자 입력 받기 (Y/n)
+ask_yes_no() {
+    local prompt="$1"
+    local default="$2"
+
+    if [[ "$QUICK_MODE" == "true" ]]; then
+        echo "$default"
+        return
+    fi
+
+    local yn
+    if [[ "$default" == "y" ]]; then
+        read -p "$prompt [Y/n]: " yn
+        yn=${yn:-y}
+    else
+        read -p "$prompt [y/N]: " yn
+        yn=${yn:-n}
+    fi
+
+    echo "$yn"
+}
 
 # ============================================================================
-# 1. config.json 설정
+# 1. OpenCode 서버 실행 (필수 - 스킵 불가!)
+# ============================================================================
+start_opencode_server() {
+    log_step "1. OpenCode 서버 실행 (필수)"
+
+    if ! command -v opencode &> /dev/null; then
+        log_error "OpenCode가 설치되지 않았습니다"
+        log_info "설치: npm install -g @anthropics/opencode"
+        exit 1
+    fi
+
+    # 이미 실행 중인지 확인
+    if curl -s "http://localhost:$SERVER_PORT/health" >/dev/null 2>&1; then
+        log_success "OpenCode 서버 이미 실행 중 (포트: $SERVER_PORT)"
+        return 0
+    fi
+
+    log_info "OpenCode 서버 시작 중... (포트: $SERVER_PORT)"
+
+    # 백그라운드에서 서버 시작
+    nohup opencode serve --port "$SERVER_PORT" > "$HOME/.omcm/opencode-server.log" 2>&1 &
+    local pid=$!
+    echo "$pid" > "$HOME/.omcm/opencode-server.pid"
+
+    # 서버 준비 대기 (최대 30초)
+    local count=0
+    while [[ $count -lt 30 ]]; do
+        if curl -s "http://localhost:$SERVER_PORT/health" >/dev/null 2>&1; then
+            log_success "OpenCode 서버 시작됨 (PID: $pid, 포트: $SERVER_PORT)"
+            return 0
+        fi
+        sleep 1
+        ((count++))
+        printf "."
+    done
+    echo ""
+
+    log_error "OpenCode 서버 시작 실패 (타임아웃)"
+    log_info "수동 시작: opencode serve --port $SERVER_PORT"
+    return 1
+}
+
+# ============================================================================
+# 2. fusionDefault 설정 (스킵 가능)
 # ============================================================================
 setup_config() {
-    log_step "1. fusionDefault 설정"
+    log_step "2. 퓨전 기본 설정"
 
     local config_dir="$HOME/.claude/plugins/omcm"
     local config_file="$config_dir/config.json"
 
     mkdir -p "$config_dir"
+    mkdir -p "$HOME/.omcm"
 
+    # 기존 설정 확인
     if [[ -f "$config_file" ]]; then
-        log_info "기존 설정 파일 발견: $config_file"
-        # fusionDefault가 이미 true인지 확인
-        if grep -q '"fusionDefault": true' "$config_file" 2>/dev/null; then
-            log_success "fusionDefault 이미 활성화됨"
+        log_info "기존 설정 파일 발견"
+        local answer=$(ask_yes_no "기존 설정을 유지할까요?" "y")
+        if [[ "$answer" =~ ^[Yy] ]]; then
+            log_success "기존 설정 유지"
             return 0
         fi
     fi
 
-    cat > "$config_file" << 'EOF'
+    # 기본값 사용 여부
+    local answer=$(ask_yes_no "기본 설정을 사용할까요? (fusionDefault: true, threshold: 90%)" "y")
+
+    if [[ "$answer" =~ ^[Yy] ]]; then
+        # 기본값 사용
+        cat > "$config_file" << EOF
 {
   "fusionDefault": true,
   "threshold": 90,
   "autoHandoff": false,
-  "serverPort": 4096
+  "serverPort": $SERVER_PORT,
+  "timeout": $TIMEOUT
 }
 EOF
+        log_success "기본 설정 적용됨"
+    else
+        # 커스텀 설정
+        log_info "커스텀 설정 모드"
 
-    log_success "config.json 생성 완료 (fusionDefault: true)"
+        local fusion_answer=$(ask_yes_no "fusionDefault 활성화?" "y")
+        local fusion_val="true"
+        [[ "$fusion_answer" =~ ^[Nn] ]] && fusion_val="false"
+
+        read -p "임계값 (기본: 90): " threshold_input
+        local threshold_val=${threshold_input:-90}
+
+        cat > "$config_file" << EOF
+{
+  "fusionDefault": $fusion_val,
+  "threshold": $threshold_val,
+  "autoHandoff": false,
+  "serverPort": $SERVER_PORT,
+  "timeout": $TIMEOUT
+}
+EOF
+        log_success "커스텀 설정 적용됨"
+    fi
 }
 
 # ============================================================================
-# 2. CLAUDE.md 퓨전 지시사항 추가
+# 3. CLAUDE.md 퓨전 지시사항 (스킵 가능)
 # ============================================================================
 setup_claude_md() {
-    log_step "2. CLAUDE.md 퓨전 지시사항"
+    log_step "3. CLAUDE.md 퓨전 지시사항"
 
     local claude_md="$HOME/.claude/CLAUDE.md"
     local fusion_marker="# oh-my-claude-money - 퓨전 오케스트레이터"
@@ -76,6 +200,13 @@ setup_claude_md() {
     # 이미 추가되어 있는지 확인
     if [[ -f "$claude_md" ]] && grep -q "$fusion_marker" "$claude_md" 2>/dev/null; then
         log_success "퓨전 지시사항 이미 존재함"
+        return 0
+    fi
+
+    local answer=$(ask_yes_no "CLAUDE.md에 퓨전 지시사항을 추가할까요?" "y")
+
+    if [[ ! "$answer" =~ ^[Yy] ]]; then
+        log_info "CLAUDE.md 설정 스킵"
         return 0
     fi
 
@@ -94,99 +225,78 @@ Claude 토큰 절약을 위해 다음 에이전트들은 OpenCode로 라우팅�
 | designer, designer-high, designer-low | Frontend Engineer | Gemini |
 | researcher, researcher-low | Oracle | GPT |
 | vision | Multimodal Looker | Gemini |
-| analyst | Oracle | GPT |
-| scientist, scientist-low, scientist-high | Oracle | GPT |
-| code-reviewer, code-reviewer-low | Oracle | GPT |
-| security-reviewer, security-reviewer-low | Oracle | GPT |
+| explore, explore-medium | explore | Gemini Flash |
+| writer | document-writer | Gemini Flash |
 
-## 퓨전 모드 활성화
+## 퓨전 모드 키워드
 
-사용량이 높거나 토큰 절약이 필요할 때:
-- `hulw: <작업>` - 하이브리드 울트라워크 (자동 퓨전)
+- `hulw: <작업>` - 하이브리드 울트라워크 (항상 퓨전)
 - `fusion: <작업>` - 명시적 퓨전 모드
 
 ## 자동 전환 조건
 
-다음 조건에서 OpenCode로 자동 전환 제안:
 - 5시간 사용량 90% 이상
 - 주간 사용량 90% 이상
-- "opencode", "전환", "handoff" 키워드 감지
 '
 
-    # CLAUDE.md에 추가
     if [[ -f "$claude_md" ]]; then
         echo "$fusion_instructions" >> "$claude_md"
     else
         echo "$fusion_instructions" > "$claude_md"
     fi
 
-    log_success "CLAUDE.md에 퓨전 지시사항 추가 완료"
+    log_success "CLAUDE.md에 퓨전 지시사항 추가됨"
 }
 
 # ============================================================================
-# 3. OpenCode 프로바이더 인증 확인
+# 4. OpenCode 프로바이더 인증 확인 (안내만)
 # ============================================================================
 check_opencode_auth() {
-    log_step "3. OpenCode 프로바이더 인증 확인"
+    log_step "4. OpenCode 프로바이더 인증 확인"
 
-    if ! command -v opencode &> /dev/null; then
-        log_warn "OpenCode가 설치되지 않았습니다"
-        log_info "설치: npm install -g @anthropics/opencode"
-        return 1
-    fi
-
-    # 인증 상태 확인
     local auth_output
     auth_output=$(opencode auth list 2>&1) || true
 
-    local has_openai=false
-    local has_google=false
-    local has_anthropic=false
+    local missing_providers=()
 
-    if echo "$auth_output" | grep -qi "openai"; then
-        has_openai=true
+    if ! echo "$auth_output" | grep -qi "openai"; then
+        missing_providers+=("OpenAI")
+    else
         log_success "OpenAI 인증됨"
-    else
-        log_warn "OpenAI 미인증 - 'opencode auth login openai' 실행 필요"
     fi
 
-    if echo "$auth_output" | grep -qi "google"; then
-        has_google=true
+    if ! echo "$auth_output" | grep -qi "google"; then
+        missing_providers+=("Google")
+    else
         log_success "Google 인증됨"
-    else
-        log_warn "Google 미인증 - 'opencode auth login google' 실행 필요"
     fi
 
-    if echo "$auth_output" | grep -qi "anthropic"; then
-        has_anthropic=true
+    if ! echo "$auth_output" | grep -qi "anthropic"; then
+        missing_providers+=("Anthropic")
+    else
         log_success "Anthropic 인증됨"
     fi
 
-    if [[ "$has_openai" == "true" ]] && [[ "$has_google" == "true" ]]; then
-        log_success "모든 필수 프로바이더 인증 완료"
-        return 0
+    if [[ ${#missing_providers[@]} -gt 0 ]]; then
+        echo ""
+        log_warn "다음 프로바이더 인증이 필요합니다:"
+        for provider in "${missing_providers[@]}"; do
+            echo -e "  ${CYAN}opencode auth login${NC}  # $provider 선택"
+        done
+        echo ""
+        log_info "인증은 브라우저에서 OAuth로 진행됩니다."
+
+        if [[ "$QUICK_MODE" != "true" ]]; then
+            local answer=$(ask_yes_no "지금 프로바이더 인증을 진행할까요?" "n")
+            if [[ "$answer" =~ ^[Yy] ]]; then
+                for provider in "${missing_providers[@]}"; do
+                    log_info "$provider 인증 시작..."
+                    opencode auth login || true
+                done
+            fi
+        fi
     else
-        log_warn "일부 프로바이더 인증 필요"
-        return 1
-    fi
-}
-
-# ============================================================================
-# 4. OpenCode 서버 상태 확인
-# ============================================================================
-check_opencode_server() {
-    log_step "4. OpenCode 서버 상태 확인"
-
-    local port=${OPENCODE_PORT:-4096}
-
-    if curl -s "http://localhost:$port/health" >/dev/null 2>&1; then
-        log_success "OpenCode 서버 실행 중 (포트: $port)"
-        return 0
-    else
-        log_warn "OpenCode 서버 미실행"
-        log_info "서버 시작: opencode serve --port $port &"
-        log_info "또는: ./scripts/opencode-server.sh start"
-        return 1
+        log_success "모든 프로바이더 인증 완료"
     fi
 }
 
@@ -194,41 +304,67 @@ check_opencode_server() {
 # 메인
 # ============================================================================
 main() {
+    # 인자 파싱
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --quick|-q)
+                QUICK_MODE=true
+                shift
+                ;;
+            --help|-h)
+                show_help
+                ;;
+            *)
+                log_error "알 수 없는 옵션: $1"
+                show_help
+                ;;
+        esac
+    done
+
     echo ""
-    echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║   OMCM 퓨전 모드 자동 셋업             ║${NC}"
-    echo -e "${CYAN}╚════════════════════════════════════════╝${NC}"
+    echo -e "${MAGENTA}╔════════════════════════════════════════════════════╗${NC}"
+    echo -e "${MAGENTA}║   ${BOLD}OMCM 퓨전 모드 셋업${NC}${MAGENTA}                              ║${NC}"
+    echo -e "${MAGENTA}║   Claude Code ↔ OpenCode 퓨전 오케스트레이터       ║${NC}"
+    echo -e "${MAGENTA}╚════════════════════════════════════════════════════╝${NC}"
     echo ""
+
+    if [[ "$QUICK_MODE" == "true" ]]; then
+        log_info "Quick 모드: 모든 기본값 사용"
+    fi
 
     local errors=0
 
-    # 1. config.json 설정
+    # 1. OpenCode 서버 실행 (필수!)
+    start_opencode_server || ((errors++))
+
+    # 2. fusionDefault 설정
     setup_config || ((errors++))
 
-    # 2. CLAUDE.md 설정
+    # 3. CLAUDE.md 설정
     setup_claude_md || ((errors++))
 
-    # 3. OpenCode 인증 확인
-    check_opencode_auth || ((errors++))
+    # 4. 프로바이더 인증 확인
+    check_opencode_auth || true  # 인증 실패해도 계속 진행
 
-    # 4. OpenCode 서버 확인
-    check_opencode_server || ((errors++))
-
+    # 결과 출력
     echo ""
-    echo -e "${CYAN}════════════════════════════════════════${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════════════${NC}"
 
     if [[ $errors -eq 0 ]]; then
         log_success "퓨전 셋업 완료!"
         echo ""
-        echo -e "테스트: ${GREEN}hulw: 간단한 테스트${NC}"
+        echo -e "  ${GREEN}테스트:${NC} hulw: 간단한 테스트"
+        echo -e "  ${GREEN}끄기:${NC}   /omcm:fusion-default-off"
+        echo -e "  ${GREEN}켜기:${NC}   /omcm:fusion-default-on"
     else
-        log_warn "일부 항목 수동 설정 필요 ($errors개)"
-        echo ""
-        echo "다음 명령어로 수동 설정:"
-        echo -e "  ${CYAN}opencode auth login openai${NC}"
-        echo -e "  ${CYAN}opencode auth login google${NC}"
-        echo -e "  ${CYAN}./scripts/opencode-server.sh start${NC}"
+        log_warn "일부 항목에서 오류 발생 ($errors개)"
     fi
+
+    echo ""
+    echo -e "${CYAN}설정 파일:${NC}"
+    echo "  ~/.claude/plugins/omcm/config.json"
+    echo "  ~/.omcm/opencode-server.pid"
+    echo "  ~/.omcm/opencode-server.log"
     echo ""
 }
 

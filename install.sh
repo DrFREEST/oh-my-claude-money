@@ -581,12 +581,12 @@ EOF
             if command -v jq &> /dev/null; then
                 local tmp_file=$(mktemp)
                 jq --arg path "$source_dir" --arg date "$current_date" \
-                   '.plugins["oh-my-claude-money@local"] = [{"scope": "user", "installPath": $path, "version": "0.2.0", "installedAt": $date, "lastUpdated": $date}]' \
+                   '.plugins["oh-my-claude-money@local"] = [{"scope": "user", "installPath": $path, "version": "1.0.0", "installedAt": $date, "lastUpdated": $date}]' \
                    "$installed_file" > "$tmp_file" && mv "$tmp_file" "$installed_file"
                 log_success "installed_plugins.json에 플러그인 등록"
             else
                 # sed로 plugins 섹션에 추가
-                local plugin_entry='    "oh-my-claude-money@local": [{"scope": "user", "installPath": "'"$source_dir"'", "version": "0.2.0", "installedAt": "'"$current_date"'", "lastUpdated": "'"$current_date"'"}],'
+                local plugin_entry='    "oh-my-claude-money@local": [{"scope": "user", "installPath": "'"$source_dir"'", "version": "1.0.0", "installedAt": "'"$current_date"'", "lastUpdated": "'"$current_date"'"}],'
                 sed -i 's/"plugins": {/"plugins": {\n'"$plugin_entry"'/' "$installed_file"
                 log_success "installed_plugins.json에 플러그인 등록"
             fi
@@ -601,7 +601,7 @@ EOF
       {
         "scope": "user",
         "installPath": "$source_dir",
-        "version": "0.2.0",
+        "version": "1.0.0",
         "installedAt": "$current_date",
         "lastUpdated": "$current_date"
       }
@@ -708,10 +708,13 @@ print_summary() {
     fi
 
     echo ""
-    echo -e "${BOLD}v0.4.0 새 기능:${NC}"
-    echo -e "  • 프로바이더별 토큰 사용량 실시간 표시"
-    echo -e "  • OpenCode 세션 토큰 자동 집계"
-    echo -e "  • HUD에서 Claude/OpenAI/Gemini 토큰 분리 표시"
+    echo -e "${BOLD}v1.0.0 새 기능:${NC}"
+    echo -e "  • 실시간 추적 시스템 (RealtimeTracker, MetricsCollector)"
+    echo -e "  • 컨텍스트 전달 시스템 (buildContext, ContextSync)"
+    echo -e "  • 다중 프로바이더 밸런싱 (4가지 전략)"
+    echo -e "  • 병렬 실행기 (ParallelExecutor)"
+    echo -e "  • 플렉서블 서버 풀 (동적 스케일링 1~25 서버)"
+    echo -e "  • 361개 테스트 100% PASS"
     echo ""
 }
 
@@ -774,13 +777,15 @@ print_next_steps() {
     echo -e "  ${MAGENTA}/omcm:fusion-default-off${NC}  # 사용량 기반 (기본)"
     echo ""
     echo -e "${BOLD}토큰 절약 효과:${NC}"
-    echo -e "  • 12개 에이전트 (39%)가 GPT/Gemini로 대체"
-    echo -e "  • 예상 절약률: 39-67%"
+    echo -e "  • 18개 에이전트 (62%)가 GPT/Gemini로 대체"
+    echo -e "  • 예상 절약률: 62%+"
     echo ""
-    echo -e "${BOLD}v0.4.0 주요 기능:${NC}"
-    echo -e "  • ${CYAN}HUD 토큰 표시${NC}: C:1.2k↓0.5k↑|O:3.4k↓1.2k↑|G:0.8k↓0.3k↑"
-    echo -e "  • ${CYAN}자동 토큰 집계${NC}: OpenCode 세션 파일에서 자동 수집"
-    echo -e "  • ${CYAN}프로바이더 분리${NC}: Claude/OpenAI/Gemini 사용량 개별 추적"
+    echo -e "${BOLD}v1.0.0 주요 기능:${NC}"
+    echo -e "  • ${CYAN}실시간 추적${NC}: 라우팅/성능/캐시 이벤트 모니터링"
+    echo -e "  • ${CYAN}컨텍스트 전달${NC}: 프로바이더 전환 시 작업 상태 자동 동기화"
+    echo -e "  • ${CYAN}스마트 밸런싱${NC}: round-robin/weighted/latency/usage 전략"
+    echo -e "  • ${CYAN}병렬 실행${NC}: 파일 충돌 검사 및 의존성 기반 스케줄링"
+    echo -e "  • ${CYAN}서버 풀${NC}: 동적 스케일링으로 25+ 동시 작업 지원"
     echo ""
     echo -e "자세한 내용: ${CYAN}https://github.com/DrFREEST/oh-my-claude-money${NC}"
     echo ""

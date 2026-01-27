@@ -37,6 +37,11 @@ async function loadUtils() {
     loadConfig = () => ({
       threshold: 90,
       keywords: ['opencode', 'handoff', '전환', 'opencode로', '오픈코드'],
+      modeKeywords: {
+        ecomode: ['eco:', 'ecomode:', 'eco ', '효율', '절약', 'budget', 'save-tokens'],
+        ralph: ['ralph:', 'ralph ', "don't stop", 'must complete', '끝까지', '완료할때까지', '멈추지마'],
+        cancel: ['cancel', 'stop', 'abort', '취소', '중지'],
+      },
     });
   }
 }
@@ -122,6 +127,71 @@ function detectKeyword(prompt, keywords) {
 }
 
 // =============================================================================
+// 모드 키워드 감지 (ecomode, ralph, cancel)
+// =============================================================================
+
+function detectModeKeyword(prompt, modeKeywords) {
+  if (!prompt) return null;
+
+  const lowerPrompt = prompt.toLowerCase();
+
+  for (const [mode, keywords] of Object.entries(modeKeywords)) {
+    for (const kw of keywords) {
+      if (lowerPrompt.includes(kw.toLowerCase())) {
+        return { mode, keyword: kw };
+      }
+    }
+  }
+
+  return null;
+}
+
+// =============================================================================
+// 모드 상태 저장
+// =============================================================================
+
+function saveModeState(mode, projectDir) {
+  const stateDir = join(homedir(), '.omcm/state');
+
+  try {
+    if (!existsSync(stateDir)) {
+      mkdirSync(stateDir, { recursive: true });
+    }
+
+    const stateFile = join(stateDir, `${mode}.json`);
+    const state = {
+      active: mode !== 'cancel',
+      startedAt: new Date().toISOString(),
+      projectDir,
+      iterations: 0,
+    };
+
+    // cancel 모드의 경우 모든 상태 파일 비활성화
+    if (mode === 'cancel') {
+      const modes = ['ralph', 'autopilot', 'ultrawork', 'ecomode', 'hulw', 'swarm', 'pipeline', 'ultrapilot', 'ultraqa'];
+      for (const m of modes) {
+        const modeFile = join(stateDir, `${m}.json`);
+        if (existsSync(modeFile)) {
+          try {
+            const modeState = JSON.parse(readFileSync(modeFile, 'utf-8'));
+            modeState.active = false;
+            modeState.cancelledAt = new Date().toISOString();
+            writeFileSync(modeFile, JSON.stringify(modeState, null, 2));
+          } catch (e) {
+            // 무시
+          }
+        }
+      }
+      return;
+    }
+
+    writeFileSync(stateFile, JSON.stringify(state, null, 2));
+  } catch (e) {
+    // 저장 실패 시 무시
+  }
+}
+
+// =============================================================================
 // 핸드오프 상태 저장
 // =============================================================================
 
@@ -170,7 +240,24 @@ async function main() {
     const keywords = config.keywords || ['opencode', 'handoff', '전환'];
     const threshold = config.threshold || 90;
 
-    // 1. 키워드 감지
+    // 0. 모드 키워드 감지 (ecomode, ralph, cancel)
+    const modeKeywords = config.modeKeywords || {};
+    const detectedMode = detectModeKeyword(prompt, modeKeywords);
+    if (detectedMode) {
+      saveModeState(detectedMode.mode, projectDir);
+
+      console.log(
+        JSON.stringify({
+          continue: true,
+          message: `🎯 **${detectedMode.mode.toUpperCase()} 모드 감지**
+
+키워드 "${detectedMode.keyword}"로 ${detectedMode.mode} 모드가 활성화됩니다.`,
+        })
+      );
+      process.exit(0);
+    }
+
+    // 1. 핸드오프 키워드 감지
     const detectedKeyword = detectKeyword(prompt, keywords);
     if (detectedKeyword) {
       const usage = getUsageFromCache();

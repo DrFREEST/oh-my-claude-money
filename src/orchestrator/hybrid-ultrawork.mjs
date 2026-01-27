@@ -6,7 +6,7 @@
  */
 
 import { planParallelDistribution, getRoutingSummary, isOpenCodeAvailable } from './task-router.mjs';
-import { OpenCodeWorkerPool, runOpenCodeTask } from './opencode-worker.mjs';
+import { OpenCodeServerPool } from '../executor/opencode-server-pool.mjs';
 import { getUsageFromCache, getUsageLevel } from '../utils/usage.mjs';
 import { loadConfig } from '../utils/config.mjs';
 
@@ -32,16 +32,24 @@ export class HybridUltrawork {
    */
   async start() {
     if (isOpenCodeAvailable()) {
-      this.opencodePool = new OpenCodeWorkerPool({
+      var maxServers = 3;
+      if (this.config.routing && this.config.routing.maxOpencodeWorkers) {
+        maxServers = this.config.routing.maxOpencodeWorkers;
+      }
+      this.opencodePool = new OpenCodeServerPool({
         projectDir: this.projectDir,
-        maxWorkers: this.config.routing?.maxOpencodeWorkers || 3,
+        minServers: 1,
+        maxServers: maxServers,
+        autoScale: true,
       });
+      await this.opencodePool.initialize();
     }
 
     return {
       started: true,
       opencodeAvailable: isOpenCodeAvailable(),
       usage: getUsageFromCache(),
+      serverPoolStatus: this.opencodePool ? this.opencodePool.getStatus() : null,
     };
   }
 

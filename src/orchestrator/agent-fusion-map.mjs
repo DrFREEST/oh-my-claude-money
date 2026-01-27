@@ -306,6 +306,31 @@ export const FUSION_MAP = {
     reason: 'Gemini Flash - 빠른 데이터 검사',
     fallbackToOMC: false,
   },
+
+  'qa-tester-low': {
+    omoAgent: 'build',
+    model: MODELS.FLASH,
+    reason: 'Gemini Flash - 빠른 QA 테스트',
+    fallbackToOMC: false,
+  },
+
+  // =========================================================================
+  // 추가 HIGH Tier (v0.7.0)
+  // =========================================================================
+
+  'researcher-high': {
+    omoAgent: 'general',
+    model: MODELS.OPUS,
+    reason: '심층 연구 및 복잡한 문서 분석',
+    fallbackToOMC: true,
+  },
+
+  'build-fixer-high': {
+    omoAgent: 'build',
+    model: MODELS.OPUS,
+    reason: '복잡한 빌드/컴파일 오류 해결',
+    fallbackToOMC: true,
+  },
 };
 
 // =============================================================================

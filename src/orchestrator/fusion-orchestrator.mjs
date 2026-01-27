@@ -6,7 +6,7 @@
  */
 
 import { FUSION_MAP, OPENCODE_AGENTS, getFusionInfo, getTokenSavingAgents, estimateBatchSavings } from './agent-fusion-map.mjs';
-import { OpenCodeWorkerPool } from './opencode-worker.mjs';
+import { OpenCodeServerPool } from '../executor/opencode-server-pool.mjs';
 import { getUsageFromCache, getUsageLevel, checkThreshold } from '../utils/usage.mjs';
 import { loadConfig } from '../utils/config.mjs';
 import { recordRouting, setFusionMode as updateFusionMode } from '../utils/fusion-tracker.mjs';
@@ -49,12 +49,16 @@ export class FusionOrchestrator {
       this.mode = 'quality-first';
     }
 
-    // OpenCode 워커 풀 초기화
+    // OpenCode 서버 풀 초기화 (Cold boot 최소화)
     try {
-      this.opencodePool = new OpenCodeWorkerPool({
+      var maxServers = (this.config.routing && this.config.routing.maxOpencodeWorkers) ? this.config.routing.maxOpencodeWorkers : 3;
+      this.opencodePool = new OpenCodeServerPool({
         projectDir: this.projectDir,
-        maxWorkers: (this.config.routing && this.config.routing.maxOpencodeWorkers) ? this.config.routing.maxOpencodeWorkers : 3,
+        minServers: 1,
+        maxServers: maxServers,
+        autoScale: true,
       });
+      await this.opencodePool.initialize();
     } catch (e) {
       // OpenCode 미설치
       this.opencodePool = null;

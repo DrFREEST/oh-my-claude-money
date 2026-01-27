@@ -1,14 +1,16 @@
 #!/bin/bash
 # ============================================================================
-# oh-my-claude-money 제거 스크립트
+# oh-my-claude-money v1.0.0 제거 스크립트
 #
 # 제거 항목:
 # - 플러그인 심볼릭 링크
 # - Hooks (PreToolUse) 설정
 # - HUD 파일 및 설정
 # - 상태 파일 (fusion-state, fallback-state, provider-limits)
-# - OMCM 데이터 디렉토리
+# - OMCM 데이터 디렉토리 (~/.omcm/)
+# - 프로젝트 상태 디렉토리 (.omc/state/)
 # - 마켓플레이스 캐시
+# - v1.0.0 추적/컨텍스트 모듈 캐시
 # ============================================================================
 
 set -e
@@ -21,6 +23,7 @@ NC='\033[0m'
 
 SETTINGS_FILE="$HOME/.claude/settings.json"
 OMCM_DATA_DIR="$HOME/.omcm"
+OMCM_STATE_DIR="$HOME/.omc/state"
 OMCM_HUD_FILE="$HOME/.claude/hud/omcm-hud.mjs"
 OMCM_PLUGIN_LINK="$HOME/.claude/plugins/local/oh-my-claude-money"
 OMCM_MARKETPLACE_DIR="$HOME/.claude/plugins/marketplaces/omcm"
@@ -148,6 +151,11 @@ if [[ $REMOVED_FILES -eq 0 ]]; then
     echo -e "  ${YELLOW}-${NC} 상태 파일 없음"
 fi
 
+# v1.0.0 프로젝트 상태 디렉토리 (.omc/state/)
+if [[ -d ".omc/state" ]]; then
+    echo -e "  ${YELLOW}!${NC} 프로젝트 .omc/state/ 디렉토리는 수동 제거가 필요합니다"
+fi
+
 # ============================================================================
 # 5. 마켓플레이스/캐시 디렉토리 제거
 # ============================================================================
@@ -198,13 +206,14 @@ fi
 # ============================================================================
 echo ""
 echo "========================================"
-echo -e "${GREEN}oh-my-claude-money 제거 완료${NC}"
+echo -e "${GREEN}oh-my-claude-money v1.0.0 제거 완료${NC}"
 echo ""
 echo -e "${YELLOW}참고:${NC}"
 echo "  - Claude Code, OpenCode는 별도로 제거해야 합니다."
 echo "  - oh-my-claudecode, oh-my-opencode는 별도 플러그인입니다."
+echo "  - 프로젝트별 .omc/ 디렉토리는 수동으로 제거하세요."
 echo ""
 echo "관련 명령어:"
 echo "  claude plugins uninstall omc      # oh-my-claudecode 제거"
-echo "  pip uninstall opencode            # OpenCode 제거"
+echo "  npm uninstall -g opencode-ai      # OpenCode 제거"
 echo ""

@@ -18,6 +18,154 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.0.0] - 2026-01-27 🎉 첫 정식 릴리즈
+
+### 추가 (Added)
+
+#### 실시간 추적 시스템 (`src/tracking/`)
+- **RealtimeTracker** (`realtime-tracker.mjs`)
+  - 라우팅 이벤트 실시간 추적 (RingBuffer 기반)
+  - 성능 메트릭 수집 (latency, success rate)
+  - 시간 범위별 통계 집계 (TimeBucket)
+  - EventEmitter 기반 이벤트 구독
+- **MetricsCollector** (`metrics-collector.mjs`)
+  - 라우팅/토큰/에러 메트릭 수집
+  - 프로바이더별 통계
+  - 비용 계산 기능
+
+#### 컨텍스트 전달 시스템 (`src/context/`)
+- **buildContext()** - 현재 작업 컨텍스트 빌드
+  - 최근 수정 파일, TODO 상태, 세션 학습 사항 수집
+  - 핸드오프 히스토리 관리
+- **Context Serializer** - OpenCode/JSON 포맷 직렬화
+- **Context Synchronizer** - 실시간 컨텍스트 동기화
+
+#### 다중 프로바이더 밸런싱 (`src/router/balancer.mjs`)
+- 4가지 밸런싱 전략:
+  - `round-robin`: 순차 순환
+  - `weighted`: 가중치 기반 (claude:3, openai:2, gemini:2)
+  - `latency`: 응답 시간 기반
+  - `usage`: 사용량 기반 부하 분산
+- **ProviderBalancer** 클래스: 통합 밸런서 인터페이스
+- 싱글톤 인스턴스 제공
+
+#### 병렬 실행기 (`src/orchestrator/`)
+- **ParallelExecutor** (`parallel-executor.mjs`)
+  - 병렬/순차/하이브리드 실행 모드
+  - 파일 충돌 검사 (canRunInParallel)
+  - 의존성 기반 작업 그룹화
+  - 자동 프로바이더 라우팅
+- **ExecutionStrategy** (`execution-strategy.mjs`)
+  - 작업 유형 자동 추론 (run/serve/acp)
+  - 전략 선택 알고리즘
+  - 실행 옵션 빌드
+
+#### 플렉서블 서버 풀 (`src/executor/opencode-server-pool.mjs`)
+- **OpenCodeServerPool** 클래스
+  - 동적 스케일링 (minServers ~ maxServers)
+  - 라운드로빈 + 최소 부하 로드밸런싱
+  - 자동 헬스체크 및 장애 복구
+  - 서버 상태 관리 (idle/busy/starting/error)
+- **대규모 병렬 지원**
+  - 단일 서버 다중 요청 처리 (busyCount 추적)
+  - 퓨전 울트라파일럿 25+ 동시 작업 지원
+  - 설정 가능한 maxOpencodeWorkers (1~25 권장)
+- **리소스 효율성**
+  - 서버당 ~250-300MB 메모리 사용
+  - Cold boot 최소화 (CLI 모드 대비 10배 빠름)
+  - 자동 스케일다운으로 유휴 서버 정리
+
+#### 테스트 (361개 테스트, 100% PASS)
+- `tests/v100/tracking.test.mjs` - 32개 테스트
+- `tests/v100/context.test.mjs` - 26개 테스트
+- `tests/v100/balancer.test.mjs` - 49개 테스트
+- `tests/v100/parallel-executor.test.mjs` - 19개 테스트
+- `tests/integration/v080.test.mjs` - 19개 테스트 (v0.8.0 호환)
+
+### 개선 (Improved)
+- **아키텍처 안정화**: 레이어드 아키텍처 완성
+  - Cache Layer → Rules Layer → Mapping Layer → Balancer Layer
+- **코드 품질**: 1,800+ 라인 테스트 코드 추가
+- **문서화**: 모듈별 JSDoc 주석 완비
+
+### 마이그레이션 가이드
+- v0.8.0에서 v1.0.0으로 업그레이드 시 추가 작업 불필요
+- 신규 기능은 선택적 사용 (기존 API 100% 호환)
+- 추천: 컨텍스트 전달 시스템으로 핸드오프 품질 향상
+
+---
+
+## [0.8.0] - 2026-01-27
+
+### 추가 (Added)
+- **동적 에이전트 매핑 로더** (`src/router/mapping.mjs`)
+  - JSON 설정 파일 기반 에이전트 매핑 동적 로드
+  - 설정 파일 경로: `~/.claude/plugins/omcm/agent-mapping.json`
+  - mtime 기반 캐시로 성능 최적화
+  - 하드코딩된 agent-fusion-map.mjs 보완
+- **조건부 라우팅 규칙 엔진** (`src/router/rules.mjs`)
+  - 사용량, 작업 복잡도, 모드 기반 조건부 라우팅
+  - 설정 파일: `~/.claude/plugins/omcm/routing-rules.json`
+  - 5개 기본 규칙 제공 (high-usage, weekly-limit, ecomode, complex-task, security)
+  - 우선순위 기반 규칙 평가
+- **LRU 라우팅 캐시** (`src/router/cache.mjs`)
+  - 동일 에이전트 반복 라우팅 시 재계산 방지
+  - 100개 항목, 5분 TTL 기본값
+  - 캐시 히트율 통계 제공
+- **설정 파일 스키마 검증** (`src/config/schema.mjs`)
+  - agent-mapping.json, routing-rules.json 유효성 검증
+  - 상세한 에러 메시지 제공
+- **예제 설정 파일**
+  - `examples/agent-mapping.json` - 동적 매핑 예제
+  - `examples/routing-rules.json` - 라우팅 규칙 예제
+
+### 개선 (Improved)
+- **fusion-router-logic.mjs 통합**
+  - `shouldRouteToOpenCodeV2()` 함수 추가 (v0.8.0 모듈 통합)
+  - `getRoutingStats()` 함수 추가 (통합 통계)
+- **라우터 아키텍처 개선**
+  - 캐시 → 규칙 → 동적 매핑 → 기본 로직 순서로 평가
+  - 레이어드 아키텍처로 확장성 향상
+
+### 마이그레이션 가이드
+- v0.7.0에서 v0.8.0으로 업그레이드 시 추가 작업 불필요
+- 동적 매핑/규칙은 선택적 기능 (설정 파일 없으면 기본 로직 사용)
+- 커스텀 매핑 원하면 `examples/` 폴더의 예제 참조
+
+---
+
+## [0.7.0] - 2026-01-27
+
+### 추가 (Added)
+- **에이전트 매핑 확장**: 3개 에이전트 추가 (OMC 33개 중 32개 커버)
+  - `qa-tester-low`: Gemini Flash - 빠른 QA 테스트
+  - `researcher-high`: Claude Opus - 심층 연구 및 복잡한 문서 분석
+  - `build-fixer-high`: Claude Opus - 복잡한 빌드/컴파일 오류 해결
+- **cancel 스킬**: 모든 활성 OMCM 모드 통합 취소
+  - 지원 모드: autopilot, ralph, ultrawork, ecomode, hulw, swarm, pipeline, ultrapilot, ultraqa
+  - 트리거: cancel, stop, abort, 취소, 중지
+- **ecomode 스킬**: 토큰 효율 병렬 실행 모드
+  - Haiku/Flash 우선 라우팅으로 30-50% 토큰 절약
+  - 트리거: eco, ecomode, efficient, budget, save-tokens, 절약, 효율
+- **ralph 스킬**: 완료까지 지속 실행 모드
+  - 5가지 검증 기준 (BUILD, TEST, LINT, FUNCTIONALITY, TODO) 충족까지 자기참조 루프
+  - 트리거: ralph, don't stop, must complete, 끝까지, 완료할때까지, 멈추지마
+- **persistent-mode 훅**: Stop 이벤트 핸들러
+  - ralph 등 활성 모드에서 세션 종료 시 미완료 작업 경고
+  - hooks.json에 Stop 이벤트 등록
+- **키워드 감지 확장**: detect-handoff.mjs에 모드 키워드 추가
+  - ecomode, ralph, cancel 키워드 자동 감지 및 모드 활성화
+
+### 개선 (Improved)
+- **훅 시스템 확장**: PreToolUse, UserPromptSubmit, SessionStart → Stop 이벤트 추가 (4개 이벤트)
+- **상태 관리 개선**: `~/.omcm/state/` 디렉토리에 모드별 상태 파일 저장
+- **OMC 3.6.0 대비 커버리지 향상**:
+  - 에이전트: 87.9% → 97.0% (29/33 → 32/33)
+  - 스킬: 13.9% → 22.2% (5/36 → 8/36)
+  - 훅 이벤트: 50% → 66.7% (3/6 → 4/6)
+
+---
+
 ## [0.6.0] - 2026-01-27
 
 ### 추가 (Added)

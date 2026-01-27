@@ -37,6 +37,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/persistent-mode.mjs",
+            "timeout": 5,
+            "statusMessage": "활성 모드 확인 중..."
+          }
+        ]
+      }
     ]
   }
 }

@@ -70,6 +70,26 @@ else
 }
 EOF
 fi
+
+# 서버 풀 시작 (Cold boot 최소화)
+echo "서버 풀 시작 중..."
+if [ -f ~/.claude/plugins/marketplaces/omcm/scripts/start-server-pool.sh ]; then
+  ~/.claude/plugins/marketplaces/omcm/scripts/start-server-pool.sh start
+elif [ -f ~/.local/share/omcm/scripts/start-server-pool.sh ]; then
+  ~/.local/share/omcm/scripts/start-server-pool.sh start
+else
+  # 단일 서버 폴백
+  if command -v opencode &> /dev/null; then
+    mkdir -p ~/.omcm/server-pool ~/.omcm/logs
+    if ! pgrep -f "opencode serve" > /dev/null; then
+      nohup opencode serve --port 4096 > ~/.omcm/logs/server-4096.log 2>&1 &
+      echo $! > ~/.omcm/server-pool/server-4096.pid
+      echo "서버 시작됨 (포트 4096)"
+    else
+      echo "서버 이미 실행 중"
+    fi
+  fi
+fi
 ```
 
 ## 확인 메시지
@@ -77,7 +97,8 @@ fi
 설정 완료 후 사용자에게 알림:
 
 > **퓨전 모드 기본 활성화** - 이제 모든 작업이 Claude + OpenCode 퓨전으로 실행됩니다.
-> 비활성화하려면 `/oh-my-claude-money:fusion-default-off`를 실행하세요.
+> **서버 풀 대기 중** - 첫 요청부터 빠른 응답이 가능합니다 (Cold boot 최소화).
+> 비활성화하려면 `/omcm:fusion-default-off`를 실행하세요.
 
 ## 효과
 

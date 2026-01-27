@@ -5,42 +5,91 @@
  * When fallback is active, intercepts Task calls and routes to OpenCode
  */
 
+import { spawn } from 'child_process';
 import {
   shouldRouteToOpenCode,
   mapAgentToOpenCode,
+  wrapWithUlwCommand,
   updateFusionState,
   logRouting
 } from '../src/hooks/fusion-router-logic.mjs';
-import { runWithServer } from '../src/executor/opencode-server.mjs';
 
 /**
- * OpenCode를 통해 작업 실행 (서버 모드)
+ * 내부 모델 ID를 OpenCode 모델 형식으로 변환
+ * @param {string} modelId - 내부 모델 ID (예: 'gemini-flash', 'gpt-5.2')
+ * @returns {string} - OpenCode 모델 형식 (예: 'google/gemini-2.5-flash')
  */
-async function executeViaOpenCode(toolInput, decision) {
-  var prompt = toolInput.prompt || '';
-  var agent = decision.opencodeAgent || 'Codex';
+function toOpenCodeModel(modelId) {
+  var mapping = {
+    'gemini-flash': 'google/antigravity-gemini-3-flash',
+    'gemini-pro': 'google/antigravity-gemini-3-pro-high',
+    'gpt-5.2': 'openai/gpt-5.2',
+    'gpt-5.2-codex': 'openai/gpt-5.2-codex'
+  };
+  return mapping[modelId] || 'openai/gpt-5.2-codex';
+}
 
-  console.error('[OMCM] Routing to OpenCode agent: ' + agent);
-  console.error('[OMCM] Using serve mode for faster execution');
-  console.error('[OMCM] Reason: ' + decision.reason);
+/**
+ * OpenCode를 통해 작업 실행 (직접 spawn 방식)
+ */
+function executeViaOpenCode(toolInput, decision) {
+  return new Promise(function(resolve) {
+    var prompt = toolInput.prompt || '';
+    var agent = decision.opencodeAgent || 'Codex';
 
-  try {
-    var result = await runWithServer(prompt, {
-      agent: agent,
-      timeout: 5 * 60 * 1000
+    // 모델 결정 (decision.targetModel.id 사용)
+    var internalModelId = decision.targetModel && decision.targetModel.id
+      ? decision.targetModel.id
+      : 'gpt-5.2-codex';
+    var openCodeModel = toOpenCodeModel(internalModelId);
+
+    // /ulw 커맨드 래핑으로 ULW 모드 활성화
+    prompt = wrapWithUlwCommand(prompt);
+
+    console.error('[OMCM] Routing to OpenCode');
+    console.error('[OMCM] Model: ' + openCodeModel);
+    console.error('[OMCM] Agent: ' + agent);
+    console.error('[OMCM] Reason: ' + decision.reason);
+
+    // opencode run 실행 (non-interactive) - 모델 명시
+    var args = ['run', '-m', openCodeModel, prompt];
+
+    var child = spawn('opencode', args, {
+      stdio: ['inherit', 'pipe', 'pipe'],
+      env: Object.assign({}, process.env, { OPENCODE_NON_INTERACTIVE: '1' })
     });
 
-    return {
-      success: true,
-      output: result.stdout || JSON.stringify(result.result || result),
-      stderr: result.stderr || ''
-    };
-  } catch (err) {
-    return {
-      success: false,
-      error: err.message
-    };
-  }
+    var stdout = '';
+    var stderr = '';
+
+    child.stdout.on('data', function(data) {
+      stdout += data.toString();
+      // 출력 스트리밍
+      process.stderr.write(data);
+    });
+
+    child.stderr.on('data', function(data) {
+      stderr += data.toString();
+    });
+
+    child.on('close', function(code) {
+      if (code === 0) {
+        resolve({ success: true, output: stdout, stderr: stderr });
+      } else {
+        resolve({ success: false, error: 'Exit code ' + code, output: stdout, stderr: stderr });
+      }
+    });
+
+    child.on('error', function(err) {
+      resolve({ success: false, error: err.message });
+    });
+
+    // 5분 타임아웃
+    setTimeout(function() {
+      child.kill('SIGTERM');
+      resolve({ success: false, error: 'Timeout after 5 minutes' });
+    }, 5 * 60 * 1000);
+  });
 }
 
 /**

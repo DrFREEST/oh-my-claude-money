@@ -18,6 +18,31 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.6.0] - 2026-01-27
+
+### 추가 (Added)
+- **fusion-setup 자동화 스크립트**: `scripts/fusion-setup.sh`
+  - config.json 자동 생성 (fusionDefault: true)
+  - CLAUDE.md 퓨전 지시사항 자동 추가
+  - OpenCode 프로바이더 인증 상태 확인
+  - OpenCode 서버 상태 확인
+- **프로젝트 규칙 문서화**: CLAUDE.md에 버전 관리 및 동기화 규칙 추가
+  - Semantic Versioning (a.b.c) 방법론
+  - 릴리즈 체크리스트
+  - 동기화 명령어
+
+### 변경 (Changed)
+- **Google 프로바이더 모델 변경**: Antigravity 모델로 업그레이드
+  - `gemini-flash` → `google/antigravity-gemini-3-flash`
+  - `gemini-pro` → `google/antigravity-gemini-3-pro-high`
+- **fusion-router.mjs**: OpenCode 실행 시 `-m` 옵션으로 모델 명시
+
+### 개선 (Improved)
+- **퓨전 설정 글로벌 적용**: 한 번 설정하면 모든 프로젝트/세션에서 자동 적용
+- **HUD O/G 카운트 정상화**: OpenCode 세션에서 프로바이더별 토큰 집계 수정
+
+---
+
 ## [0.5.0] - 2026-01-27
 
 ### 추가 (Added)

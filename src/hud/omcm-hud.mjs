@@ -237,33 +237,54 @@ function aggregateOpenCodeTokens() {
             const content = readFileSync(msgPath, 'utf-8');
             const msg = JSON.parse(content);
 
-            // providerID 체크
-            const providerID = msg.providerID || (msg.model && msg.model.providerID);
+            // providerID 체크 (model.providerID 또는 최상위 providerID)
+            var providerID = msg.providerID || (msg.model && msg.model.providerID);
+            var modelID = (msg.model && msg.model.modelID) || '';
+
+            // providerID가 없으면 스킵
             if (!providerID) {
               continue;
             }
 
-            // tokens 체크
-            const tokens = msg.tokens;
-            if (!tokens) {
-              continue;
+            // providerID 정규화 (opencode → 모델명 기반 추론)
+            var normalizedProvider = providerID;
+            if (providerID === 'opencode') {
+              // 모델명으로 실제 프로바이더 추론
+              var modelLower = modelID.toLowerCase();
+              if (modelLower.includes('gemini') || modelLower.includes('flash') || modelLower.includes('pro')) {
+                normalizedProvider = 'google';
+              } else if (modelLower.includes('gpt') || modelLower.includes('o1') || modelLower.includes('codex')) {
+                normalizedProvider = 'openai';
+              } else if (modelLower.includes('claude') || modelLower.includes('sonnet') || modelLower.includes('opus') || modelLower.includes('haiku')) {
+                normalizedProvider = 'anthropic';
+              } else {
+                // GLM 등 기타 모델은 카운트만 집계 (openai에 포함)
+                normalizedProvider = 'openai';
+              }
             }
 
-            // input = tokens.input + cache.read (캐시 포함 전체 입력)
-            const cacheRead = (tokens.cache && tokens.cache.read) || 0;
-            const inputTokens = (tokens.input || 0) + cacheRead;
-            const outputTokens = tokens.output || 0;
+            // tokens 체크 - 없어도 카운트는 집계
+            var tokens = msg.tokens;
+            var inputTokens = 0;
+            var outputTokens = 0;
+
+            if (tokens) {
+              // input = tokens.input + cache.read (캐시 포함 전체 입력)
+              var cacheRead = (tokens.cache && tokens.cache.read) || 0;
+              inputTokens = (tokens.input || 0) + cacheRead;
+              outputTokens = tokens.output || 0;
+            }
 
             // 프로바이더별 집계 (토큰 + 카운트)
-            if (providerID === 'openai') {
+            if (normalizedProvider === 'openai') {
               result.openai.input += inputTokens;
               result.openai.output += outputTokens;
               result.openai.count++;
-            } else if (providerID === 'google') {
+            } else if (normalizedProvider === 'google') {
               result.gemini.input += inputTokens;
               result.gemini.output += outputTokens;
               result.gemini.count++;
-            } else if (providerID === 'anthropic') {
+            } else if (normalizedProvider === 'anthropic') {
               result.anthropic.input += inputTokens;
               result.anthropic.output += outputTokens;
               result.anthropic.count++;

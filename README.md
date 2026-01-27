@@ -79,6 +79,35 @@ Claude Opus 4.5 (Conductor)
 └─→ Usage > 90%? → Automatic fallback to OpenCode
 ```
 
+### OpenCode Server Mode (Performance)
+
+OMCM uses OpenCode's serve mode for **10x faster** fusion routing:
+
+```bash
+# Start OpenCode server (recommended)
+./scripts/opencode-server.sh start
+
+# Or manually
+opencode serve --port 4096 &
+```
+
+**Performance Comparison:**
+
+| Mode | First Call | Subsequent Calls |
+|------|------------|------------------|
+| Without Server | ~10-15s (cold boot) | ~10-15s |
+| **With Server** | ~5s (server start) | **~1s** |
+
+The server pre-initializes MCP connections, eliminating cold boot overhead.
+
+**Server Management:**
+```bash
+./scripts/opencode-server.sh start   # Start server
+./scripts/opencode-server.sh stop    # Stop server
+./scripts/opencode-server.sh status  # Check status
+./scripts/opencode-server.sh logs    # View logs
+```
+
 ### Configuration
 
 See `~/.claude/plugins/omcm/config.json` for detailed options:
@@ -541,6 +570,35 @@ abort
 | `/omcm:autopilot` | 하이브리드 오토파일럿 |
 | `/omcm:cancel-autopilot` | 오토파일럿 중단 |
 | `/omcm:opencode` | OpenCode로 명시적 전환 |
+
+### OpenCode 서버 모드 (성능 최적화)
+
+OMCM은 OpenCode의 serve 모드를 사용하여 **10배 빠른** 퓨전 라우팅을 제공합니다:
+
+```bash
+# OpenCode 서버 시작 (권장)
+./scripts/opencode-server.sh start
+
+# 또는 수동 실행
+opencode serve --port 4096 &
+```
+
+**성능 비교:**
+
+| 모드 | 첫 호출 | 이후 호출 |
+|------|--------|----------|
+| 서버 없음 | ~10-15초 (cold boot) | ~10-15초 |
+| **서버 사용** | ~5초 (서버 시작) | **~1초** |
+
+서버가 MCP 연결을 미리 초기화하여 cold boot 오버헤드를 제거합니다.
+
+**서버 관리:**
+```bash
+./scripts/opencode-server.sh start   # 서버 시작
+./scripts/opencode-server.sh stop    # 서버 중지
+./scripts/opencode-server.sh status  # 상태 확인
+./scripts/opencode-server.sh logs    # 로그 확인
+```
 
 ## 설정
 

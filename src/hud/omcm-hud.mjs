@@ -1,10 +1,28 @@
 #!/usr/bin/env node
 /**
- * OMCM HUD - Independent HUD wrapper for oh-my-claude-money
+ * OMCM HUD - Independent HUD for oh-my-claude-money
  *
- * Wraps OMC HUD output and adds fusion mode metrics.
- * This keeps OMCM independent from OMC for clean uninstallation.
+ * Features:
+ * - Claude 5h/wk usage (direct API call, no OMC dependency)
+ * - Mode detection (ultrawork, ralph, autopilot, etc.)
+ * - Fusion metrics and provider token tracking
+ * - Falls back to OMC HUD if available, otherwise runs independently
  */
+
+// Read stdin from environment (set by wrapper) or try direct read
+let __stdinData = process.env.__OMCM_STDIN_DATA || '';
+
+// If not set by CJS entry, try direct capture (fallback for direct execution)
+if (!__stdinData) {
+  try {
+    const { readFileSync } = await import('fs');
+    if (!process.stdin.isTTY) {
+      __stdinData = readFileSync(0, 'utf-8');
+    }
+  } catch {
+    // stdin not available or empty
+  }
+}
 
 import { spawn } from 'child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
@@ -14,63 +32,94 @@ import { renderFusionMetrics, renderProviderLimits, renderProviderCounts, render
 import { readFusionState } from '../utils/fusion-tracker.mjs';
 import { getLimitsForHUD, updateClaudeLimits } from '../utils/provider-limits.mjs';
 import { getFallbackOrchestrator } from '../orchestrator/fallback-orchestrator.mjs';
+import { getClaudeUsage, formatTimeUntilReset, hasClaudeCredentials } from './claude-usage-api.mjs';
+import { renderModeStatus, detectActiveModes } from './mode-detector.mjs';
+
+// ANSI color codes
+const RED = '\x1b[31m';
+const YELLOW = '\x1b[33m';
+const GREEN = '\x1b[32m';
+const CYAN = '\x1b[36m';
+const DIM = '\x1b[2m';
+const RESET = '\x1b[0m';
 
 /**
- * ANSI 색상 코드 제거
+ * ANSI color code removal
  */
 function stripAnsi(str) {
   if (!str) return str;
-  // ANSI escape sequences: \x1b[...m or \033[...m
   return str.replace(/\x1b\[[0-9;]*m/g, '').replace(/\033\[[0-9;]*m/g, '');
 }
 
 /**
- * OMC HUD 출력에서 Claude 사용량 파싱 및 동기화
- * 패턴: "5h:28%(1h41m) wk:96%(13h41m)"
+ * Parse Claude usage from OMC HUD output and sync
+ * Pattern: "5h:28%(1h41m) wk:96%(13h41m)"
  */
 function syncClaudeUsageFromOmcOutput(omcOutput) {
   if (!omcOutput) return;
 
   try {
-    // ANSI 색상 코드 제거 후 파싱
     const cleanOutput = stripAnsi(omcOutput);
-
-    // 5시간 사용량 파싱: "5h:28%" 또는 "5h:28%(..."
     const fiveHourMatch = cleanOutput.match(/5h:(\d+)%/);
-    // 주간 사용량 파싱: "wk:96%" 또는 "wk:96%(..."
     const weeklyMatch = cleanOutput.match(/wk:(\d+)%/);
 
     if (fiveHourMatch || weeklyMatch) {
       const fiveHourPercent = fiveHourMatch ? parseInt(fiveHourMatch[1], 10) : null;
       const weeklyPercent = weeklyMatch ? parseInt(weeklyMatch[1], 10) : null;
-
-      // provider-limits.json 업데이트
       updateClaudeLimits(fiveHourPercent, weeklyPercent);
     }
   } catch (e) {
-    // 파싱 실패 시 무시 (HUD 출력에 영향 없도록)
+    // Ignore parsing failures
+  }
+}
+
+/**
+ * Get color based on usage percentage
+ */
+function getUsageColor(percent) {
+  if (percent >= 90) return RED;
+  if (percent >= 70) return YELLOW;
+  return GREEN;
+}
+
+/**
+ * Render Claude usage (independent, no OMC dependency)
+ * Format: 5h:28%(1h41m) wk:16%(5d12h)
+ * @returns {Promise<string|null>}
+ */
+async function renderClaudeUsage() {
+  try {
+    const usage = await getClaudeUsage();
+    if (!usage) return null;
+
+    const parts = [];
+
+    // 5-hour usage
+    if (usage.fiveHourPercent != null) {
+      const color = getUsageColor(usage.fiveHourPercent);
+      const resetTime = formatTimeUntilReset(usage.fiveHourResetsAt);
+      const timeStr = resetTime ? `(${resetTime})` : '';
+      parts.push(`5h:${color}${usage.fiveHourPercent}%${RESET}${DIM}${timeStr}${RESET}`);
+    }
+
+    // Weekly usage
+    if (usage.weeklyPercent != null) {
+      const color = getUsageColor(usage.weeklyPercent);
+      const resetTime = formatTimeUntilReset(usage.weeklyResetsAt);
+      const timeStr = resetTime ? `(${resetTime})` : '';
+      parts.push(`wk:${color}${usage.weeklyPercent}%${RESET}${DIM}${timeStr}${RESET}`);
+    }
+
+    if (parts.length === 0) return null;
+
+    return parts.join(' ');
+  } catch {
+    return null;
   }
 }
 
 /**
  * Parse Claude token usage and request count from stdin JSON
- * Claude Code passes JSON with token data to HUD via stdin
- *
- * Expected structure:
- * {
- *   "context_window": {
- *     "current_usage": {
- *       "input_tokens": 12345,
- *       "output_tokens": 6789
- *     }
- *   },
- *   "conversation": {
- *     "num_turns": 42
- *   }
- * }
- *
- * @param {string} stdinData - Raw stdin data (JSON string)
- * @returns {Object} - { input: number, output: number, count: number }
  */
 function parseClaudeTokensFromStdin(stdinData) {
   const result = { input: 0, output: 0, count: 0 };
@@ -82,24 +131,20 @@ function parseClaudeTokensFromStdin(stdinData) {
   try {
     const data = JSON.parse(stdinData);
 
-    // Primary: context_window 세션 누적 토큰 (total_input/output_tokens)
+    // Primary: context_window session cumulative tokens
     if (data.context_window) {
-      // 세션 누적치 우선 사용
       if (data.context_window.total_input_tokens !== undefined) {
         result.input = data.context_window.total_input_tokens || 0;
         result.output = data.context_window.total_output_tokens || 0;
       } else if (data.context_window.current_usage) {
-        // fallback: current_usage (현재 요청만)
         const usage = data.context_window.current_usage;
-        // input = input_tokens + cache_read_input_tokens (캐시 포함)
         const cacheRead = usage.cache_read_input_tokens || 0;
         result.input = (usage.input_tokens || 0) + cacheRead;
         result.output = usage.output_tokens || 0;
       }
     }
 
-    // Parse request count - 현재 세션 턴/요청 수
-    // Try various possible field names
+    // Parse request count
     if (data.conversation) {
       result.count = data.conversation.num_turns ||
                      data.conversation.turn_count ||
@@ -124,7 +169,7 @@ function parseClaudeTokensFromStdin(stdinData) {
       result.count = data.turn_count || 0;
     }
 
-    // Fallback: Look for token data in various possible structures
+    // Fallback token structures
     if (result.input === 0 && result.output === 0) {
       if (data.tokens) {
         result.input = data.tokens.input || data.tokens.inputTokens || 0;
@@ -138,13 +183,11 @@ function parseClaudeTokensFromStdin(stdinData) {
       }
     }
 
-    // Also check for session/conversation level totals (additive)
     if (data.conversation && data.conversation.tokens) {
       result.input += data.conversation.tokens.input || 0;
       result.output += data.conversation.tokens.output || 0;
     }
 
-    // Check for session totals (override)
     if (data.session) {
       if (data.session.inputTokens) {
         result.input = data.session.inputTokens;
@@ -154,7 +197,7 @@ function parseClaudeTokensFromStdin(stdinData) {
       }
     }
   } catch (e) {
-    // JSON 파싱 실패 - 무시
+    // JSON parse failure - ignore
   }
 
   return result;
@@ -162,20 +205,15 @@ function parseClaudeTokensFromStdin(stdinData) {
 
 /**
  * Token cache for OpenCode files
- * Prevents reading all files on every HUD refresh
  */
 let openCodeTokenCache = null;
 let openCodeCacheTime = 0;
-const CACHE_TTL_MS = 30000; // 30초 캐시
+const CACHE_TTL_MS = 30000;
 
 /**
  * Aggregate token usage from OpenCode session files
- * Only reads the MOST RECENT session (current session)
- *
- * @returns {Object} - { openai: { input, output }, gemini: { input, output } }
  */
 function aggregateOpenCodeTokens() {
-  // 캐시 체크
   const now = Date.now();
   if (openCodeTokenCache && (now - openCodeCacheTime) < CACHE_TTL_MS) {
     return openCodeTokenCache;
@@ -184,7 +222,7 @@ function aggregateOpenCodeTokens() {
   const result = {
     openai: { input: 0, output: 0, count: 0 },
     gemini: { input: 0, output: 0, count: 0 },
-    anthropic: { input: 0, output: 0, count: 0 },  // OpenCode를 통한 Anthropic 사용량도 집계
+    anthropic: { input: 0, output: 0, count: 0 },
   };
 
   try {
@@ -196,7 +234,6 @@ function aggregateOpenCodeTokens() {
       return result;
     }
 
-    // 세션 디렉토리들 - mtime 기준 정렬하여 가장 최근 세션만 사용
     const sessionDirs = readdirSync(messageDir, { withFileTypes: true })
       .filter((d) => d.isDirectory() && d.name.startsWith('ses_'))
       .map((d) => {
@@ -209,25 +246,21 @@ function aggregateOpenCodeTokens() {
         }
       })
       .filter((d) => d !== null)
-      .sort((a, b) => b.mtime - a.mtime); // 가장 최근 세션이 먼저
+      .sort((a, b) => b.mtime - a.mtime);
 
-    // 1시간 이내에 수정된 모든 활성 세션 집계 (현재 세션 + 관련 세션)
     const oneHourAgo = now - (60 * 60 * 1000);
     const activeSessions = sessionDirs.filter((s) => s.mtime >= oneHourAgo);
 
     if (activeSessions.length === 0) {
-      // 1시간 이내 활성 세션 없음
       openCodeTokenCache = result;
       openCodeCacheTime = now;
       return result;
     }
 
-    // 모든 활성 세션을 순회하며 집계
     for (const activeSession of activeSessions) {
       const sessionPath = activeSession.path;
 
       try {
-        // 메시지 파일들 읽기
         const msgFiles = readdirSync(sessionPath).filter((f) => f.startsWith('msg_') && f.endsWith('.json'));
 
         for (const msgFile of msgFiles) {
@@ -237,20 +270,16 @@ function aggregateOpenCodeTokens() {
             const content = readFileSync(msgPath, 'utf-8');
             const msg = JSON.parse(content);
 
-            // providerID 체크 (model.providerID 또는 최상위 providerID)
-            var providerID = msg.providerID || (msg.model && msg.model.providerID);
-            var modelID = (msg.model && msg.model.modelID) || '';
+            let providerID = msg.providerID || (msg.model && msg.model.providerID);
+            let modelID = (msg.model && msg.model.modelID) || '';
 
-            // providerID가 없으면 스킵
             if (!providerID) {
               continue;
             }
 
-            // providerID 정규화 (opencode → 모델명 기반 추론)
-            var normalizedProvider = providerID;
+            let normalizedProvider = providerID;
             if (providerID === 'opencode') {
-              // 모델명으로 실제 프로바이더 추론
-              var modelLower = modelID.toLowerCase();
+              const modelLower = modelID.toLowerCase();
               if (modelLower.includes('gemini') || modelLower.includes('flash') || modelLower.includes('pro')) {
                 normalizedProvider = 'google';
               } else if (modelLower.includes('gpt') || modelLower.includes('o1') || modelLower.includes('codex')) {
@@ -258,24 +287,20 @@ function aggregateOpenCodeTokens() {
               } else if (modelLower.includes('claude') || modelLower.includes('sonnet') || modelLower.includes('opus') || modelLower.includes('haiku')) {
                 normalizedProvider = 'anthropic';
               } else {
-                // GLM 등 기타 모델은 카운트만 집계 (openai에 포함)
                 normalizedProvider = 'openai';
               }
             }
 
-            // tokens 체크 - 없어도 카운트는 집계
-            var tokens = msg.tokens;
-            var inputTokens = 0;
-            var outputTokens = 0;
+            const tokens = msg.tokens;
+            let inputTokens = 0;
+            let outputTokens = 0;
 
             if (tokens) {
-              // input = tokens.input + cache.read (캐시 포함 전체 입력)
-              var cacheRead = (tokens.cache && tokens.cache.read) || 0;
+              const cacheRead = (tokens.cache && tokens.cache.read) || 0;
               inputTokens = (tokens.input || 0) + cacheRead;
               outputTokens = tokens.output || 0;
             }
 
-            // 프로바이더별 집계 (토큰 + 카운트)
             if (normalizedProvider === 'openai') {
               result.openai.input += inputTokens;
               result.openai.output += outputTokens;
@@ -290,15 +315,15 @@ function aggregateOpenCodeTokens() {
               result.anthropic.count++;
             }
           } catch (e) {
-            // 개별 파일 읽기 실패 - 무시
+            // Individual file read failure - ignore
           }
         }
       } catch (e) {
-        // 세션 디렉토리 읽기 실패 - 무시하고 다음 세션 처리
+        // Session directory read failure - continue
       }
     }
   } catch (e) {
-    // 전체 실패 - graceful하게 빈 결과 반환
+    // Overall failure - return empty result
   }
 
   openCodeTokenCache = result;
@@ -306,11 +331,12 @@ function aggregateOpenCodeTokens() {
   return result;
 }
 
-// Find OMC HUD path
+/**
+ * Find OMC HUD path
+ */
 function findOmcHudPath() {
   const homeDir = process.env.HOME || '';
 
-  // Check standard locations
   const locations = [
     join(homeDir, '.claude', 'hud', 'omc-hud.mjs'),
     join(homeDir, '.claude', 'plugins', 'cache', 'omc', 'oh-my-claudecode'),
@@ -322,14 +348,51 @@ function findOmcHudPath() {
     }
   }
 
-  // Find in plugin cache (version agnostic)
   const cacheDir = join(homeDir, '.claude', 'plugins', 'cache', 'omc', 'oh-my-claudecode');
   if (existsSync(cacheDir)) {
-    // Return the wrapper which handles versioning
     return join(homeDir, '.claude', 'hud', 'omc-hud.mjs');
   }
 
   return null;
+}
+
+/**
+ * Check if OMC HUD is properly installed (not just wrapper exists)
+ */
+function isOmcHudAvailable() {
+  const homeDir = process.env.HOME || '';
+
+  // Check if OMC plugin is actually built
+  const cacheDir = join(homeDir, '.claude', 'plugins', 'cache', 'omc', 'oh-my-claudecode');
+  if (existsSync(cacheDir)) {
+    try {
+      const versions = readdirSync(cacheDir);
+      if (versions.length > 0) {
+        const latestVersion = versions.sort().reverse()[0];
+        const builtPath = join(cacheDir, latestVersion, 'dist', 'hud', 'index.js');
+        if (existsSync(builtPath)) {
+          return true;
+        }
+      }
+    } catch {
+      // continue
+    }
+  }
+
+  // Check development paths
+  const devPaths = [
+    join(homeDir, 'Workspace/oh-my-claudecode/dist/hud/index.js'),
+    join(homeDir, 'workspace/oh-my-claudecode/dist/hud/index.js'),
+  ];
+
+  for (const devPath of devPaths) {
+    if (existsSync(devPath)) {
+      return true;
+    }
+  }
+
+  // OMC not properly installed - use independent mode
+  return false;
 }
 
 /**
@@ -348,14 +411,9 @@ async function getOmcHudOutput(stdinData) {
     });
 
     let stdout = '';
-    let stderr = '';
 
     child.stdout.on('data', (data) => {
       stdout += data.toString();
-    });
-
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
     });
 
     child.on('close', (code) => {
@@ -370,13 +428,11 @@ async function getOmcHudOutput(stdinData) {
       resolve(null);
     });
 
-    // Pass stdin to child
     if (stdinData) {
       child.stdin.write(stdinData);
     }
     child.stdin.end();
 
-    // Timeout after 3 seconds
     setTimeout(() => {
       child.kill();
       resolve(null);
@@ -386,28 +442,96 @@ async function getOmcHudOutput(stdinData) {
 
 /**
  * Read stdin from Claude Code
+ * Uses pre-captured __stdinData from module initialization
  */
 async function readStdin() {
-  return new Promise((resolve) => {
-    let data = '';
+  return __stdinData;
+}
 
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('readable', () => {
-      let chunk;
-      while ((chunk = process.stdin.read()) !== null) {
-        data += chunk;
-      }
-    });
+/**
+ * Build independent HUD output (no OMC dependency)
+ */
+async function buildIndependentHud(stdinData) {
+  const parts = [];
 
-    process.stdin.on('end', () => {
-      resolve(data);
-    });
+  // 1. Claude usage (5h/wk) - direct API call
+  const usageOutput = await renderClaudeUsage();
+  if (usageOutput) {
+    parts.push(usageOutput);
+  }
 
-    // Timeout
-    setTimeout(() => {
-      resolve(data);
-    }, 1000);
-  });
+  // 2. Mode status (ultrawork, ralph, etc.)
+  const modeOutput = renderModeStatus();
+  if (modeOutput) {
+    parts.push(modeOutput);
+  }
+
+  // 3. Token usage
+  const claudeTokens = parseClaudeTokensFromStdin(stdinData);
+  const openCodeTokens = aggregateOpenCodeTokens();
+
+  const tokenData = {
+    claude: claudeTokens,
+    openai: openCodeTokens.openai,
+    gemini: openCodeTokens.gemini,
+  };
+
+  const tokenOutput = renderProviderTokens(tokenData);
+  if (tokenOutput) {
+    parts.push(tokenOutput);
+  }
+
+  // 4. Fusion metrics
+  const fusionState = readFusionState();
+  const fusionOutput = renderFusionMetrics(fusionState);
+  if (fusionOutput) {
+    parts.push(fusionOutput);
+  }
+
+  // 5. Provider counts
+  const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
+  const sessionCounts = {
+    byProvider: {
+      anthropic: claudeCount,
+      openai: openCodeTokens.openai.count,
+      gemini: openCodeTokens.gemini.count,
+    }
+  };
+  const countsOutput = renderProviderCounts(sessionCounts);
+  if (countsOutput) {
+    parts.push(countsOutput);
+  }
+
+  // 6. Fallback status
+  let fallbackOutput = null;
+  try {
+    const fallback = getFallbackOrchestrator();
+    const fallbackState = fallback.getCurrentOrchestrator();
+    fallbackOutput = renderFallbackStatus(fallbackState);
+  } catch (e) {
+    // No fallback info
+  }
+  if (fallbackOutput) {
+    parts.push(fallbackOutput);
+  }
+
+  // Sync Claude usage to provider-limits
+  if (usageOutput) {
+    const cleanOutput = stripAnsi(usageOutput);
+    const fiveHourMatch = cleanOutput.match(/5h:(\d+)%/);
+    const weeklyMatch = cleanOutput.match(/wk:(\d+)%/);
+    if (fiveHourMatch || weeklyMatch) {
+      const fiveHourPercent = fiveHourMatch ? parseInt(fiveHourMatch[1], 10) : null;
+      const weeklyPercent = weeklyMatch ? parseInt(weeklyMatch[1], 10) : null;
+      updateClaudeLimits(fiveHourPercent, weeklyPercent);
+    }
+  }
+
+  if (parts.length === 0) {
+    return '[OMCM] run /fusion-setup to configure';
+  }
+
+  return '[OMCM] ' + parts.join(' | ');
 }
 
 /**
@@ -415,98 +539,78 @@ async function readStdin() {
  */
 async function main() {
   try {
-    // Read stdin
     const stdinData = await readStdin();
 
-    // Get OMC HUD output
-    const omcOutput = await getOmcHudOutput(stdinData);
+    // Check if OMC HUD is available
+    const omcAvailable = isOmcHudAvailable();
 
-    // OMC 출력에서 Claude 사용량 파싱하여 동기화
-    syncClaudeUsageFromOmcOutput(omcOutput);
+    if (omcAvailable) {
+      // OMC available: wrap OMC output with OMCM extras
+      const omcOutput = await getOmcHudOutput(stdinData);
 
-    // Parse Claude tokens from stdin
-    const claudeTokens = parseClaudeTokensFromStdin(stdinData);
+      if (omcOutput) {
+        syncClaudeUsageFromOmcOutput(omcOutput);
 
-    // Aggregate OpenCode tokens (OpenAI, Gemini, etc.)
-    const openCodeTokens = aggregateOpenCodeTokens();
+        // Parse tokens and build extras
+        const claudeTokens = parseClaudeTokensFromStdin(stdinData);
+        const openCodeTokens = aggregateOpenCodeTokens();
 
-    // Combine all token data for rendering
-    const tokenData = {
-      claude: claudeTokens,
-      openai: openCodeTokens.openai,
-      gemini: openCodeTokens.gemini,
-    };
+        const tokenData = {
+          claude: claudeTokens,
+          openai: openCodeTokens.openai,
+          gemini: openCodeTokens.gemini,
+        };
 
-    // Render token usage: C:1.2k↓0.5k↑|O:3.4k↓1.2k↑|G:0.8k↓0.3k↑
-    const tokenOutput = renderProviderTokens(tokenData);
+        const tokenOutput = renderProviderTokens(tokenData);
+        const fusionState = readFusionState();
+        const fusionOutput = renderFusionMetrics(fusionState);
 
-    // Read fusion state
-    const fusionState = readFusionState();
+        const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
+        const sessionCounts = {
+          byProvider: {
+            anthropic: claudeCount,
+            openai: openCodeTokens.openai.count,
+            gemini: openCodeTokens.gemini.count,
+          }
+        };
+        const countsOutput = renderProviderCounts(sessionCounts);
 
-    // Render fusion metrics
-    const fusionOutput = renderFusionMetrics(fusionState);
+        let fallbackOutput = null;
+        try {
+          const fallback = getFallbackOrchestrator();
+          const fallbackState = fallback.getCurrentOrchestrator();
+          fallbackOutput = renderFallbackStatus(fallbackState);
+        } catch (e) {
+          // No fallback info
+        }
 
-    // Get provider routing counts
-    // Claude count: stdin JSON에서 현재 세션 턴 수 (없으면 OpenCode anthropic 사용)
-    // OpenAI/Gemini: OpenCode 세션 파일에서 현재 세션 카운트
-    const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
-    const sessionCounts = {
-      byProvider: {
-        anthropic: claudeCount,
-        openai: openCodeTokens.openai.count,
-        gemini: openCodeTokens.gemini.count,
+        const extraParts = [];
+        if (tokenOutput) extraParts.push(tokenOutput);
+        if (fusionOutput) extraParts.push(fusionOutput);
+        if (countsOutput) extraParts.push(countsOutput);
+        if (fallbackOutput) extraParts.push(fallbackOutput);
+
+        const extras = extraParts.join(' | ');
+
+        let finalOutput = '';
+        if (extras) {
+          finalOutput = omcOutput.replace(
+            /(\[OMC\])(\s*\|)?/,
+            '$1 | ' + extras + '$2'
+          );
+        } else {
+          finalOutput = omcOutput;
+        }
+
+        console.log(finalOutput);
+        return;
       }
-    };
-    const countsOutput = renderProviderCounts(sessionCounts);
-
-    // Get fallback status
-    let fallbackOutput = null;
-    try {
-      const fallback = getFallbackOrchestrator();
-      const fallbackState = fallback.getCurrentOrchestrator();
-      fallbackOutput = renderFallbackStatus(fallbackState);
-    } catch (e) {
-      // 폴백 정보 없음
     }
 
-    // Combine all outputs
-    const extraParts = [];
+    // OMC not available or failed: run independently
+    const independentOutput = await buildIndependentHud(stdinData);
+    console.log(independentOutput);
 
-    // Token usage first (most important)
-    if (tokenOutput) {
-      extraParts.push(tokenOutput);
-    }
-
-    if (fusionOutput) {
-      extraParts.push(fusionOutput);
-    }
-    if (countsOutput) {
-      extraParts.push(countsOutput);
-    }
-    if (fallbackOutput) {
-      extraParts.push(fallbackOutput);
-    }
-
-    const extras = extraParts.join(' | ');
-
-    // Final output assembly
-    let finalOutput = '';
-
-    if (omcOutput && extras) {
-      // Insert extras after [OMC] label
-      finalOutput = omcOutput.replace(
-        /(\[OMC\])(\s*\|)?/,
-        '$1 | ' + extras + '$2'
-      );
-    } else if (omcOutput) {
-      finalOutput = omcOutput;
-    } else if (extras) {
-      finalOutput = '[OMCM] | ' + extras;
-    } else {
-      finalOutput = '[OMCM] run /fusion-setup to configure';
-    }
-
-    console.log(finalOutput);
   } catch (error) {
     console.log('[OMCM] error');
   }

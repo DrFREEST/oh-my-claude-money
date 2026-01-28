@@ -18,75 +18,24 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [1.0.0] - 2026-01-27 🎉 첫 정식 릴리즈
+## [1.0.0] - 2026-01-28 🎉 첫 정식 릴리즈
 
 ### 추가 (Added)
+- 실시간 사용량 추적 시스템
+- 다중 프로바이더 밸런싱
+- 컨텍스트 전달 시스템
+- 병렬 실행기
+- ACP 클라이언트
+- Serve 모드 통합
+- 서버 풀 관리
+- 퓨전 라우터
 
-#### 실시간 추적 시스템 (`src/tracking/`)
-- **RealtimeTracker** (`realtime-tracker.mjs`)
-  - 라우팅 이벤트 실시간 추적 (RingBuffer 기반)
-  - 성능 메트릭 수집 (latency, success rate)
-  - 시간 범위별 통계 집계 (TimeBucket)
-  - EventEmitter 기반 이벤트 구독
-- **MetricsCollector** (`metrics-collector.mjs`)
-  - 라우팅/토큰/에러 메트릭 수집
-  - 프로바이더별 통계
-  - 비용 계산 기능
-
-#### 컨텍스트 전달 시스템 (`src/context/`)
-- **buildContext()** - 현재 작업 컨텍스트 빌드
-  - 최근 수정 파일, TODO 상태, 세션 학습 사항 수집
-  - 핸드오프 히스토리 관리
-- **Context Serializer** - OpenCode/JSON 포맷 직렬화
-- **Context Synchronizer** - 실시간 컨텍스트 동기화
-
-#### 다중 프로바이더 밸런싱 (`src/router/balancer.mjs`)
-- 4가지 밸런싱 전략:
-  - `round-robin`: 순차 순환
-  - `weighted`: 가중치 기반 (claude:3, openai:2, gemini:2)
-  - `latency`: 응답 시간 기반
-  - `usage`: 사용량 기반 부하 분산
-- **ProviderBalancer** 클래스: 통합 밸런서 인터페이스
-- 싱글톤 인스턴스 제공
-
-#### 병렬 실행기 (`src/orchestrator/`)
-- **ParallelExecutor** (`parallel-executor.mjs`)
-  - 병렬/순차/하이브리드 실행 모드
-  - 파일 충돌 검사 (canRunInParallel)
-  - 의존성 기반 작업 그룹화
-  - 자동 프로바이더 라우팅
-- **ExecutionStrategy** (`execution-strategy.mjs`)
-  - 작업 유형 자동 추론 (run/serve/acp)
-  - 전략 선택 알고리즘
-  - 실행 옵션 빌드
-
-#### 플렉서블 서버 풀 (`src/executor/opencode-server-pool.mjs`)
-- **OpenCodeServerPool** 클래스
-  - 동적 스케일링 (minServers ~ maxServers)
-  - 라운드로빈 + 최소 부하 로드밸런싱
-  - 자동 헬스체크 및 장애 복구
-  - 서버 상태 관리 (idle/busy/starting/error)
-- **대규모 병렬 지원**
-  - 단일 서버 다중 요청 처리 (busyCount 추적)
-  - 퓨전 울트라파일럿 25+ 동시 작업 지원
-  - 설정 가능한 maxOpencodeWorkers (1~25 권장)
-- **리소스 효율성**
-  - 서버당 ~250-300MB 메모리 사용
-  - Cold boot 최소화 (CLI 모드 대비 10배 빠름)
-  - 자동 스케일다운으로 유휴 서버 정리
-
-#### 테스트 (361개 테스트, 100% PASS)
-- `tests/v100/tracking.test.mjs` - 32개 테스트
-- `tests/v100/context.test.mjs` - 26개 테스트
-- `tests/v100/balancer.test.mjs` - 49개 테스트
-- `tests/v100/parallel-executor.test.mjs` - 19개 테스트
-- `tests/integration/v080.test.mjs` - 19개 테스트 (v0.8.0 호환)
-
-### 개선 (Improved)
-- **아키텍처 안정화**: 레이어드 아키텍처 완성
-  - Cache Layer → Rules Layer → Mapping Layer → Balancer Layer
-- **코드 품질**: 1,800+ 라인 테스트 코드 추가
-- **문서화**: 모듈별 JSDoc 주석 완비
+### 스킬 (Skills)
+- hulw (하이브리드 울트라워크)
+- ulw (울트라워크)
+- autopilot
+- opencode
+- cancel
 
 ### 마이그레이션 가이드
 - v0.8.0에서 v1.0.0으로 업그레이드 시 추가 작업 불필요

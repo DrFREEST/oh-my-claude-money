@@ -73,8 +73,8 @@ export function renderFusionMetrics(state) {
 
   const parts = [];
 
-  // Routing rate with color
-  const rate = state.routingRate || 0;
+  // Savings rate with color (savingsRate 우선, routingRate fallback)
+  const rate = state.savingsRate ?? state.routingRate ?? 0;
   const rateColor = getRateColor(rate);
   parts.push(`⚡${rateColor}${rate}%${RESET}`);
 
@@ -104,7 +104,7 @@ export function renderFusionCompact(state) {
     return null;
   }
 
-  const rate = state.routingRate || 0;
+  const rate = state.savingsRate ?? state.routingRate ?? 0;
   const rateColor = getRateColor(rate);
   return `⚡${rateColor}${rate}%${RESET}`;
 }

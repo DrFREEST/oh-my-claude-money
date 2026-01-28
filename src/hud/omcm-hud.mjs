@@ -29,7 +29,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { renderFusionMetrics, renderProviderLimits, renderProviderCounts, renderFallbackStatus, renderProviderTokens } from './fusion-renderer.mjs';
-import { readFusionState } from '../utils/fusion-tracker.mjs';
+import { readFusionState, updateSavingsFromTokens } from '../utils/fusion-tracker.mjs';
 import { getLimitsForHUD, updateClaudeLimits } from '../utils/provider-limits.mjs';
 import { getFallbackOrchestrator } from '../orchestrator/fallback-orchestrator.mjs';
 import { getClaudeUsage, formatTimeUntilReset, hasClaudeCredentials } from './claude-usage-api.mjs';
@@ -470,6 +470,9 @@ async function buildIndependentHud(stdinData) {
   const claudeTokens = parseClaudeTokensFromStdin(stdinData);
   const openCodeTokens = aggregateOpenCodeTokens();
 
+  // 실제 토큰 기반 절약율 업데이트
+  updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini);
+
   const tokenData = {
     claude: claudeTokens,
     openai: openCodeTokens.openai,
@@ -481,7 +484,7 @@ async function buildIndependentHud(stdinData) {
     parts.push(tokenOutput);
   }
 
-  // 4. Fusion metrics
+  // 4. Fusion metrics (업데이트된 값 반영)
   const fusionState = readFusionState();
   const fusionOutput = renderFusionMetrics(fusionState);
   if (fusionOutput) {
@@ -554,6 +557,9 @@ async function main() {
         // Parse tokens and build extras
         const claudeTokens = parseClaudeTokensFromStdin(stdinData);
         const openCodeTokens = aggregateOpenCodeTokens();
+
+        // 실제 토큰 기반 절약율 업데이트
+        updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini);
 
         const tokenData = {
           claude: claudeTokens,

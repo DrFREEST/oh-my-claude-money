@@ -44,27 +44,32 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 ---
 
-## Step 2: oh-my-claudecode (OMC) 설정 확인
+## Step 2: oh-my-claudecode (OMC) 설정 확인 및 자동 설정
 
 **OMCM은 OMC 위에서 동작합니다.** OMC가 설정되어 있어야 HUD, 에이전트 등이 작동합니다.
+
+**⚠️ 중요: 이 단계에서 OMC 의존성을 직접 해결합니다. 별도로 `/omc-setup` 실행이 필요하지 않습니다.**
+
+### 2-1. OMC 상태 확인
 
 ```bash
 # OMC 설정 상태 종합 체크
 OMC_OK=true
+NEEDS_BUILD=false
 
 # 1. CLAUDE.md에 OMC 섹션 확인
 if grep -q "oh-my-claudecode" ~/.claude/CLAUDE.md 2>/dev/null; then
   echo "✅ CLAUDE.md OK"
 else
-  echo "❌ CLAUDE.md 미설정"
+  echo "⚠️ CLAUDE.md 미설정 (자동 설정 예정)"
   OMC_OK=false
 fi
 
 # 2. HUD 스크립트 확인
 if [ -f ~/.claude/hud/omc-hud.mjs ]; then
-  echo "✅ HUD OK"
+  echo "✅ HUD wrapper OK"
 else
-  echo "❌ HUD 미설정"
+  echo "⚠️ HUD wrapper 미설정 (자동 설정 예정)"
   OMC_OK=false
 fi
 
@@ -72,16 +77,17 @@ fi
 if grep -q "statusLine" ~/.claude/settings.json 2>/dev/null; then
   echo "✅ statusLine OK"
 else
-  echo "❌ statusLine 미설정"
+  echo "⚠️ statusLine 미설정 (자동 설정 예정)"
   OMC_OK=false
 fi
 
-# 4. 플러그인 빌드 확인
+# 4. 플러그인 빌드 확인 (핵심!)
 PLUGIN_VERSION=$(ls ~/.claude/plugins/cache/omc/oh-my-claudecode/ 2>/dev/null | sort -V | tail -1)
 if [ -n "$PLUGIN_VERSION" ] && [ -f ~/.claude/plugins/cache/omc/oh-my-claudecode/$PLUGIN_VERSION/dist/hud/index.js ]; then
   echo "✅ Plugin Build OK"
 else
-  echo "❌ Plugin 미빌드"
+  echo "⚠️ Plugin 미빌드 (자동 빌드 예정)"
+  NEEDS_BUILD=true
   OMC_OK=false
 fi
 
@@ -89,21 +95,178 @@ echo ""
 if [ "$OMC_OK" = true ]; then
   echo "✅ OMC 설정 완료됨 - Step 3로 진행"
 else
-  echo "❌ OMC 설정 필요"
+  echo "🔧 OMC 자동 설정을 시작합니다..."
 fi
 ```
 
-### ❌ OMC 미설정 시
+### 2-2. OMC 자동 설정 (미설정 시 자동 실행)
 
-**AskUserQuestion으로 사용자에게 물어보세요:**
+**OMC가 미설정인 경우, 다음을 순차적으로 자동 실행합니다:**
 
-> OMC(oh-my-claudecode) 설정이 필요합니다. 지금 설정하시겠습니까?
-> - **예, 설정하기** → `/oh-my-claudecode:omc-setup` 스킬 호출
-> - **아니오, 나중에** → fusion-setup 중단
+#### A. OMC HUD Wrapper 생성 (없는 경우)
 
-"예" 선택 시:
-1. `/oh-my-claudecode:omc-setup` 스킬을 호출하세요
-2. omc-setup 완료 후 자동으로 Step 3로 계속 진행
+```bash
+# HUD 디렉토리 생성
+mkdir -p ~/.claude/hud
+
+# omc-hud.mjs wrapper 생성 (없는 경우에만)
+if [ ! -f ~/.claude/hud/omc-hud.mjs ]; then
+  cat > ~/.claude/hud/omc-hud.mjs << 'HUDEOF'
+#!/usr/bin/env node
+/**
+ * OMC HUD - Statusline Script
+ * Wrapper that imports from plugin cache or development paths
+ */
+
+import { existsSync, readdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+async function main() {
+  const home = homedir();
+
+  // 1. Try plugin cache first (marketplace: omc, plugin: oh-my-claudecode)
+  const pluginCacheBase = join(home, ".claude/plugins/cache/omc/oh-my-claudecode");
+  if (existsSync(pluginCacheBase)) {
+    try {
+      const versions = readdirSync(pluginCacheBase);
+      if (versions.length > 0) {
+        const latestVersion = versions.sort().reverse()[0];
+        const pluginPath = join(pluginCacheBase, latestVersion, "dist/hud/index.js");
+        if (existsSync(pluginPath)) {
+          await import(pluginPath);
+          return;
+        }
+      }
+    } catch { /* continue */ }
+  }
+
+  // 2. Development paths
+  const devPaths = [
+    join(home, "Workspace/oh-my-claude-sisyphus/dist/hud/index.js"),
+    join(home, "workspace/oh-my-claude-sisyphus/dist/hud/index.js"),
+    join(home, "Workspace/oh-my-claudecode/dist/hud/index.js"),
+    join(home, "workspace/oh-my-claudecode/dist/hud/index.js"),
+  ];
+
+  for (const devPath of devPaths) {
+    if (existsSync(devPath)) {
+      try {
+        await import(devPath);
+        return;
+      } catch { /* continue */ }
+    }
+  }
+
+  // 3. Fallback - OMCM이 처리하므로 빈 출력
+  console.log("[OMC]");
+}
+
+main();
+HUDEOF
+  chmod +x ~/.claude/hud/omc-hud.mjs
+  echo "✅ OMC HUD wrapper 생성 완료"
+fi
+```
+
+#### B. OMC 플러그인 빌드 (미빌드 시 자동 실행)
+
+```bash
+# 플러그인 버전 확인
+PLUGIN_VERSION=$(ls ~/.claude/plugins/cache/omc/oh-my-claudecode/ 2>/dev/null | sort -V | tail -1)
+PLUGIN_DIR="$HOME/.claude/plugins/cache/omc/oh-my-claudecode/$PLUGIN_VERSION"
+
+if [ -n "$PLUGIN_VERSION" ] && [ -d "$PLUGIN_DIR" ]; then
+  # dist/hud/index.js 존재 여부 확인
+  if [ ! -f "$PLUGIN_DIR/dist/hud/index.js" ]; then
+    echo "🔧 OMC 플러그인 빌드 시작..."
+
+    cd "$PLUGIN_DIR"
+
+    # package.json 존재 확인
+    if [ -f "package.json" ]; then
+      # npm install (node_modules 없는 경우)
+      if [ ! -d "node_modules" ]; then
+        echo "   📦 의존성 설치 중..."
+        npm install --silent 2>/dev/null || npm install
+      fi
+
+      # 빌드 실행
+      echo "   🔨 빌드 중..."
+      npm run build --silent 2>/dev/null || npm run build
+
+      # 빌드 결과 확인
+      if [ -f "dist/hud/index.js" ]; then
+        echo "✅ OMC 플러그인 빌드 완료"
+      else
+        echo "⚠️ 빌드 완료했으나 dist/hud/index.js 생성되지 않음"
+        echo "   트러블슈팅: cd $PLUGIN_DIR && npm run build"
+      fi
+    else
+      echo "❌ package.json 없음 - 플러그인 재설치 필요"
+    fi
+
+    cd - > /dev/null
+  else
+    echo "✅ OMC 플러그인 이미 빌드됨"
+  fi
+else
+  echo "⚠️ OMC 플러그인 미설치 - 먼저 OMC 마켓플레이스 플러그인을 설치하세요"
+  echo "   Claude Code에서: /install-plugin omc oh-my-claudecode"
+fi
+```
+
+#### C. settings.json statusLine 설정 (미설정 시)
+
+```bash
+SETTINGS_FILE="$HOME/.claude/settings.json"
+
+# settings.json 없으면 생성
+if [ ! -f "$SETTINGS_FILE" ]; then
+  echo '{}' > "$SETTINGS_FILE"
+fi
+
+# statusLine 설정 확인 및 추가
+if ! grep -q "statusLine" "$SETTINGS_FILE" 2>/dev/null; then
+  # jq로 statusLine 추가
+  if command -v jq &> /dev/null; then
+    jq '.statusLine = {"type": "command", "command": "node ~/.claude/hud/omc-hud.mjs"}' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp"
+    mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+  else
+    # jq 없으면 수동 안내
+    echo "⚠️ settings.json에 statusLine 추가 필요:"
+    echo '  "statusLine": {"type": "command", "command": "node ~/.claude/hud/omc-hud.mjs"}'
+  fi
+  echo "✅ statusLine 설정 완료"
+fi
+```
+
+### 2-3. 설정 완료 확인
+
+```bash
+# 최종 확인
+echo ""
+echo "=== OMC 설정 최종 확인 ==="
+
+FINAL_OK=true
+
+# HUD wrapper 확인
+[ -f ~/.claude/hud/omc-hud.mjs ] && echo "✅ HUD wrapper" || { echo "❌ HUD wrapper"; FINAL_OK=false; }
+
+# 플러그인 빌드 확인
+PLUGIN_VERSION=$(ls ~/.claude/plugins/cache/omc/oh-my-claudecode/ 2>/dev/null | sort -V | tail -1)
+[ -n "$PLUGIN_VERSION" ] && [ -f ~/.claude/plugins/cache/omc/oh-my-claudecode/$PLUGIN_VERSION/dist/hud/index.js ] && echo "✅ Plugin Build" || { echo "❌ Plugin Build"; FINAL_OK=false; }
+
+# statusLine 확인
+grep -q "statusLine" ~/.claude/settings.json 2>/dev/null && echo "✅ statusLine" || { echo "❌ statusLine"; FINAL_OK=false; }
+
+echo ""
+if [ "$FINAL_OK" = true ]; then
+  echo "✅ OMC 설정 완료 - Step 3로 진행"
+else
+  echo "⚠️ 일부 설정 실패 - 트러블슈팅 섹션 참조"
+fi
+```
 
 ### ✅ OMC 설정됨 → Step 3로 진행
 

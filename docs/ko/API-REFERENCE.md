@@ -1564,6 +1564,152 @@ tracker.stopAggregation();
 
 ---
 
+## 프로젝트 루트 탐지 (Project Root)
+
+### 모듈 위치
+`src/utils/project-root.mjs`
+
+### 개요
+다단계 Fallback 전략으로 프로젝트 루트를 탐지하여 상태 파일을 올바른 위치에 저장합니다.
+
+### 탐지 우선순위
+
+| 순서 | 방법 | 탐지 기준 |
+|------|------|----------|
+| 1 | Git 루트 | `.git/` 폴더 존재 |
+| 2 | 프로젝트 마커 | `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml` 등 |
+| 3 | Claude 마커 | `CLAUDE.md`, `AGENTS.md`, `.claude/` |
+| 4 | 환경변수 | `$PROJECT_ROOT`, `$OMCM_ROOT` |
+| 5 | 글로벌 Fallback | `~/.omcm/` |
+
+### 함수
+
+```javascript
+import {
+  findProjectRootSync,
+  getStateDir,
+  getStatePath,
+  ensureStateDir,
+  getProjectInfo,
+  PROJECT_MARKERS
+} from 'src/utils/project-root.mjs';
+
+// 프로젝트 루트 탐지
+const result = findProjectRootSync('/path/to/subdir');
+// { root: '/path/to/project', method: 'git', isGlobal: false }
+
+// 상태 디렉토리 경로
+const stateDir = getStateDir();
+// '/path/to/project/.omcm/state/'
+
+// 특정 상태 파일 경로
+const statePath = getStatePath('ultrawork-state.json');
+// '/path/to/project/.omcm/state/ultrawork-state.json'
+
+// 상태 디렉토리 생성
+ensureStateDir();
+
+// 전체 정보
+const info = getProjectInfo();
+// { root, method, isGlobal, stateDir, startDir, home }
+```
+
+---
+
+## 상태 관리자 (State Manager)
+
+### 모듈 위치
+`src/utils/state-manager.mjs`
+
+### 개요
+중앙화된 상태 파일 읽기/쓰기를 제공합니다. 프로젝트 루트 탐지를 통해 서브디렉토리에서 호출해도 프로젝트 루트에 상태를 저장합니다.
+
+### 상태 파일 타입
+
+```javascript
+import { STATE_FILES } from 'src/utils/state-manager.mjs';
+
+// STATE_FILES = {
+//   ULTRAWORK: 'ultrawork-state.json',
+//   ULTRAPILOT: 'ultrapilot-state.json',
+//   RALPH: 'ralph-state.json',
+//   AUTOPILOT: 'autopilot-state.json',
+//   ECOMODE: 'ecomode-state.json',
+//   SWARM: 'swarm-state.json',
+//   PIPELINE: 'pipeline-state.json',
+//   ULTRAQA: 'ultraqa-state.json',
+//   FUSION: 'fusion-state.json',
+//   FALLBACK: 'fallback-state.json',
+//   PROVIDER_LIMITS: 'provider-limits.json',
+//   METRICS: 'metrics.json',
+//   ROUTING_CACHE: 'routing-cache.json'
+// }
+```
+
+### 핵심 함수
+
+```javascript
+import {
+  readState,
+  writeState,
+  deleteState,
+  stateExists,
+  getActiveModes,
+  deactivateAllModes,
+  getFusionState,
+  updateFusionState
+} from 'src/utils/state-manager.mjs';
+
+// 상태 읽기
+const state = readState('ULTRAWORK', {
+  startDir: process.cwd(),
+  defaultValue: { active: false }
+});
+
+// 상태 쓰기 (프로젝트 루트에 저장)
+writeState('ULTRAWORK', { active: true, count: 5 }, {
+  startDir: process.cwd(),
+  merge: true  // 기존 데이터와 병합
+});
+
+// 글로벌 위치에 저장
+writeState('FUSION', { enabled: true }, { global: true });
+
+// 상태 삭제
+deleteState('ULTRAWORK');
+
+// 상태 존재 확인
+if (stateExists('RALPH')) { /* ... */ }
+
+// 활성 모드 목록
+const modes = getActiveModes();
+// ['ultrawork', 'ralph']
+
+// 모든 모드 비활성화
+deactivateAllModes();
+
+// 퓨전 상태 헬퍼 (항상 글로벌)
+const fusion = getFusionState();
+updateFusionState({ totalTasks: fusion.totalTasks + 1 });
+```
+
+### 예제: 서브디렉토리에서 상태 저장
+
+```javascript
+// docs/components/에서 실행해도
+// 프로젝트 루트(package.json 위치)에 저장됨
+
+import { writeState } from 'src/utils/state-manager.mjs';
+
+// /project/docs/components/ 에서 실행
+writeState('ULTRAWORK', { active: true });
+
+// 결과: /project/.omcm/state/ultrawork-state.json 에 저장
+// (NOT /project/docs/components/.omcm/state/)
+```
+
+---
+
 ## 에러 처리
 
 모든 모듈은 표준 JavaScript 에러를 발생시킵니다.

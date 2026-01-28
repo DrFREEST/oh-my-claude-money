@@ -1564,6 +1564,152 @@ tracker.stopAggregation();
 
 ---
 
+## Project Root Detection
+
+### Module Location
+`src/utils/project-root.mjs`
+
+### Overview
+Detects project root using a multi-stage fallback strategy to save state files in the correct location.
+
+### Detection Priority
+
+| Order | Method | Detection Criteria |
+|-------|--------|-------------------|
+| 1 | Git root | `.git/` folder exists |
+| 2 | Project markers | `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, etc. |
+| 3 | Claude markers | `CLAUDE.md`, `AGENTS.md`, `.claude/` |
+| 4 | Environment variables | `$PROJECT_ROOT`, `$OMCM_ROOT` |
+| 5 | Global fallback | `~/.omcm/` |
+
+### Functions
+
+```javascript
+import {
+  findProjectRootSync,
+  getStateDir,
+  getStatePath,
+  ensureStateDir,
+  getProjectInfo,
+  PROJECT_MARKERS
+} from 'src/utils/project-root.mjs';
+
+// Detect project root
+const result = findProjectRootSync('/path/to/subdir');
+// { root: '/path/to/project', method: 'git', isGlobal: false }
+
+// Get state directory path
+const stateDir = getStateDir();
+// '/path/to/project/.omcm/state/'
+
+// Get specific state file path
+const statePath = getStatePath('ultrawork-state.json');
+// '/path/to/project/.omcm/state/ultrawork-state.json'
+
+// Create state directory
+ensureStateDir();
+
+// Get full info
+const info = getProjectInfo();
+// { root, method, isGlobal, stateDir, startDir, home }
+```
+
+---
+
+## State Manager
+
+### Module Location
+`src/utils/state-manager.mjs`
+
+### Overview
+Provides centralized state file read/write operations. Uses project root detection so that calls from subdirectories still save state to the project root.
+
+### State File Types
+
+```javascript
+import { STATE_FILES } from 'src/utils/state-manager.mjs';
+
+// STATE_FILES = {
+//   ULTRAWORK: 'ultrawork-state.json',
+//   ULTRAPILOT: 'ultrapilot-state.json',
+//   RALPH: 'ralph-state.json',
+//   AUTOPILOT: 'autopilot-state.json',
+//   ECOMODE: 'ecomode-state.json',
+//   SWARM: 'swarm-state.json',
+//   PIPELINE: 'pipeline-state.json',
+//   ULTRAQA: 'ultraqa-state.json',
+//   FUSION: 'fusion-state.json',
+//   FALLBACK: 'fallback-state.json',
+//   PROVIDER_LIMITS: 'provider-limits.json',
+//   METRICS: 'metrics.json',
+//   ROUTING_CACHE: 'routing-cache.json'
+// }
+```
+
+### Core Functions
+
+```javascript
+import {
+  readState,
+  writeState,
+  deleteState,
+  stateExists,
+  getActiveModes,
+  deactivateAllModes,
+  getFusionState,
+  updateFusionState
+} from 'src/utils/state-manager.mjs';
+
+// Read state
+const state = readState('ULTRAWORK', {
+  startDir: process.cwd(),
+  defaultValue: { active: false }
+});
+
+// Write state (saves to project root)
+writeState('ULTRAWORK', { active: true, count: 5 }, {
+  startDir: process.cwd(),
+  merge: true  // Merge with existing data
+});
+
+// Save to global location
+writeState('FUSION', { enabled: true }, { global: true });
+
+// Delete state
+deleteState('ULTRAWORK');
+
+// Check state exists
+if (stateExists('RALPH')) { /* ... */ }
+
+// Get list of active modes
+const modes = getActiveModes();
+// ['ultrawork', 'ralph']
+
+// Deactivate all modes
+deactivateAllModes();
+
+// Fusion state helpers (always global)
+const fusion = getFusionState();
+updateFusionState({ totalTasks: fusion.totalTasks + 1 });
+```
+
+### Example: State Saved from Subdirectory
+
+```javascript
+// Even when run from docs/components/
+// State is saved to project root (where package.json is)
+
+import { writeState } from 'src/utils/state-manager.mjs';
+
+// Running from /project/docs/components/
+writeState('ULTRAWORK', { active: true });
+
+// Result: Saved to /project/.omcm/state/ultrawork-state.json
+// (NOT /project/docs/components/.omcm/state/)
+```
+
+---
+
 ## Error Handling
 
 All modules throw standard JavaScript errors.

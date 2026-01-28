@@ -248,8 +248,9 @@ function aggregateOpenCodeTokens() {
       .filter((d) => d !== null)
       .sort((a, b) => b.mtime - a.mtime);
 
-    const oneHourAgo = now - (60 * 60 * 1000);
-    const activeSessions = sessionDirs.filter((s) => s.mtime >= oneHourAgo);
+    // 8시간 이내 세션 (일반적인 작업 세션 기간)
+    const eightHoursAgo = now - (8 * 60 * 60 * 1000);
+    const activeSessions = sessionDirs.filter((s) => s.mtime >= eightHoursAgo);
 
     if (activeSessions.length === 0) {
       openCodeTokenCache = result;

@@ -23,5 +23,8 @@ config.json
 *.log
 logs/
 
-# Docs (local planning documents)
-docs/
+# 개발 문서 (내부용, git 제외)
+dev-docs/
+PLANS/
+todo_*.md
+*.plan.md

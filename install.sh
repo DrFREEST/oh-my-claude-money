@@ -414,23 +414,40 @@ setup_claude_hooks() {
     # 안정적인 경로 사용: 마켓플레이스 설치 위치
     local hook_command="node ~/.claude/plugins/marketplaces/omcm/hooks/fusion-router.mjs"
 
-    # hooks.PreToolUse 배열에 추가
+    # hooks 배열에 추가 (PreToolUse + PostToolUse)
+    local plugin_hooks_dir="$HOME/.claude/plugins/omcm/hooks"
     local updated_settings
-    updated_settings=$(echo "$existing_settings" | jq --arg cmd "$hook_command" '
+    updated_settings=$(echo "$existing_settings" | jq \
+      --arg fusion_cmd "$hook_command" \
+      --arg read_cmd "node $plugin_hooks_dir/read-optimizer.mjs" \
+      --arg bash_cmd "node $plugin_hooks_dir/bash-optimizer.mjs" \
+      --arg tracker_cmd "node $plugin_hooks_dir/tool-tracker.mjs" \
+    '
       .hooks = (.hooks // {}) |
-      .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{
-        "matcher": "Task",
-        "hooks": [{
-          "type": "command",
-          "command": $cmd,
-          "timeout": 120,
-          "statusMessage": "퓨전 라우팅 확인 중..."
-        }]
-      }] | unique_by(.matcher))
+      .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [
+        {
+          "matcher": "Task",
+          "hooks": [{"type": "command", "command": $fusion_cmd, "timeout": 120, "statusMessage": "퓨전 라우팅 확인 중..."}]
+        },
+        {
+          "matcher": "Read",
+          "hooks": [{"type": "command", "command": $read_cmd, "timeout": 5}]
+        },
+        {
+          "matcher": "Bash",
+          "hooks": [{"type": "command", "command": $bash_cmd, "timeout": 5}]
+        }
+      ] | unique_by(.matcher)) |
+      .hooks.PostToolUse = ((.hooks.PostToolUse // []) + [
+        {
+          "matcher": "Read|Edit|Bash|Grep|Glob|Task",
+          "hooks": [{"type": "command", "command": $tracker_cmd, "timeout": 5}]
+        }
+      ] | unique_by(.matcher))
     ')
 
     echo "$updated_settings" > "$settings_file"
-    log_success "PreToolUse hook 설정 완료"
+    log_success "PreToolUse + PostToolUse hooks 설정 완료"
 }
 
 # Handoff 디렉토리 설정

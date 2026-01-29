@@ -50,33 +50,29 @@ fi
 echo -e "${BLUE}[2/6]${NC} Hooks 설정 제거..."
 if [[ -f "$SETTINGS_FILE" ]]; then
     # fusion-router 관련 hook 제거
-    if grep -q "fusion-router" "$SETTINGS_FILE" 2>/dev/null; then
-        # Node.js를 사용하여 안전하게 JSON 수정
+    if grep -qE "fusion-router|omcm|read-optimizer|bash-optimizer|tool-tracker" "$SETTINGS_FILE" 2>/dev/null; then
         node -e "
             const fs = require('fs');
             const settings = JSON.parse(fs.readFileSync('$SETTINGS_FILE', 'utf-8'));
+            const h = settings.hooks || {};
+            let removed = 0;
+            const isOmcm = (entry) => JSON.stringify(entry).includes('omcm');
 
-            if (settings.hooks && settings.hooks.PreToolUse) {
-                const original = settings.hooks.PreToolUse.length;
-                settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(
-                    hook => !hook.includes('fusion-router') && !hook.includes('omcm')
-                );
-                const removed = original - settings.hooks.PreToolUse.length;
-
-                // hooks가 비어있으면 삭제
-                if (settings.hooks.PreToolUse.length === 0) {
-                    delete settings.hooks.PreToolUse;
+            for (const event of ['PreToolUse', 'PostToolUse']) {
+                if (h[event]) {
+                    const orig = h[event].length;
+                    h[event] = h[event].filter(e => !isOmcm(e));
+                    removed += orig - h[event].length;
+                    if (h[event].length === 0) delete h[event];
                 }
-                if (Object.keys(settings.hooks).length === 0) {
-                    delete settings.hooks;
-                }
-
-                fs.writeFileSync('$SETTINGS_FILE', JSON.stringify(settings, null, 2));
-                console.log('removed:' + removed);
-            } else {
-                console.log('removed:0');
             }
-        " 2>/dev/null && echo -e "  ${GREEN}✓${NC} PreToolUse hooks에서 OMCM 항목 제거됨" || \
+
+            if (Object.keys(h).length === 0) delete settings.hooks;
+            else settings.hooks = h;
+
+            fs.writeFileSync('$SETTINGS_FILE', JSON.stringify(settings, null, 2));
+            console.log('removed:' + removed);
+        " 2>/dev/null && echo -e "  ${GREEN}✓${NC} PreToolUse + PostToolUse hooks에서 OMCM 항목 제거됨" || \
             echo -e "  ${YELLOW}!${NC} hooks 설정 수정 실패 (수동 확인 필요)"
     else
         echo -e "  ${YELLOW}-${NC} OMCM hooks 없음"

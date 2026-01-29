@@ -3,9 +3,12 @@
  * fusion-router.mjs - PreToolUse Hook for FULL Task routing
  *
  * When fallback is active, intercepts Task calls and routes to OpenCode
+ * via server pool (HTTP API) instead of spawning new processes.
+ *
+ * v1.1.0: spawn('opencode', ['run']) → 서버 풀 HTTP API 방식으로 전환
+ *         실제 토큰 사용량 기록 (input/output tokens)
  */
 
-import { spawn } from 'child_process';
 import {
   shouldRouteToOpenCode,
   mapAgentToOpenCode,
@@ -13,83 +16,79 @@ import {
   updateFusionState,
   logRouting
 } from '../src/hooks/fusion-router-logic.mjs';
+import { getSessionIdFromTty } from '../src/utils/session-id.mjs';
+import { logOpenCodeCall } from '../src/tracking/call-logger.mjs';
+import { executeOnPool, discoverExistingServers } from '../src/pool/server-pool.mjs';
 
 /**
- * 내부 모델 ID를 OpenCode 모델 형식으로 변환
+ * 내부 모델 ID를 OpenCode providerID/modelID로 변환
  * @param {string} modelId - 내부 모델 ID (예: 'gemini-flash', 'gpt-5.2')
- * @returns {string} - OpenCode 모델 형식 (예: 'google/gemini-2.5-flash')
+ * @returns {object} - { providerID, modelID }
  */
-function toOpenCodeModel(modelId) {
+function toOpenCodeProvider(modelId) {
   var mapping = {
-    'gemini-flash': 'google/antigravity-gemini-3-flash',
-    'gemini-pro': 'google/antigravity-gemini-3-pro-high',
-    'gpt-5.2': 'openai/gpt-5.2',
-    'gpt-5.2-codex': 'openai/gpt-5.2-codex'
+    'gemini-flash': { providerID: 'google', modelID: 'antigravity-gemini-3-flash' },
+    'gemini-pro': { providerID: 'google', modelID: 'antigravity-gemini-3-pro-high' },
+    'gpt-5.2': { providerID: 'openai', modelID: 'gpt-5.2' },
+    'gpt-5.2-codex': { providerID: 'openai', modelID: 'gpt-5.2-codex' }
   };
-  return mapping[modelId] || 'openai/gpt-5.2-codex';
+  return mapping[modelId] || { providerID: 'openai', modelID: 'gpt-5.2-codex' };
 }
 
 /**
- * OpenCode를 통해 작업 실행 (직접 spawn 방식)
+ * OpenCode 서버 풀을 통해 작업 실행 (HTTP API 방식)
+ * @param {object} toolInput - 도구 입력
+ * @param {object} decision - 라우팅 결정
+ * @returns {Promise<object>} - { success, output, tokens, error }
  */
-function executeViaOpenCode(toolInput, decision) {
-  return new Promise(function(resolve) {
-    var prompt = toolInput.prompt || '';
-    var agent = decision.opencodeAgent || 'Codex';
+async function executeViaOpenCode(toolInput, decision) {
+  var prompt = toolInput.prompt || '';
+  var agent = decision.opencodeAgent || 'Codex';
 
-    // 모델 결정 (decision.targetModel.id 사용)
-    var internalModelId = decision.targetModel && decision.targetModel.id
-      ? decision.targetModel.id
-      : 'gpt-5.2-codex';
-    var openCodeModel = toOpenCodeModel(internalModelId);
+  // 모델 결정
+  var internalModelId = decision.targetModel && decision.targetModel.id
+    ? decision.targetModel.id
+    : 'gpt-5.2-codex';
+  var provider = toOpenCodeProvider(internalModelId);
 
-    // /ulw 커맨드 래핑으로 ULW 모드 활성화
-    prompt = wrapWithUlwCommand(prompt);
+  // /ulw 커맨드 래핑
+  prompt = wrapWithUlwCommand(prompt);
 
-    console.error('[OMCM] Routing to OpenCode');
-    console.error('[OMCM] Model: ' + openCodeModel);
-    console.error('[OMCM] Agent: ' + agent);
-    console.error('[OMCM] Reason: ' + decision.reason);
+  console.error('[OMCM] Routing to OpenCode (Server Pool)');
+  console.error('[OMCM] Provider: ' + provider.providerID + '/' + provider.modelID);
+  console.error('[OMCM] Agent: ' + agent);
+  console.error('[OMCM] Reason: ' + decision.reason);
 
-    // opencode run 실행 (non-interactive) - 모델 명시
-    var args = ['run', '-m', openCodeModel, prompt];
+  var startTime = Date.now();
 
-    var child = spawn('opencode', args, {
-      stdio: ['inherit', 'pipe', 'pipe'],
-      env: Object.assign({}, process.env, { OPENCODE_NON_INTERACTIVE: '1' })
-    });
-
-    var stdout = '';
-    var stderr = '';
-
-    child.stdout.on('data', function(data) {
-      stdout += data.toString();
-      // 출력 스트리밍
-      process.stderr.write(data);
-    });
-
-    child.stderr.on('data', function(data) {
-      stderr += data.toString();
-    });
-
-    child.on('close', function(code) {
-      if (code === 0) {
-        resolve({ success: true, output: stdout, stderr: stderr });
-      } else {
-        resolve({ success: false, error: 'Exit code ' + code, output: stdout, stderr: stderr });
-      }
-    });
-
-    child.on('error', function(err) {
-      resolve({ success: false, error: err.message });
-    });
-
-    // 5분 타임아웃
-    setTimeout(function() {
-      child.kill('SIGTERM');
-      resolve({ success: false, error: 'Timeout after 5 minutes' });
-    }, 5 * 60 * 1000);
+  // 서버 풀에서 실행
+  var result = await executeOnPool({
+    prompt: prompt,
+    providerID: provider.providerID,
+    modelID: provider.modelID,
+    agent: agent,
+    timeout: 5 * 60 * 1000  // 5분 타임아웃
   });
+
+  var duration = Date.now() - startTime;
+
+  if (result.success) {
+    console.error('[OMCM] OpenCode completed via pool (port ' + result.serverPort + ')');
+    if (result.tokens) {
+      console.error('[OMCM] Tokens: input=' + result.tokens.input + ' output=' + result.tokens.output);
+    }
+  } else {
+    console.error('[OMCM] OpenCode failed: ' + result.error);
+  }
+
+  return {
+    success: result.success,
+    output: result.output || '',
+    tokens: result.tokens || null,
+    error: result.error || null,
+    duration: duration,
+    serverPort: result.serverPort || 0
+  };
 }
 
 /**
@@ -106,6 +105,14 @@ async function main() {
     var data = JSON.parse(input);
     var toolName = data.tool_name || '';
     var toolInput = data.tool_input || {};
+
+    // 세션 ID 획득
+    var sessionId = null;
+    try {
+      sessionId = getSessionIdFromTty();
+    } catch (e) {
+      // 세션 ID 획득 실패 시 글로벌 모드
+    }
 
     // Task 도구만 처리
     if (toolName !== 'Task') {
@@ -134,11 +141,47 @@ async function main() {
       console.error('[OMCM Fusion] Agent: ' + decision.opencodeAgent);
       console.error('[OMCM Fusion] Reason: ' + decision.reason);
 
-      // OpenCode를 통해 실행
+      // 기존 서버 자동 감지 (이미 실행 중인 opencode serve)
+      await discoverExistingServers();
+
+      // OpenCode 서버 풀을 통해 실행
       var result = await executeViaOpenCode(toolInput, decision);
 
+      // 세션별 호출 로깅 (실제 토큰 데이터 포함)
+      if (sessionId) {
+        var provider = 'openai';
+        var targetModelId = decision.targetModel && decision.targetModel.id
+          ? decision.targetModel.id
+          : '';
+        if (targetModelId.indexOf('gemini') !== -1 || targetModelId.indexOf('flash') !== -1 || targetModelId.indexOf('pro') !== -1) {
+          provider = 'gemini';
+        }
+
+        var callData = {
+          provider: provider,
+          model: targetModelId,
+          agent: decision.opencodeAgent || '',
+          success: result.success,
+          source: 'fusion-router',
+          duration: result.duration || 0,
+          serverPort: result.serverPort || 0
+        };
+
+        // 실제 토큰 데이터가 있으면 사용 (서버 풀 HTTP 응답에서 획득)
+        if (result.tokens) {
+          callData.inputTokens = result.tokens.input || 0;
+          callData.outputTokens = result.tokens.output || 0;
+          callData.reasoningTokens = result.tokens.reasoning || 0;
+          callData.cost = result.tokens.cost || 0;
+          callData.actualModelID = result.tokens.modelID || '';
+          callData.actualProviderID = result.tokens.providerID || '';
+        }
+
+        logOpenCodeCall(sessionId, callData);
+      }
+
       // 퓨전 상태 업데이트
-      updateFusionState(decision, result);
+      updateFusionState(decision, result, sessionId);
 
       if (result.success) {
         // 원래 Task 호출 차단 - OpenCode를 통해 처리됨
@@ -152,12 +195,12 @@ async function main() {
         // OpenCode 실패 - Claude로 폴스루
         console.error('[OMCM Fusion] OpenCode failed: ' + result.error);
         console.error('[OMCM Fusion] Falling through to Claude');
-        updateFusionState({ route: false }, null);
+        updateFusionState({ route: false }, null, sessionId);
         console.log(JSON.stringify({ allow: true }));
       }
     } else {
       // Claude 실행을 위한 상태 업데이트
-      updateFusionState(decision, null);
+      updateFusionState(decision, null, sessionId);
       console.log(JSON.stringify({ allow: true }));
     }
   } catch (e) {

@@ -20,6 +20,7 @@ const __dirname = dirname(__filename);
 // =============================================================================
 
 let getUsageFromCache, getUsageLevel, getUsageSummary, loadConfig;
+let generateSessionId, registerSession, cleanupOldSessions, initializeSession;
 
 async function loadUtils() {
   try {
@@ -31,12 +32,29 @@ async function loadUtils() {
     getUsageLevel = usageModule.getUsageLevel;
     getUsageSummary = usageModule.getUsageSummary;
     loadConfig = configModule.loadConfig;
+
+    // 세션 ID 유틸리티 로드
+    try {
+      const sessionModule = await import(join(utilsPath, 'session-id.mjs'));
+      generateSessionId = sessionModule.generateSessionId;
+      registerSession = sessionModule.registerSession;
+      cleanupOldSessions = sessionModule.cleanupOldSessions;
+      initializeSession = sessionModule.initializeSession;
+    } catch (e) {
+      // 세션 ID 유틸리티 없으면 기본값
+      generateSessionId = () => null;
+      registerSession = () => {};
+      cleanupOldSessions = () => {};
+    }
   } catch (e) {
     // 기본값
     getUsageFromCache = () => null;
     getUsageLevel = () => 'unknown';
     getUsageSummary = () => 'N/A';
     loadConfig = () => ({ notifications: { showOnThreshold: true } });
+    generateSessionId = () => null;
+    registerSession = () => {};
+    cleanupOldSessions = () => {};
   }
 }
 
@@ -108,6 +126,21 @@ async function main() {
     const config = loadConfig();
     const usage = getUsageFromCache();
     const level = getUsageLevel();
+
+    // 세션 ID 생성 및 등록
+    try {
+      const sessionId = generateSessionId();
+      if (sessionId) {
+        registerSession(sessionId);
+        if (initializeSession) {
+          initializeSession(sessionId);
+        }
+        // 세션 시작 시 오래된 세션 정리 (7일)
+        cleanupOldSessions(7);
+      }
+    } catch (e) {
+      // 세션 초기화 실패 시 무시 (기존 기능에 영향 없음)
+    }
 
     // fusionDefault 활성화 시 서버 풀 자동 시작
     if (config.fusionDefault && !isServerPoolRunning()) {

@@ -613,25 +613,22 @@ EOF
     fi
 }
 
-# HUD 파일 복사
+# HUD 래퍼 설치 (마켓플레이스 소스를 동적 import)
 install_hud_files() {
     local source_dir="$1"
     local hud_dir="$HOME/.claude/hud"
 
-    log_step "HUD 파일 복사"
+    log_step "HUD 래퍼 설치"
 
     mkdir -p "$hud_dir"
 
-    # HUD 파일들 복사
-    if [[ -f "$source_dir/src/hud/omcm-hud.mjs" ]]; then
-        cp "$source_dir/src/hud/omcm-hud.mjs" "$hud_dir/omcm-hud.mjs"
+    # 래퍼 파일 설치 (실제 HUD는 마켓플레이스에서 동적 import)
+    if [[ -f "$source_dir/src/hud/omcm-hud-wrapper.mjs" ]]; then
+        cp "$source_dir/src/hud/omcm-hud-wrapper.mjs" "$hud_dir/omcm-hud.mjs"
         chmod +x "$hud_dir/omcm-hud.mjs"
-        log_success "omcm-hud.mjs 복사 완료"
-    fi
-
-    if [[ -f "$source_dir/src/hud/fusion-renderer.mjs" ]]; then
-        cp "$source_dir/src/hud/fusion-renderer.mjs" "$hud_dir/fusion-renderer.mjs"
-        log_success "fusion-renderer.mjs 복사 완료"
+        log_success "HUD 래퍼 설치 완료 (마켓플레이스 소스 동적 참조)"
+    else
+        log_warn "omcm-hud-wrapper.mjs를 찾을 수 없습니다"
     fi
 }
 

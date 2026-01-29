@@ -6,6 +6,7 @@
 
 import { readFileSync, existsSync, mkdirSync, openSync, writeSync, closeSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { getSessionIdFromTty } from '../utils/session-id.mjs';
 
 // Constants
 const HOME = process.env.HOME || '';
@@ -252,6 +253,76 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
     }
   }
 
+  // 프롬프트 기반 작업 규모 판단 (대규모 작업 라우팅 우선도 상승)
+  if (toolInput && toolInput.subagent_type && toolInput.prompt) {
+    var promptLen = toolInput.prompt.length || 0;
+    var promptLower = toolInput.prompt.toLowerCase();
+    var agentTypePrompt = toolInput.subagent_type.replace('oh-my-claudecode:', '');
+
+    // 대규모 작업 키워드
+    var largeTaskKeywords = ['리팩토링', '전체', '모든 파일', '모든 ', 'refactor', 'all files', 'entire', 'complete'];
+    var isLargeTask = promptLen > 500;
+
+    if (!isLargeTask) {
+      for (var ki = 0; ki < largeTaskKeywords.length; ki++) {
+        if (promptLower.indexOf(largeTaskKeywords[ki]) !== -1) {
+          isLargeTask = true;
+          break;
+        }
+      }
+    }
+
+    // 대규모 작업이면 planner 제외 모든 에이전트 라우팅 (fusionDefault처럼)
+    if (isLargeTask && agentTypePrompt !== 'planner') {
+      var largeAgent = mapAgentToOpenCode(agentTypePrompt);
+      var largeModel = getModelInfoForAgent(largeAgent);
+
+      return {
+        route: true,
+        reason: 'large-task-' + agentTypePrompt,
+        targetModel: { id: largeModel.id, name: largeModel.name },
+        opencodeAgent: largeAgent
+      };
+    }
+  }
+
+  // 세션 토큰 기반 동적 라우팅 (fusion-state에서 토큰 읽기)
+  if (toolInput && toolInput.subagent_type) {
+    var agentTypeForLevel = toolInput.subagent_type.replace('oh-my-claudecode:', '');
+
+    // fusion-state에서 세션 토큰 읽기
+    var sessionTokens = 0;
+    if (fusion && fusion.actualTokens && fusion.actualTokens.claude) {
+      sessionTokens = fusion.actualTokens.claude.input || 0;
+    }
+
+    if (sessionTokens >= 5000000) {
+      var routingLevel = getRoutingLevel(sessionTokens);
+
+      // 현재 에이전트가 라우팅 레벨에 포함되는지 확인
+      var isInLevel = false;
+      for (var idx = 0; idx < routingLevel.agents.length; idx++) {
+        if (agentTypeForLevel === routingLevel.agents[idx]) {
+          isInLevel = true;
+          break;
+        }
+      }
+
+      if (isInLevel) {
+        var levelAgent = mapAgentToOpenCode(agentTypeForLevel);
+        var levelModel = getModelInfoForAgent(levelAgent);
+
+        return {
+          route: true,
+          reason: 'session-token-' + routingLevel.name + '-' + agentTypeForLevel,
+          targetModel: { id: levelModel.id, name: levelModel.name },
+          opencodeAgent: levelAgent,
+          routingLevel: routingLevel.level
+        };
+      }
+    }
+  }
+
   // fusionDefault가 true이거나 save-tokens 모드에서 에이전트 라우팅
   var shouldRouteByMode = fusionDefault || (fusion && fusion.mode === 'save-tokens');
 
@@ -342,13 +413,24 @@ export function wrapWithUlwCommand(prompt) {
  * 퓨전 상태 업데이트
  * @param {object} decision - 라우팅 결정
  * @param {object} result - 실행 결과
+ * @param {string|null} [sessionId] - 세션 ID (null이면 글로벌)
  * @param {object} [currentState] - 현재 상태 (테스트용 주입)
  * @returns {object} - 업데이트된 상태
  */
-export function updateFusionState(decision, result, currentState = null) {
+export function updateFusionState(decision, result, sessionId = null, currentState = null) {
   ensureOmcmDir();
 
-  var state = currentState !== null ? currentState : readJsonFile(FUSION_STATE_FILE);
+  // 세션별 또는 글로벌 상태 파일 경로 결정
+  var stateFile = FUSION_STATE_FILE;
+  if (sessionId) {
+    var sessionDir = join(OMCM_DIR, 'sessions', sessionId);
+    if (!existsSync(sessionDir)) {
+      mkdirSync(sessionDir, { recursive: true });
+    }
+    stateFile = join(sessionDir, 'fusion-state.json');
+  }
+
+  var state = currentState !== null ? currentState : readJsonFile(stateFile);
   if (!state) {
     state = {
       enabled: true,
@@ -357,7 +439,8 @@ export function updateFusionState(decision, result, currentState = null) {
       routedToOpenCode: 0,
       routingRate: 0,
       estimatedSavedTokens: 0,
-      byProvider: { gemini: 0, openai: 0, anthropic: 0 }
+      byProvider: { gemini: 0, openai: 0, anthropic: 0 },
+      sessionId: sessionId
     };
   }
 
@@ -365,9 +448,8 @@ export function updateFusionState(decision, result, currentState = null) {
 
   if (decision.route) {
     state.routedToOpenCode++;
-    state.estimatedSavedTokens += 1000; // 작업당 약 1000 토큰 절약 추정
+    state.estimatedSavedTokens += 1000;
 
-    // 프로바이더별 추적
     var model = decision.targetModel ? decision.targetModel.id : '';
     var agent = decision.opencodeAgent || '';
 
@@ -385,7 +467,41 @@ export function updateFusionState(decision, result, currentState = null) {
     : 0;
   state.lastUpdated = new Date().toISOString();
 
-  writeFileSync(FUSION_STATE_FILE, JSON.stringify(state, null, 2));
+  writeFileSync(stateFile, JSON.stringify(state, null, 2));
+
+  // 글로벌 상태도 함께 업데이트 (세션별 상태와 별개로 누적)
+  if (sessionId) {
+    var globalState = readJsonFile(FUSION_STATE_FILE);
+    if (!globalState) {
+      globalState = {
+        enabled: true,
+        mode: 'balanced',
+        totalTasks: 0,
+        routedToOpenCode: 0,
+        routingRate: 0,
+        estimatedSavedTokens: 0,
+        byProvider: { gemini: 0, openai: 0, anthropic: 0 }
+      };
+    }
+    globalState.totalTasks++;
+    if (decision.route) {
+      globalState.routedToOpenCode++;
+      globalState.estimatedSavedTokens += 1000;
+      var gModel = decision.targetModel ? decision.targetModel.id : '';
+      var gAgent = decision.opencodeAgent || '';
+      if (gModel.indexOf('gemini') !== -1 || gAgent === 'Flash') {
+        globalState.byProvider.gemini++;
+      } else if (gModel.indexOf('gpt') !== -1 || gModel.indexOf('codex') !== -1) {
+        globalState.byProvider.openai++;
+      }
+    } else {
+      globalState.byProvider.anthropic++;
+    }
+    globalState.routingRate = globalState.totalTasks > 0
+      ? Math.round((globalState.routedToOpenCode / globalState.totalTasks) * 100) : 0;
+    globalState.lastUpdated = new Date().toISOString();
+    writeFileSync(FUSION_STATE_FILE, JSON.stringify(globalState, null, 2));
+  }
 
   return state;
 }
@@ -541,5 +657,89 @@ export function getRoutingStats() {
     },
     cache: cacheStats,
     dynamicMappings: dynamicMapping.mappings ? dynamicMapping.mappings.length : 0,
+  };
+}
+
+/**
+ * 세션 토큰 기반 라우팅 레벨 결정
+ *
+ * - L1 (< 5M): 기본 모드 (기존 로직)
+ * - L2 (5-20M): 분석/탐색 에이전트 자동 라우팅
+ * - L3 (20-40M): 실행 에이전트까지 라우팅 확대
+ * - L4 (40M+): planner 제외 전체 라우팅
+ *
+ * @param {number} sessionInputTokens - 세션 누적 입력 토큰
+ * @returns {object} { level: number, name: string, agents: string[] }
+ */
+export function getRoutingLevel(sessionInputTokens) {
+  if (sessionInputTokens >= 40000000) {
+    return {
+      level: 4,
+      name: 'L4',
+      agents: [
+        // L2 에이전트
+        'architect', 'architect-low', 'architect-medium',
+        'researcher', 'researcher-low',
+        'explore', 'explore-medium', 'explore-high',
+        'scientist', 'scientist-low', 'scientist-high',
+        'designer', 'designer-low', 'designer-high',
+        'writer', 'vision',
+        'code-reviewer', 'code-reviewer-low',
+        'security-reviewer', 'security-reviewer-low',
+        // L3 에이전트
+        'executor', 'executor-low', 'executor-high',
+        'qa-tester', 'qa-tester-high',
+        'build-fixer', 'build-fixer-low',
+        'tdd-guide', 'tdd-guide-low',
+        // L4 에이전트
+        'critic', 'analyst'
+      ]
+    };
+  }
+
+  if (sessionInputTokens >= 20000000) {
+    return {
+      level: 3,
+      name: 'L3',
+      agents: [
+        // L2 에이전트
+        'architect', 'architect-low', 'architect-medium',
+        'researcher', 'researcher-low',
+        'explore', 'explore-medium', 'explore-high',
+        'scientist', 'scientist-low', 'scientist-high',
+        'designer', 'designer-low', 'designer-high',
+        'writer', 'vision',
+        'code-reviewer', 'code-reviewer-low',
+        'security-reviewer', 'security-reviewer-low',
+        // L3 에이전트
+        'executor', 'executor-low', 'executor-high',
+        'qa-tester', 'qa-tester-high',
+        'build-fixer', 'build-fixer-low',
+        'tdd-guide', 'tdd-guide-low'
+      ]
+    };
+  }
+
+  if (sessionInputTokens >= 5000000) {
+    return {
+      level: 2,
+      name: 'L2',
+      agents: [
+        'architect', 'architect-low', 'architect-medium',
+        'researcher', 'researcher-low',
+        'explore', 'explore-medium', 'explore-high',
+        'scientist', 'scientist-low', 'scientist-high',
+        'designer', 'designer-low', 'designer-high',
+        'writer', 'vision',
+        'code-reviewer', 'code-reviewer-low',
+        'security-reviewer', 'security-reviewer-low'
+      ]
+    };
+  }
+
+  return {
+    level: 1,
+    name: 'L1',
+    agents: []  // 기본 모드, 에이전트 목록 불필요
   };
 }

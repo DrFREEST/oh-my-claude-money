@@ -3,8 +3,25 @@
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
+import { getSessionDir } from './session-id.mjs';
 
 const STATE_FILE = join(process.env.HOME || '', '.omcm', 'fusion-state.json');
+
+/**
+ * 세션별 상태 파일 경로 반환
+ * @param {string|null} sessionId - 세션 ID (null이면 글로벌)
+ * @returns {string} 상태 파일 경로
+ */
+export function getStateFile(sessionId) {
+  if (sessionId) {
+    const dir = getSessionDir(sessionId);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    return join(dir, 'fusion-state.json');
+  }
+  return STATE_FILE;
+}
 
 /**
  * 기본 상태
@@ -34,14 +51,17 @@ function getDefaultState() {
 
 /**
  * 상태 파일 읽기
+ * @param {string|null} sessionId - 세션 ID (선택적, null이면 글로벌)
+ * @returns {object|null}
  */
-export function readFusionState() {
-  if (!existsSync(STATE_FILE)) {
+export function readFusionState(sessionId = null) {
+  const stateFile = getStateFile(sessionId);
+  if (!existsSync(stateFile)) {
     return null;
   }
 
   try {
-    const content = readFileSync(STATE_FILE, 'utf-8');
+    const content = readFileSync(stateFile, 'utf-8');
     return JSON.parse(content);
   } catch (e) {
     return null;
@@ -50,22 +70,31 @@ export function readFusionState() {
 
 /**
  * 상태 파일 저장
+ * @param {object} state - 저장할 상태
+ * @param {string|null} sessionId - 세션 ID (선택적, null이면 글로벌)
+ * @returns {void}
  */
-export function writeFusionState(state) {
-  const dir = dirname(STATE_FILE);
+export function writeFusionState(state, sessionId = null) {
+  const stateFile = getStateFile(sessionId);
+  const dir = dirname(stateFile);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
 
   state.lastUpdated = new Date().toISOString();
-  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  writeFileSync(stateFile, JSON.stringify(state, null, 2));
 }
 
 /**
  * 작업 라우팅 기록
+ * @param {string} target - 라우팅 대상 ('opencode' 또는 'claude')
+ * @param {string} provider - 프로바이더 ('gemini', 'openai', 'anthropic')
+ * @param {number} savedTokens - 절약된 토큰 수
+ * @param {string|null} sessionId - 세션 ID (선택적)
+ * @returns {object} 업데이트된 상태
  */
-export function recordRouting(target, provider, savedTokens) {
-  let state = readFusionState();
+export function recordRouting(target, provider, savedTokens, sessionId = null) {
+  let state = readFusionState(sessionId);
   if (!state) {
     state = getDefaultState();
   }
@@ -89,35 +118,41 @@ export function recordRouting(target, provider, savedTokens) {
     ? Math.round((state.routedToOpenCode / state.totalTasks) * 100)
     : 0;
 
-  writeFusionState(state);
+  writeFusionState(state, sessionId);
   return state;
 }
 
 /**
  * 모드 변경 기록
+ * @param {string} mode - 퓨전 모드
+ * @param {string|null} sessionId - 세션 ID (선택적)
+ * @returns {object} 업데이트된 상태
  */
-export function setFusionMode(mode) {
-  let state = readFusionState();
+export function setFusionMode(mode, sessionId = null) {
+  let state = readFusionState(sessionId);
   if (!state) {
     state = getDefaultState();
   }
 
   state.mode = mode;
-  writeFusionState(state);
+  writeFusionState(state, sessionId);
   return state;
 }
 
 /**
  * 퓨전 활성화/비활성화
+ * @param {boolean} enabled - 활성화 여부
+ * @param {string|null} sessionId - 세션 ID (선택적)
+ * @returns {object} 업데이트된 상태
  */
-export function setFusionEnabled(enabled) {
-  let state = readFusionState();
+export function setFusionEnabled(enabled, sessionId = null) {
+  let state = readFusionState(sessionId);
   if (!state) {
     state = getDefaultState();
   }
 
   state.enabled = enabled;
-  writeFusionState(state);
+  writeFusionState(state, sessionId);
   return state;
 }
 
@@ -127,10 +162,11 @@ export function setFusionEnabled(enabled) {
  * @param {Object} claudeTokens - { input: number, output: number }
  * @param {Object} openaiTokens - { input: number, output: number }
  * @param {Object} geminiTokens - { input: number, output: number }
+ * @param {string|null} sessionId - 세션 ID (선택적)
  * @returns {Object} 업데이트된 상태
  */
-export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens) {
-  let state = readFusionState();
+export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens, sessionId = null) {
+  let state = readFusionState(sessionId);
   if (!state) {
     state = getDefaultState();
   }
@@ -144,13 +180,15 @@ export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens
     };
   }
 
-  // 토큰 누적
-  state.actualTokens.claude.input += claudeTokens.input || 0;
-  state.actualTokens.claude.output += claudeTokens.output || 0;
-  state.actualTokens.openai.input += openaiTokens.input || 0;
-  state.actualTokens.openai.output += openaiTokens.output || 0;
-  state.actualTokens.gemini.input += geminiTokens.input || 0;
-  state.actualTokens.gemini.output += geminiTokens.output || 0;
+  // 현재 세션 토큰으로 대체 (누적 X, 세션 값 그대로)
+  // Claude: stdin에서 현재 세션 누적값
+  // OpenCode: 세션 시작 이후 집계값
+  state.actualTokens.claude.input = claudeTokens.input || 0;
+  state.actualTokens.claude.output = claudeTokens.output || 0;
+  state.actualTokens.openai.input = openaiTokens.input || 0;
+  state.actualTokens.openai.output = openaiTokens.output || 0;
+  state.actualTokens.gemini.input = geminiTokens.input || 0;
+  state.actualTokens.gemini.output = geminiTokens.output || 0;
 
   // 절약 토큰 계산 (OpenCode 사용량 = Claude 대신 사용된 양)
   const totalOpenCode =
@@ -165,16 +203,18 @@ export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens
   state.estimatedSavedTokens = totalOpenCode;
   state.savingsRate = total > 0 ? Math.round((totalOpenCode / total) * 100) : 0;
 
-  writeFusionState(state);
+  writeFusionState(state, sessionId);
   return state;
 }
 
 /**
  * 세션 통계 초기화 (새 세션 시작 시)
+ * @param {string|null} sessionId - 세션 ID (선택적)
+ * @returns {object} 초기화된 상태
  */
-export function resetFusionStats() {
+export function resetFusionStats(sessionId = null) {
   const state = getDefaultState();
-  writeFusionState(state);
+  writeFusionState(state, sessionId);
   return state;
 }
 

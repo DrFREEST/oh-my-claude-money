@@ -25,15 +25,18 @@ if (!__stdinData) {
 }
 
 import { spawn } from 'child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { renderFusionMetrics, renderProviderLimits, renderProviderCounts, renderFallbackStatus, renderProviderTokens } from './fusion-renderer.mjs';
-import { readFusionState, updateSavingsFromTokens } from '../utils/fusion-tracker.mjs';
+import { readFusionState, updateSavingsFromTokens, resetFusionStats } from '../utils/fusion-tracker.mjs';
 import { getLimitsForHUD, updateClaudeLimits } from '../utils/provider-limits.mjs';
 import { getFallbackOrchestrator } from '../orchestrator/fallback-orchestrator.mjs';
 import { getClaudeUsage, formatTimeUntilReset, hasClaudeCredentials } from './claude-usage-api.mjs';
 import { renderModeStatus, detectActiveModes } from './mode-detector.mjs';
+import { getSessionId } from '../utils/session-id.mjs';
+import { getSessionCalls } from '../tracking/call-logger.mjs';
+import { getToolUsageStats } from '../tracking/tool-tracker-logger.mjs';
 
 // ANSI color codes
 const RED = '\x1b[31m';
@@ -44,11 +47,232 @@ const DIM = '\x1b[2m';
 const RESET = '\x1b[0m';
 
 /**
+ * 세션 시작 시간 관리
+ * - 파일에 저장하여 HUD 재실행 시에도 유지
+ * - Claude 세션과 OpenCode 토큰 집계 시간 동기화
+ * - num_turns == 1이면 새 세션으로 판단하여 자동 리셋
+ */
+const SESSION_START_FILE = join(homedir(), '.omcm', 'session-start.json');
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24시간 후 리셋
+
+function getSessionStartTime() {
+  try {
+    if (existsSync(SESSION_START_FILE)) {
+      const data = JSON.parse(readFileSync(SESSION_START_FILE, 'utf-8'));
+      const startTime = data.startTime;
+      const now = Date.now();
+
+      // 24시간 이내면 기존 세션 시작 시간 사용
+      if (startTime && (now - startTime) < SESSION_MAX_AGE_MS) {
+        return startTime;
+      }
+    }
+  } catch (e) {
+    // 파일 읽기 실패 시 무시
+  }
+
+  return resetSessionStartTime();
+}
+
+/**
+ * 세션 시작 시간 리셋 (새 세션 시작 시 호출)
+ */
+function resetSessionStartTime() {
+  const newStartTime = Date.now();
+  try {
+    mkdirSync(join(homedir(), '.omcm'), { recursive: true });
+    writeFileSync(SESSION_START_FILE, JSON.stringify({ startTime: newStartTime }));
+  } catch (e) {
+    // 저장 실패 시 무시
+  }
+  return newStartTime;
+}
+
+/**
+ * OpenCode 토큰 캐시 무효화 (세션 리셋 시 호출)
+ */
+function invalidateOpenCodeCache() {
+  openCodeTokenCache = null;
+  openCodeCacheTime = 0;
+}
+
+/**
+ * Claude 세션 변경 감지 및 자동 리셋
+ * - num_turns == 1이면 새 세션 (첫 턴)
+ * - num_turns가 이전보다 작아지면 /clear로 세션 재시작된 것
+ * - num_turns == 0은 "데이터 없음"으로 판단하여 리셋하지 않음
+ * - fusion-state.json도 함께 초기화
+ */
+function checkAndResetSessionIfNeeded(numTurns) {
+  // num_turns = 0은 stdin에 턴 수가 없는 경우 → 리셋 판단 불가, 무시
+  if (numTurns === 0) return;
+
+  const shouldReset =
+    numTurns === 1 ||
+    (previousNumTurns > 0 && numTurns < previousNumTurns);
+
+  if (shouldReset) {
+    hudSessionStartTime = resetSessionStartTime();
+    invalidateOpenCodeCache();
+    resetFusionStatsOnClear();
+  }
+
+  previousNumTurns = numTurns;
+}
+
+/**
+ * 세션 클리어 시 fusion stats 초기화 (동기적)
+ */
+function resetFusionStatsOnClear() {
+  try {
+    let sessionId = null;
+    try {
+      sessionId = getSessionId();
+    } catch (e) { /* 무시 */ }
+
+    // 세션 ID가 없으면 글로벌 fusion-state 리셋 방지
+    // (TTY 탐지 실패 시 다른 세션 데이터 보호)
+    if (!sessionId) return;
+
+    resetFusionStats(sessionId);
+  } catch (e) {
+    // 초기화 실패 시 무시
+  }
+}
+
+/**
+ * Transcript 토큰/턴 캐시
+ */
+let transcriptCache = null;
+let transcriptCacheTime = 0;
+let transcriptCachePath = '';
+const TRANSCRIPT_CACHE_TTL_MS = 3000; // 3초
+
+/**
+ * Transcript JSONL에서 실제 누적 토큰 사용량 + 대화 턴 수 집계
+ *
+ * Rate limit에 영향을 주는 토큰 기준 (Anthropic):
+ * - input: input_tokens + cache_read_input_tokens + cache_creation_input_tokens
+ * - output: output_tokens
+ *
+ * 턴 수: user 타입 메시지 수 (실제 사용자 대화 턴)
+ *
+ * @param {string} transcriptPath - JSONL 파일 경로
+ * @returns {object} { input, output, cacheRead, cacheCreate, turns }
+ */
+function aggregateClaudeFromTranscript(transcriptPath) {
+  var empty = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, turns: 0 };
+  if (!transcriptPath) return empty;
+
+  // 캐시 확인
+  var now = Date.now();
+  if (transcriptCache && transcriptCachePath === transcriptPath && (now - transcriptCacheTime) < TRANSCRIPT_CACHE_TTL_MS) {
+    return transcriptCache;
+  }
+
+  try {
+    if (!existsSync(transcriptPath)) return empty;
+
+    var content = readFileSync(transcriptPath, 'utf-8');
+    var lines = content.split('\n');
+    var result = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, turns: 0 };
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line.length === 0) continue;
+
+      try {
+        // 빠른 문자열 검사로 파싱 대상 필터링
+        if (line.indexOf('"type":"user"') !== -1) {
+          result.turns++;
+          continue;
+        }
+
+        if (line.indexOf('"type":"assistant"') === -1) continue;
+        if (line.indexOf('"usage"') === -1) continue;
+
+        // assistant + usage가 있는 줄만 JSON 파싱
+        var entry = JSON.parse(line);
+        var msg = entry.message;
+        if (!msg) continue;
+        var usage = msg.usage;
+        if (!usage) continue;
+
+        result.input += usage.input_tokens || 0;
+        result.output += usage.output_tokens || 0;
+        result.cacheRead += usage.cache_read_input_tokens || 0;
+        result.cacheCreate += usage.cache_creation_input_tokens || 0;
+      } catch (e) {
+        // 개별 줄 파싱 실패 무시
+      }
+    }
+
+    // 캐시 저장
+    transcriptCache = result;
+    transcriptCacheTime = now;
+    transcriptCachePath = transcriptPath;
+
+    return result;
+  } catch (e) {
+    return empty;
+  }
+}
+
+let hudSessionStartTime = getSessionStartTime();
+let previousNumTurns = -1;  // 이전 턴 수 추적
+
+/**
  * ANSI color code removal
  */
 function stripAnsi(str) {
   if (!str) return str;
   return str.replace(/\x1b\[[0-9;]*m/g, '').replace(/\033\[[0-9;]*m/g, '');
+}
+
+/**
+ * 세션 분할 경고 렌더링
+ * @param {number} inputTokens - 세션 누적 입력 토큰
+ * @returns {string|null}
+ */
+function renderSplitWarning(inputTokens) {
+  if (inputTokens >= 30000000) {
+    return RED + '🔴SPLIT!' + RESET;
+  }
+  if (inputTokens >= 10000000) {
+    return YELLOW + '⚠️SPLIT' + RESET;
+  }
+  return null;
+}
+
+/**
+ * 도구 사용 통계 렌더링
+ * Format: R:45 E:12 B:23 T:3
+ * @param {string|null} sessionId - 세션 ID
+ * @returns {string|null}
+ */
+function renderToolStats(sessionId) {
+  if (!sessionId) return null;
+
+  try {
+    var stats = getToolUsageStats(sessionId);
+    if (!stats || stats.total === 0) return null;
+
+    var r = stats.Read || 0;
+    var e = stats.Edit || 0;
+    var b = stats.Bash || 0;
+    var t = stats.Task || 0;
+    var total = r + e + b + t;
+
+    if (total === 0) return null;
+
+    // Task 비율이 10% 미만이면 경고색
+    var taskRatio = total > 0 ? (t / total) * 100 : 0;
+    var taskColor = taskRatio < 10 ? YELLOW : GREEN;
+
+    return DIM + 'R:' + r + ' E:' + e + ' B:' + b + RESET + ' ' + taskColor + 'T:' + t + RESET;
+  } catch (e) {
+    return null;
+  }
 }
 
 /**
@@ -120,80 +344,77 @@ async function renderClaudeUsage() {
 
 /**
  * Parse Claude token usage and request count from stdin JSON
+ *
+ * Claude Code HUD stdin 실제 구조:
+ * {
+ *   session_id: "uuid",
+ *   transcript_path: "/path/to/session.jsonl",
+ *   model: { id: "claude-opus-4-5-...", display_name: "Opus 4.5" },
+ *   cost: { total_cost_usd, total_duration_ms, ... },
+ *   context_window: {
+ *     total_input_tokens, total_output_tokens,
+ *     context_window_size, used_percentage, remaining_percentage,
+ *     current_usage: { input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens }
+ *   }
+ * }
+ *
+ * 주의: num_turns 필드는 제공되지 않음 → transcript 파일에서 카운트
  */
 function parseClaudeTokensFromStdin(stdinData) {
-  const result = { input: 0, output: 0, count: 0 };
+  var result = { input: 0, output: 0, count: 0, claudeSessionId: null, transcriptPath: null };
 
   if (!stdinData) {
     return result;
   }
 
   try {
-    const data = JSON.parse(stdinData);
+    var data = JSON.parse(stdinData);
 
-    // Primary: context_window session cumulative tokens
-    if (data.context_window) {
-      if (data.context_window.total_input_tokens !== undefined) {
-        result.input = data.context_window.total_input_tokens || 0;
-        result.output = data.context_window.total_output_tokens || 0;
-      } else if (data.context_window.current_usage) {
-        const usage = data.context_window.current_usage;
-        const cacheRead = usage.cache_read_input_tokens || 0;
-        result.input = (usage.input_tokens || 0) + cacheRead;
-        result.output = usage.output_tokens || 0;
-      }
+    // Claude Code 세션 ID (OMCM 세션 ID와 별도)
+    if (data.session_id) {
+      result.claudeSessionId = data.session_id;
     }
 
-    // Parse request count
-    if (data.conversation) {
-      result.count = data.conversation.num_turns ||
-                     data.conversation.turn_count ||
-                     data.conversation.turns ||
-                     data.conversation.requestCount ||
-                     data.conversation.request_count || 0;
-    }
-    if (result.count === 0 && data.context_window) {
-      result.count = data.context_window.num_turns ||
-                     data.context_window.turn_count ||
-                     data.context_window.request_count || 0;
-    }
-    if (result.count === 0 && data.session) {
-      result.count = data.session.num_turns ||
-                     data.session.turn_count ||
-                     data.session.requestCount || 0;
-    }
-    if (result.count === 0 && data.num_turns !== undefined) {
-      result.count = data.num_turns || 0;
-    }
-    if (result.count === 0 && data.turn_count !== undefined) {
-      result.count = data.turn_count || 0;
+    // transcript 경로
+    if (data.transcript_path) {
+      result.transcriptPath = data.transcript_path;
     }
 
-    // Fallback token structures
+    // Primary: transcript에서 실제 누적 토큰 집계 (rate limit 기준)
+    // context_window.total_input_tokens는 현재 윈도우 크기이므로 부정확
+    if (result.transcriptPath) {
+      var transcriptData = aggregateClaudeFromTranscript(result.transcriptPath);
+      // rate limit에 영향을 주는 input = input + cache_read + cache_create
+      result.input = transcriptData.input + transcriptData.cacheRead + transcriptData.cacheCreate;
+      result.output = transcriptData.output;
+      result.count = transcriptData.turns;
+    }
+
+    // Fallback: transcript이 없으면 stdin의 context_window 사용
     if (result.input === 0 && result.output === 0) {
-      if (data.tokens) {
-        result.input = data.tokens.input || data.tokens.inputTokens || 0;
-        result.output = data.tokens.output || data.tokens.outputTokens || 0;
-      } else if (data.inputTokens !== undefined) {
-        result.input = data.inputTokens || 0;
-        result.output = data.outputTokens || 0;
-      } else if (data.usage) {
-        result.input = data.usage.input_tokens || data.usage.prompt_tokens || 0;
-        result.output = data.usage.output_tokens || data.usage.completion_tokens || 0;
+      if (data.context_window) {
+        if (data.context_window.current_usage) {
+          var usage = data.context_window.current_usage;
+          var cacheRead = usage.cache_read_input_tokens || 0;
+          var cacheCreate = usage.cache_creation_input_tokens || 0;
+          result.input = (usage.input_tokens || 0) + cacheRead + cacheCreate;
+          result.output = usage.output_tokens || 0;
+        } else if (data.context_window.total_input_tokens !== undefined) {
+          result.input = data.context_window.total_input_tokens || 0;
+          result.output = data.context_window.total_output_tokens || 0;
+        }
       }
     }
 
-    if (data.conversation && data.conversation.tokens) {
-      result.input += data.conversation.tokens.input || 0;
-      result.output += data.conversation.tokens.output || 0;
-    }
-
-    if (data.session) {
-      if (data.session.inputTokens) {
-        result.input = data.session.inputTokens;
+    // Fallback: 턴 수가 없으면 기존 필드 탐색
+    if (result.count === 0) {
+      if (data.conversation) {
+        result.count = data.conversation.num_turns ||
+                       data.conversation.turn_count ||
+                       data.conversation.turns || 0;
       }
-      if (data.session.outputTokens) {
-        result.output = data.session.outputTokens;
+      if (result.count === 0 && data.num_turns !== undefined) {
+        result.count = data.num_turns || 0;
       }
     }
   } catch (e) {
@@ -208,7 +429,7 @@ function parseClaudeTokensFromStdin(stdinData) {
  */
 let openCodeTokenCache = null;
 let openCodeCacheTime = 0;
-const CACHE_TTL_MS = 30000;
+const CACHE_TTL_MS = 5000; // 5초로 단축 (세션 변경 빠른 반영)
 
 /**
  * Aggregate token usage from OpenCode session files
@@ -225,6 +446,52 @@ function aggregateOpenCodeTokens() {
     anthropic: { input: 0, output: 0, count: 0 },
   };
 
+  // 세션 격리: 세션 ID가 있으면 call-logger의 세션별 로그 우선 사용
+  let currentSessionId = null;
+  try {
+    currentSessionId = getSessionId();
+  } catch (e) {
+    // getSessionId 실패 시 기존 방식 폴백
+  }
+
+  if (currentSessionId) {
+    // 세션 ID가 있으면 call-logger만 사용 (레거시 폴백 안 함)
+    // 데이터가 없어도 0으로 반환하여 다른 세션 데이터 오염 방지
+    try {
+      const sessionCalls = getSessionCalls(currentSessionId);
+      if (sessionCalls && sessionCalls.total > 0) {
+        for (var i = 0; i < sessionCalls.calls.length; i++) {
+          var call = sessionCalls.calls[i];
+          var provider = call.provider || '';
+          // 실제 토큰 데이터 우선 (서버 풀 API), 레거시 추정값 폴백
+          var inputTokens = call.inputTokens || call.estimatedInputTokens || 0;
+          var outputTokens = call.outputTokens || call.estimatedOutputTokens || 0;
+
+          if (provider === 'openai' || provider === 'gpt') {
+            result.openai.input += inputTokens;
+            result.openai.output += outputTokens;
+            result.openai.count++;
+          } else if (provider === 'gemini' || provider === 'google') {
+            result.gemini.input += inputTokens;
+            result.gemini.output += outputTokens;
+            result.gemini.count++;
+          } else if (provider === 'anthropic' || provider === 'claude') {
+            result.anthropic.input += inputTokens;
+            result.anthropic.output += outputTokens;
+            result.anthropic.count++;
+          }
+        }
+      }
+      // 데이터가 없어도 세션 격리된 빈 결과 반환 (레거시 폴백 안 함)
+    } catch (e) {
+      // 세션 로그 조회 실패해도 빈 결과 반환 (레거시 폴백 안 함)
+    }
+    openCodeTokenCache = result;
+    openCodeCacheTime = now;
+    return result;
+  }
+
+  // 세션 ID가 없을 때만: OpenCode 메시지 디렉토리에서 시간 기반 집계 (레거시 폴백)
   try {
     const messageDir = join(homedir(), '.local', 'share', 'opencode', 'storage', 'message');
 
@@ -248,9 +515,13 @@ function aggregateOpenCodeTokens() {
       .filter((d) => d !== null)
       .sort((a, b) => b.mtime - a.mtime);
 
-    // 8시간 이내 세션 (일반적인 작업 세션 기간)
-    const eightHoursAgo = now - (8 * 60 * 60 * 1000);
-    const activeSessions = sessionDirs.filter((s) => s.mtime >= eightHoursAgo);
+    // 세션 시작 시간 또는 최근 8시간 중 더 오래된 시간 기준
+    // (세션 리셋 버그 방지: 세션 시작 시간이 너무 오래되었을 수 있음)
+    const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+    // 매번 파일에서 최신 세션 시작 시간 읽기 (다른 터미널과 동기화)
+    const latestSessionStart = getSessionStartTime();
+    const filterStartTime = Math.max(latestSessionStart, now - EIGHT_HOURS_MS);
+    const activeSessions = sessionDirs.filter((s) => s.mtime >= filterStartTime);
 
     if (activeSessions.length === 0) {
       openCodeTokenCache = result;
@@ -268,8 +539,19 @@ function aggregateOpenCodeTokens() {
           const msgPath = join(sessionPath, msgFile);
 
           try {
+            // 세션 시작 이후 메시지만 집계 (8시간 제한 적용)
+            const msgStat = statSync(msgPath);
+            if (msgStat.mtimeMs < filterStartTime) {
+              continue;
+            }
+
             const content = readFileSync(msgPath, 'utf-8');
             const msg = JSON.parse(content);
+
+            // 에러 응답 또는 스트리밍 중인 메시지는 스킵
+            if (msg.error) {
+              continue;
+            }
 
             let providerID = msg.providerID || (msg.model && msg.model.providerID);
             let modelID = (msg.model && msg.model.modelID) || '';
@@ -469,10 +751,20 @@ async function buildIndependentHud(stdinData) {
 
   // 3. Token usage
   const claudeTokens = parseClaudeTokensFromStdin(stdinData);
+
+  // Claude 세션 변경 감지 및 OpenCode 필터 시간 동기화
+  checkAndResetSessionIfNeeded(claudeTokens.count);
+
   const openCodeTokens = aggregateOpenCodeTokens();
 
+  // 세션 ID 획득 (fusion-tracker에 전달)
+  let currentSessionId = null;
+  try {
+    currentSessionId = getSessionId();
+  } catch (e) { /* 무시 */ }
+
   // 실제 토큰 기반 절약율 업데이트
-  updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini);
+  updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini, currentSessionId);
 
   const tokenData = {
     claude: claudeTokens,
@@ -486,7 +778,7 @@ async function buildIndependentHud(stdinData) {
   }
 
   // 4. Fusion metrics (업데이트된 값 반영)
-  const fusionState = readFusionState();
+  const fusionState = readFusionState(currentSessionId);
   const fusionOutput = renderFusionMetrics(fusionState);
   if (fusionOutput) {
     parts.push(fusionOutput);
@@ -517,6 +809,18 @@ async function buildIndependentHud(stdinData) {
   }
   if (fallbackOutput) {
     parts.push(fallbackOutput);
+  }
+
+  // 7. 세션 분할 경고
+  const splitWarning = renderSplitWarning(claudeTokens.input);
+  if (splitWarning) {
+    parts.push(splitWarning);
+  }
+
+  // 8. 도구 사용 통계
+  var toolStatsOutput = renderToolStats(currentSessionId);
+  if (toolStatsOutput) {
+    parts.push(toolStatsOutput);
   }
 
   // Sync Claude usage to provider-limits
@@ -557,10 +861,20 @@ async function main() {
 
         // Parse tokens and build extras
         const claudeTokens = parseClaudeTokensFromStdin(stdinData);
+
+        // Claude 세션 변경 감지 및 OpenCode 필터 시간 동기화
+        checkAndResetSessionIfNeeded(claudeTokens.count);
+
         const openCodeTokens = aggregateOpenCodeTokens();
 
+        // 세션 ID 획득 (fusion-tracker에 전달)
+        let currentSessionId = null;
+        try {
+          currentSessionId = getSessionId();
+        } catch (e) { /* 무시 */ }
+
         // 실제 토큰 기반 절약율 업데이트
-        updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini);
+        updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini, currentSessionId);
 
         const tokenData = {
           claude: claudeTokens,
@@ -569,7 +883,7 @@ async function main() {
         };
 
         const tokenOutput = renderProviderTokens(tokenData);
-        const fusionState = readFusionState();
+        const fusionState = readFusionState(currentSessionId);
         const fusionOutput = renderFusionMetrics(fusionState);
 
         const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
@@ -596,6 +910,14 @@ async function main() {
         if (fusionOutput) extraParts.push(fusionOutput);
         if (countsOutput) extraParts.push(countsOutput);
         if (fallbackOutput) extraParts.push(fallbackOutput);
+
+        // 세션 분할 경고
+        const splitWarning = renderSplitWarning(claudeTokens.input);
+        if (splitWarning) extraParts.push(splitWarning);
+
+        // 도구 사용 통계
+        var toolStatsOutput = renderToolStats(currentSessionId);
+        if (toolStatsOutput) extraParts.push(toolStatsOutput);
 
         const extras = extraParts.join(' | ');
 

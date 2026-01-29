@@ -84,9 +84,29 @@ export function renderFusionMetrics(state) {
     parts.push(`${GREEN}${formatTokens(savedTokens)}↗${RESET}`);
   }
 
-  // Current mode
-  const modeAbbrev = getModeAbbrev(state.mode);
-  parts.push(`${DIM}${modeAbbrev}${RESET}`);
+  // Current mode + routing level
+  var modeAbbrev = getModeAbbrev(state.mode);
+
+  // 라우팅 레벨이 있으면 표시 (L1/L2/L3/L4)
+  var routingLevel = '';
+  if (state.actualTokens && state.actualTokens.claude) {
+    var sessionInput = state.actualTokens.claude.input || 0;
+    if (sessionInput >= 40000000) {
+      routingLevel = RED + 'L4' + RESET;
+    } else if (sessionInput >= 20000000) {
+      routingLevel = YELLOW + 'L3' + RESET;
+    } else if (sessionInput >= 5000000) {
+      routingLevel = CYAN + 'L2' + RESET;
+    } else {
+      routingLevel = DIM + 'L1' + RESET;
+    }
+  }
+
+  if (routingLevel) {
+    parts.push(DIM + modeAbbrev + RESET + ' ' + routingLevel);
+  } else {
+    parts.push(DIM + modeAbbrev + RESET);
+  }
 
   return parts.join(' ');
 }
@@ -245,8 +265,8 @@ export function renderProviderInfo(limits, fallbackState) {
 
 /**
  * Render provider token usage
- * Format: C:1.2k↓0.5k↑|O:3.4k↓1.2k↑|G:0.8k↓0.3k↑
- * ↓ = input tokens, ↑ = output tokens
+ * Format: C:1.2k↑0.5k↓|O:3.4k↑1.2k↓|G:0.8k↑0.3k↓
+ * ↑ = input tokens (upload to API), ↓ = output tokens (download from API)
  *
  * @param {Object} tokenData - Token data by provider
  * @param {Object} tokenData.claude - { input, output }
@@ -259,27 +279,27 @@ export function renderProviderTokens(tokenData) {
     return null;
   }
 
-  const parts = [];
+  var parts = [];
 
   // Claude (C:)
   if (tokenData.claude && (tokenData.claude.input > 0 || tokenData.claude.output > 0)) {
-    const input = formatTokens(tokenData.claude.input || 0);
-    const output = formatTokens(tokenData.claude.output || 0);
-    parts.push(`${CYAN}C${RESET}:${input}↓ ${output}↑`);
+    var cInput = formatTokens(tokenData.claude.input || 0);
+    var cOutput = formatTokens(tokenData.claude.output || 0);
+    parts.push(CYAN + 'C' + RESET + ':' + cInput + '\u2191 ' + cOutput + '\u2193');
   }
 
   // OpenAI (O:)
   if (tokenData.openai && (tokenData.openai.input > 0 || tokenData.openai.output > 0)) {
-    const input = formatTokens(tokenData.openai.input || 0);
-    const output = formatTokens(tokenData.openai.output || 0);
-    parts.push(`${GREEN}O${RESET}:${input}↓ ${output}↑`);
+    var oInput = formatTokens(tokenData.openai.input || 0);
+    var oOutput = formatTokens(tokenData.openai.output || 0);
+    parts.push(GREEN + 'O' + RESET + ':' + oInput + '\u2191 ' + oOutput + '\u2193');
   }
 
   // Gemini (G:)
   if (tokenData.gemini && (tokenData.gemini.input > 0 || tokenData.gemini.output > 0)) {
-    const input = formatTokens(tokenData.gemini.input || 0);
-    const output = formatTokens(tokenData.gemini.output || 0);
-    parts.push(`${YELLOW}G${RESET}:${input}↓ ${output}↑`);
+    var gInput = formatTokens(tokenData.gemini.input || 0);
+    var gOutput = formatTokens(tokenData.gemini.output || 0);
+    parts.push(YELLOW + 'G' + RESET + ':' + gInput + '\u2191 ' + gOutput + '\u2193');
   }
 
   if (parts.length === 0) {

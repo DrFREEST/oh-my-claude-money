@@ -97,10 +97,10 @@ OMCM uses a **flexible server pool** to reduce **routing call latency by ~90%** 
 | **Server Pool Mode** | ~5s (pool start) | **~1s** |
 
 **Server Pool Features:**
-- **Dynamic Scaling**: 1-5 servers based on load (configurable via `maxOpencodeWorkers`)
+- **Dynamic Scaling**: 1-4 servers based on load (configurable via `maxOpencodeWorkers`)
 - **Auto-Recovery**: Failed servers are automatically restarted
 - **Load Balancing**: Round-robin distribution across idle servers
-- **Resource Usage**: ~250-300MB per server instance (~1.5GB for 5 servers)
+- **Resource Usage**: ~250-300MB per server instance (~1.2GB for 4 servers)
 
 **Server Management:**
 ```bash
@@ -152,9 +152,9 @@ Claude Code의 32개 OMC 에이전트를 OpenCode의 멀티 프로바이더 에�
 │     │ oh-my-claudecode │  │ oh-my-opencode   │                    │
 │     │ (Claude 토큰)    │  │ (다른 LLM 토큰)  │                    │
 │     │                  │  │                  │                    │
-│     │ • planner (Opus) │  │ • Oracle (GPT)   │ ← 토큰 절약!       │
-│     │ • critic (Opus)  │  │ • Frontend (Gem) │ ← 토큰 절약!       │
-│     │ • executor       │  │ • Librarian      │                    │
+│     │ • planner (Opus) │  │ • build (Codex)  │ ← 토큰 절약!       │
+│     │ • critic (Opus)  │  │ • explore (Flash)│ ← 토큰 절약!       │
+│     │ • executor       │  │ • general (GPT)  │                    │
 │     └──────────────────┘  └──────────────────┘                    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -209,11 +209,11 @@ hulw로 빠르게 처리
 
 | 작업 유형 | 라우팅 대상 | 이유 |
 |----------|------------|------|
-| 아키텍처 분석 | Claude | 높은 정확도 필요 |
-| 코드 탐색 | OpenCode (Librarian) | 빠른 검색 |
-| API 조사 | OpenCode (Oracle/GPT) | 비용 효율적 |
-| UI 작업 | OpenCode (Gemini) | 특화 모델 |
-| 복잡한 구현 | Claude | 품질 우선 |
+| 아키텍처 분석 | Claude (HIGH tier) | 높은 정확도 필요 |
+| 코드 탐색 | OpenCode explore (Flash) | 빠른 검색 |
+| API 조사 | OpenCode general (Codex) | 비용 효율적 |
+| UI 작업 | OpenCode build (Codex) | 병렬 처리 |
+| 복잡한 구현 | Claude (HIGH tier) | 품질 우선 |
 
 ### 4. 🚨 자동 폴백 시스템 (v2.1+)
 
@@ -582,10 +582,10 @@ abort
 
 ```bash
 # 컨텍스트 저장 + OpenCode 실행
-~/.local/share/omcm/scripts/handoff-to-opencode.sh
+~/.claude/plugins/local/oh-my-claude-money/scripts/handoff-to-opencode.sh
 
 # 컨텍스트만 저장
-~/.local/share/omcm/scripts/export-context.sh
+~/.claude/plugins/local/oh-my-claude-money/scripts/export-context.sh
 ```
 
 ### 전체 명령어 목록
@@ -619,10 +619,10 @@ OMCM은 **플렉서블 서버 풀**을 사용하여 CLI 모드 대비 **라우�
 | **서버 풀 모드** | ~5초 (풀 시작) | **~1초** |
 
 **서버 풀 특징:**
-- **동적 스케일링**: 부하에 따라 1~5개 서버 자동 조절 (`maxOpencodeWorkers`로 설정)
+- **동적 스케일링**: 부하에 따라 1~4개 서버 자동 조절 (`maxOpencodeWorkers`로 설정)
 - **자동 복구**: 실패한 서버 자동 재시작
 - **로드 밸런싱**: 라운드로빈 방식으로 idle 서버에 분배
-- **리소스 사용량**: 서버당 ~250-300MB (5개 서버 ≈ 1.5GB)
+- **리소스 사용량**: 서버당 ~250-300MB (4개 서버 ≈ 1.2GB)
 
 **대규모 병렬 시나리오:**
 ```
@@ -696,7 +696,7 @@ OMCM은 **플렉서블 서버 풀**을 사용하여 CLI 모드 대비 **라우�
 | **라우팅 설정** | | |
 | `routing.enabled` | 하이브리드 라우팅 활성화 | true |
 | `routing.usageThreshold` | OpenCode 분배 증가 임계치 | 70 |
-| `routing.maxOpencodeWorkers` | 서버 풀 최대 서버 수 (1~25 권장, 메모리 고려) | 5 |
+| `routing.maxOpencodeWorkers` | 서버 풀 최대 서버 수 (1~25 권장, 메모리 고려) | 4 |
 | `routing.autoDelegate` | 자동 위임 활성화 | true |
 | **컨텍스트 설정** | | |
 | `context.includeRecentFiles` | 최근 수정 파일 포함 | true |
@@ -727,8 +727,11 @@ oh-my-claude-money/
 │   ├── fusion-default-on.md      # 퓨전 모드 기본 활성화
 │   └── fusion-setup.md           # /fusion-setup 초기 셋업
 ├── hooks/
-│   ├── fusion-router.mjs         # 퓨전 라우터 훅
-│   └── hooks.json                # 훅 정의
+│   ├── bash-optimizer.mjs        # PreToolUse: Bash 최적화
+│   ├── fusion-router.mjs         # PreToolUse: 퓨전 라우터 훅
+│   ├── hooks.json                # 훅 정의 (7개 훅)
+│   ├── read-optimizer.mjs        # PreToolUse: Read 최적화
+│   └── tool-tracker.mjs          # PostToolUse: 도구 사용 추적
 ├── scripts/
 │   ├── agent-mapping.json        # 에이전트 매핑 정보
 │   ├── export-context.sh         # 컨텍스트 내보내기
@@ -739,11 +742,14 @@ oh-my-claude-money/
 │   ├── migrate-to-omcm.sh        # OMCM 마이그레이션
 │   └── uninstall-hud.sh          # HUD 제거
 ├── skills/
-│   ├── autopilot.md              # 하이브리드 오토파일럿
-│   ├── hulw.md                   # 하이브리드 울트라워크
-│   ├── hybrid-ultrawork.md       # 하이브리드 울트라워크 (상세)
-│   ├── opencode.md               # OpenCode 전환 스킬
-│   └── ulw.md                    # 자동 퓨전 울트라워크
+│   ├── autopilot/SKILL.md        # 하이브리드 오토파일럿
+│   ├── cancel/SKILL.md           # 통합 취소
+│   ├── ecomode/SKILL.md          # 토큰 효율 모드
+│   ├── hulw/SKILL.md             # 하이브리드 울트라워크
+│   ├── hybrid-ultrawork/SKILL.md # 하이브리드 울트라워크 (별칭)
+│   ├── opencode/SKILL.md         # OpenCode 전환 스킬
+│   ├── ralph/SKILL.md            # 지속 실행 모드
+│   └── ulw/SKILL.md              # 자동 퓨전 울트라워크
 ├── src/
 │   ├── context/                    # v1.0.0 컨텍스트 전달
 │   │   ├── context-builder.mjs     # 컨텍스트 빌드

@@ -38,9 +38,9 @@ Fusion Mode integrates Claude Code's 32 OMC (oh-my-claudecode) agents with OpenC
     │ Claude Opus     │  │ OpenCode Agents    │
     │ (HIGH TIER)     │  │ (LOW/MEDIUM TIER)  │
     │                 │  │                    │
-    │ • planner       │  │ • Oracle (GPT)     │
-    │ • critic        │  │ • Frontend (Gemini)│
-    │ • architect     │  │ • Librarian        │
+    │ • planner       │  │ • build (Codex)    │
+    │ • critic        │  │ • explore (Flash)  │
+    │ • architect     │  │ • general (GPT)    │
     └─────────────────┘  └────────────────────┘
          ✓ High Quality    ✓ Token Savings!
 ```
@@ -174,11 +174,11 @@ I want a login system
 **Autopilot Workflow:**
 
 ```
-1. Requirements Analysis (analyst) → OMO (Oracle/GPT)
-2. Planning (planner) → Claude (strategy)
-3. Code Exploration (explore) → OMO (Gemini Flash)
-4. Implementation (executor) → OMO (Codex) or Claude
-5. Verification (architect) → OMO (Oracle/GPT)
+1. Requirements Analysis (analyst) → Claude Opus (HIGH tier)
+2. Planning (planner) → Claude Opus (HIGH tier)
+3. Code Exploration (explore) → OpenCode explore (Gemini Flash)
+4. Implementation (executor) → OpenCode build (GPT-5.2-Codex)
+5. Verification (architect) → Claude Opus (HIGH tier)
 6. Completion Report
 ```
 
@@ -222,66 +222,75 @@ use fusion autopilot mode
 
 ## Agent Mapping
 
-### Complete Routing Table
+### Complete Routing Table (29 Agents)
 
-Automatic agent routing handled by OMCM:
+Automatic agent routing handled by OMCM. **HIGH tier agents always stay on Claude Opus** for quality:
 
-| OMC Agent | Tier | Default Routing | Fusion Mode Routing | Model | Savings |
-|-----------|------|-----------------|---------------------|-------|---------|
-| **planner** | HIGH | Claude | Claude | Opus | - |
-| **critic** | HIGH | Claude | Claude | Opus | - |
-| **architect** | HIGH | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **architect-medium** | MED | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **architect-low** | LOW | Claude | OMO Librarian | Gemini Flash | ✅ |
-| **executor** | MED | Claude | OMO Codex | GPT-5.2-Codex | ✅ |
-| **executor-high** | HIGH | Claude | Claude | Opus | - |
-| **executor-low** | LOW | Claude | OMO Codex | Gemini Flash | ✅ |
-| **explore** | LOW | Claude | OMO Librarian | Gemini Flash | ✅ |
-| **explore-medium** | MED | Claude | OMO Librarian | GPT-5.2 | ✅ |
-| **explore-high** | HIGH | Claude | Claude | Opus | - |
-| **designer** | MED | Claude | OMO Frontend | Gemini Pro | ✅ |
-| **designer-high** | HIGH | Claude | Claude | Opus | - |
-| **designer-low** | LOW | Claude | OMO Frontend | Gemini Flash | ✅ |
-| **researcher** | MED | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **researcher-low** | LOW | Claude | OMO Librarian | Gemini Flash | ✅ |
-| **writer** | LOW | Claude | OMO Document Writer | Gemini Flash | ✅ |
-| **vision** | MED | Claude | OMO Multimodal | Gemini Flash | ✅ |
-| **qa-tester** | MED | Claude | OMO QA | GPT-5.2 | ✅ |
-| **qa-tester-high** | HIGH | Claude | Claude | Opus | - |
-| **security-reviewer** | HIGH | Claude | OMO Security | GPT-5.2 | ✅ |
-| **security-reviewer-low** | LOW | Claude | OMO Security | Gemini Flash | ✅ |
-| **code-reviewer** | HIGH | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **code-reviewer-low** | LOW | Claude | OMO Librarian | Gemini Flash | ✅ |
-| **analyst** | HIGH | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **scientist** | MED | Claude | OMO Data Analyst | GPT-5.2 | ✅ |
-| **scientist-high** | HIGH | Claude | Claude | Opus | - |
-| **scientist-low** | LOW | Claude | OMO Data Analyst | Gemini Flash | ✅ |
-| **build-fixer** | MED | Claude | OMO Build | GPT-5.2 | ✅ |
-| **build-fixer-low** | LOW | Claude | OMO Build | Gemini Flash | ✅ |
+#### HIGH Tier (Claude Opus -- Retained, 11 agents)
+
+| OMC Agent | Fusion Mode Routing | Model | Savings |
+|-----------|---------------------|-------|---------|
+| **planner** | Claude | Opus | - |
+| **critic** | Claude | Opus | - |
+| **architect** | Claude | Opus | - |
+| **analyst** | Claude | Opus | - |
+| **executor-high** | Claude | Opus | - |
+| **explore-high** | Claude | Opus | - |
+| **designer-high** | Claude | Opus | - |
+| **qa-tester-high** | Claude | Opus | - |
+| **security-reviewer** | Claude | Opus | - |
+| **code-reviewer** | Claude | Opus | - |
+| **scientist-high** | Claude | Opus | - |
+
+#### MEDIUM Tier (OpenCode CODEX model, 10 agents)
+
+| OMC Agent | OpenCode Agent | Model | Savings |
+|-----------|----------------|-------|---------|
+| **architect-medium** | build | GPT-5.2-Codex | ✅ |
+| **executor** | build | GPT-5.2-Codex | ✅ |
+| **explore-medium** | explore | GPT-5.2-Codex | ✅ |
+| **designer** | build | GPT-5.2-Codex | ✅ |
+| **researcher** | general | GPT-5.2-Codex | ✅ |
+| **vision** | general | GPT-5.2-Codex | ✅ |
+| **qa-tester** | build | GPT-5.2-Codex | ✅ |
+| **build-fixer** | build | GPT-5.2-Codex | ✅ |
+| **tdd-guide** | build | GPT-5.2-Codex | ✅ |
+| **scientist** | build | GPT-5.2-Codex | ✅ |
+
+#### LOW Tier (OpenCode FLASH model, 8 agents)
+
+| OMC Agent | OpenCode Agent | Model | Savings |
+|-----------|----------------|-------|---------|
+| **architect-low** | build | Gemini-3.0-Flash | ✅ |
+| **executor-low** | build | Gemini-3.0-Flash | ✅ |
+| **explore** | explore | Gemini-3.0-Flash | ✅ |
+| **designer-low** | build | Gemini-3.0-Flash | ✅ |
+| **researcher-low** | general | Gemini-3.0-Flash | ✅ |
+| **writer** | general | Gemini-3.0-Flash | ✅ |
+| **security-reviewer-low** | build | Gemini-3.0-Flash | ✅ |
+| **build-fixer-low** | build | Gemini-3.0-Flash | ✅ |
+| **tdd-guide-low** | build | Gemini-3.0-Flash | ✅ |
+| **code-reviewer-low** | build | Gemini-3.0-Flash | ✅ |
+| **scientist-low** | build | Gemini-3.0-Flash | ✅ |
 
 ### Routing Rules
 
 **Automatic routing rules in fusion mode:**
 
 ```javascript
-// 1. HIGH TIER (Opus) - No fusion
-if (tier === 'HIGH' && ['planner', 'critic'].includes(agent)) {
-  return 'Claude Opus'; // Strategy/coordination: quality first
+// 1. HIGH TIER (Opus) - Always retained on Claude (11 agents)
+if (tier === 'HIGH') {
+  return 'Claude Opus'; // Strategy/coordination/quality: always Claude
 }
 
-// 2. HIGH TIER (Opus) - Fusion applied (partial)
-if (tier === 'HIGH' && ['architect', 'security-reviewer', 'code-reviewer'].includes(agent)) {
-  return 'OMO Oracle (GPT-5.2)'; // Analysis can be offloaded
-}
-
-// 3. MEDIUM TIER (Sonnet) - Fusion applied (most)
+// 2. MEDIUM TIER (Sonnet → Codex) - Fusion applied (10 agents)
 if (tier === 'MEDIUM') {
-  return 'OMO Agent (GPT-5.2 or Gemini Pro)'; // Token savings!
+  return 'OpenCode build/explore/general (GPT-5.2-Codex)'; // Token savings!
 }
 
-// 4. LOW TIER (Haiku) - Fusion applied (100%)
+// 3. LOW TIER (Haiku → Flash) - Fusion applied (8+ agents)
 if (tier === 'LOW') {
-  return 'OMO Agent (Gemini Flash)'; // Maximum savings
+  return 'OpenCode build/explore/general (Gemini-3.0-Flash)'; // Maximum savings
 }
 ```
 
@@ -327,9 +336,9 @@ Model selection criteria in fusion mode:
 ```
 
 **Routing Result** (85% usage):
-- Code exploration → OpenCode Librarian (Gemini Flash) ✅
-- Architecture analysis → OpenCode Oracle (GPT-5.2) ✅
-- UI work → OpenCode Frontend (Gemini Pro) ✅
+- Code exploration → OpenCode explore (Gemini Flash) ✅
+- Architecture analysis → Claude Opus (HIGH tier, retained) ✓
+- UI work → OpenCode build (GPT-5.2-Codex) ✅
 - Complex implementation → Claude Opus ✓ (quality needed)
 - Token Savings: ~45%
 
@@ -361,25 +370,25 @@ autopilot hulw create complete REST API server
 
 ```
 1. Requirements Analysis
-   → Task(analyst) → OMO Oracle (GPT-5.2)
+   → Task(analyst) → Claude Opus (HIGH tier)
 
 2. Planning
-   → Task(planner) → Claude Opus (quality required)
+   → Task(planner) → Claude Opus (HIGH tier)
 
 3. Directory Structure Design
-   → Task(explore) → OMO Librarian (Gemini Flash)
+   → Task(explore) → OpenCode explore (Gemini Flash)
 
 4. Controller Implementation
-   → Task(executor) → OMO Codex (GPT-5.2-Codex)
+   → Task(executor) → OpenCode build (GPT-5.2-Codex)
 
 5. Middleware Implementation
-   → Task(executor) → OMO Codex
+   → Task(executor) → OpenCode build (GPT-5.2-Codex)
 
 6. Test Writing
-   → Task(qa-tester) → OMO QA (GPT-5.2)
+   → Task(qa-tester) → OpenCode build (GPT-5.2-Codex)
 
 7. Final Verification
-   → Task(architect) → OMO Oracle (GPT-5.2)
+   → Task(architect) → Claude Opus (HIGH tier)
 
 8. Completion Report
 ```
@@ -399,10 +408,10 @@ autopilot hulw create complete REST API server
 ```
 
 **Routing Result:**
-- Task(explore-high) → OMO Librarian (fast exploration) ✅
-- Task(researcher) → OMO Oracle (GPT-5.2) ✅
-- Task(architect) → OMO Oracle (GPT-5.2) ✅
-- Token Savings: ~70% (high due to exploration focus)
+- Task(explore-high) → Claude Opus (HIGH tier, retained) ✓
+- Task(researcher) → OpenCode general (GPT-5.2-Codex) ✅
+- Task(architect) → Claude Opus (HIGH tier, retained) ✓
+- Token Savings: ~40% (architect/explore-high stay on Claude)
 
 ---
 
@@ -436,10 +445,10 @@ Automatically handled during provider switching, but also available manually:
 
 ```bash
 # Save context + switch to OpenCode
-~/.local/share/omcm/scripts/handoff-to-opencode.sh
+~/.claude/plugins/local/oh-my-claude-money/scripts/handoff-to-opencode.sh
 
 # Save context only
-~/.local/share/omcm/scripts/export-context.sh
+~/.claude/plugins/local/oh-my-claude-money/scripts/export-context.sh
 ```
 
 **Generated Context** (`.omcm/handoff/context.md`):
@@ -499,7 +508,7 @@ Fusion mode uses OpenCode server pool to improve routing performance:
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 5,        // Max server count (1-25 recommended)
+    "maxOpencodeWorkers": 4,        // Max server count (1-25 recommended)
     "serverTimeout": 300000,        // Timeout (ms)
     "autoScale": true               // Enable auto-scaling
   }
@@ -508,8 +517,7 @@ Fusion mode uses OpenCode server pool to improve routing performance:
 
 **Resource Usage:**
 - Per server: ~250-300MB
-- 5 servers: ~1.5GB
-- 25 servers: ~6.25GB
+- 4 servers: ~1.2GB
 
 ### 4. Parallel Task Execution
 
@@ -691,7 +699,7 @@ kill -9 <PID>
 
 ```bash
 # 1. Manually create context
-~/.local/share/omcm/scripts/export-context.sh
+~/.claude/plugins/local/oh-my-claude-money/scripts/export-context.sh
 
 # 2. Check context file
 cat ~/.omcm/handoff/context.md
@@ -700,7 +708,7 @@ cat ~/.omcm/handoff/context.md
 echo $OMCM_CONTEXT_PATH
 
 # 4. Manual switch
-~/.local/share/omcm/scripts/handoff-to-opencode.sh
+~/.claude/plugins/local/oh-my-claude-money/scripts/handoff-to-opencode.sh
 ```
 
 ### Issue 5: HUD Not Showing Fusion Metrics
@@ -876,10 +884,10 @@ You can customize default routing:
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 10,
+    "maxOpencodeWorkers": 4,
     "serverTimeout": 600000,
     "autoScale": true,
-    "scaleThreshold": 7
+    "scaleThreshold": 3
   }
 }
 ```
@@ -905,7 +913,7 @@ Track fusion mode usage:
 #  ↑ Claude    ↑ OpenAI    ↑ Gemini
 
 # Detailed logs
-tail -f ~/.omcm/logs/metrics.log
+tail -f ~/.omcm/routing-log.jsonl
 ```
 
 ---

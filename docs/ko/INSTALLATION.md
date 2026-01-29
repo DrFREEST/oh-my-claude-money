@@ -341,9 +341,77 @@ ln -sf ~/.local/share/oh-my-claude-money \
         "hooks": [
           {
             "type": "command",
-            "command": "node ~/.claude/plugins/local/oh-my-claude-money/hooks/fusion-router.mjs",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/fusion-router.mjs",
             "timeout": 120,
             "statusMessage": "퓨전 라우팅 확인 중..."
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/read-optimizer.mjs",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/bash-optimizer.mjs",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/detect-handoff.mjs",
+            "timeout": 5,
+            "statusMessage": "사용량 확인 중..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/session-start.mjs",
+            "timeout": 3,
+            "statusMessage": "사용량 정보 로드 중..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/persistent-mode.mjs",
+            "timeout": 5,
+            "statusMessage": "활성 모드 확인 중..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Edit|Bash|Grep|Glob|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/tool-tracker.mjs",
+            "timeout": 5
           }
         ]
       }

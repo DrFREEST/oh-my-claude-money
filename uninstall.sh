@@ -50,7 +50,7 @@ fi
 echo -e "${BLUE}[2/6]${NC} Hooks 설정 제거..."
 if [[ -f "$SETTINGS_FILE" ]]; then
     # fusion-router 관련 hook 제거
-    if grep -qE "fusion-router|omcm|read-optimizer|bash-optimizer|tool-tracker" "$SETTINGS_FILE" 2>/dev/null; then
+    if grep -qE "fusion-router|omcm|read-optimizer|bash-optimizer|tool-tracker|session-start|detect-handoff|persistent-mode" "$SETTINGS_FILE" 2>/dev/null; then
         node -e "
             const fs = require('fs');
             const settings = JSON.parse(fs.readFileSync('$SETTINGS_FILE', 'utf-8'));
@@ -58,7 +58,7 @@ if [[ -f "$SETTINGS_FILE" ]]; then
             let removed = 0;
             const isOmcm = (entry) => JSON.stringify(entry).includes('omcm');
 
-            for (const event of ['PreToolUse', 'PostToolUse']) {
+            for (const event of ['PreToolUse', 'PostToolUse', 'SessionStart', 'UserPromptSubmit', 'Stop']) {
                 if (h[event]) {
                     const orig = h[event].length;
                     h[event] = h[event].filter(e => !isOmcm(e));
@@ -67,18 +67,39 @@ if [[ -f "$SETTINGS_FILE" ]]; then
                 }
             }
 
+            // enabledPlugins에서 제거
+            const ep = settings.enabledPlugins || {};
+            for (const key of Object.keys(ep)) {
+                if (key.includes('omcm') || key.includes('oh-my-claude-money')) {
+                    delete ep[key];
+                }
+            }
+            if (Object.keys(ep).length === 0) delete settings.enabledPlugins;
+            else settings.enabledPlugins = ep;
+
             if (Object.keys(h).length === 0) delete settings.hooks;
             else settings.hooks = h;
 
             fs.writeFileSync('$SETTINGS_FILE', JSON.stringify(settings, null, 2));
             console.log('removed:' + removed);
-        " 2>/dev/null && echo -e "  ${GREEN}✓${NC} PreToolUse + PostToolUse hooks에서 OMCM 항목 제거됨" || \
+        " 2>/dev/null && echo -e "  ${GREEN}✓${NC} 모든 hooks에서 OMCM 항목 제거됨" || \
             echo -e "  ${YELLOW}!${NC} hooks 설정 수정 실패 (수동 확인 필요)"
     else
         echo -e "  ${YELLOW}-${NC} OMCM hooks 없음"
     fi
 else
     echo -e "  ${YELLOW}-${NC} settings.json 없음"
+fi
+
+# installed_plugins.json 정리
+local installed_file="$HOME/.claude/plugins/installed_plugins.json"
+if [[ -f "$installed_file" ]] && command -v jq &>/dev/null; then
+    local cleaned
+    cleaned=$(jq 'del(.plugins["oh-my-claude-money@local"])' "$installed_file" 2>/dev/null)
+    if [[ -n "$cleaned" ]]; then
+        echo "$cleaned" > "$installed_file"
+        echo -e "  ${GREEN}✓${NC} installed_plugins.json 정리됨"
+    fi
 fi
 
 # ============================================================================
@@ -142,6 +163,14 @@ do
         ((REMOVED_FILES++))
     fi
 done
+
+# oh-my-opencode 설정
+local omo_config="$HOME/.config/opencode/oh-my-opencode.json"
+if [[ -f "$omo_config" ]]; then
+    rm "$omo_config"
+    echo -e "  ${GREEN}✓${NC} oh-my-opencode.json 제거됨"
+    ((REMOVED_FILES++))
+fi
 
 if [[ $REMOVED_FILES -eq 0 ]]; then
     echo -e "  ${YELLOW}-${NC} 상태 파일 없음"

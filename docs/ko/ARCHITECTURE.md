@@ -2,7 +2,7 @@
 
 ## 개요
 
-OMCM은 Claude Code와 OpenCode를 통합하는 퓨전 오케스트레이터입니다. 단일 메타 오케스트레이터(Claude Opus 4.5)가 작업을 분석하여 32개의 OMC 에이전트 또는 OpenCode의 다중 프로바이더 에이전트로 라우팅합니다.
+OMCM은 Claude Code와 OpenCode를 통합하는 퓨전 오케스트레이터입니다. 단일 메타 오케스트레이터(Claude Opus 4.5)가 작업을 분석하여 35개의 OMC 에이전트 또는 OpenCode의 다중 프로바이더 에이전트로 라우팅합니다.
 
 **핵심 목표**: Claude 토큰 62% 절약 + 병렬 처리 성능 향상 + 자동 폴백 시스템
 
@@ -22,9 +22,9 @@ OMCM은 Claude Code와 OpenCode를 통합하는 퓨전 오케스트레이터입�
 │     │ oh-my-claudecode │ │  OpenCode    │ │   서버 풀    │        │
 │     │ (Claude 토큰)    │ │ (다른 LLM)   │ │   (병렬)     │        │
 │     │                  │ │              │ │              │        │
-│     │ • planner        │ │ • Oracle     │ │ HTTP 포트    │        │
-│     │ • executor       │ │ • Codex      │ │ 4096-4100    │        │
-│     │ • critic         │ │ • Flash      │ │              │        │
+│     │ • planner        │ │ • build      │ │ HTTP 포트    │        │
+│     │ • executor       │ │ • explore    │ │ 4096-4099    │        │
+│     │ • critic         │ │ • general    │ │              │        │
 │     └──────────────────┘ └──────────────┘ └──────────────┘        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -48,7 +48,7 @@ OMCM은 Claude Code와 OpenCode를 통합하는 퓨전 오케스트레이터입�
 
 3. 퓨전 모드 체크
    ├─ fusionDefault === true → planner 제외 모든 에이전트 OpenCode
-   └─ save-tokens 모드 → 토큰 절약 에이전트 18개만 OpenCode
+   └─ save-tokens 모드 → 토큰 절약 에이전트 22개만 OpenCode
 
 4. 기본값 → Claude에서 실행
 ```
@@ -70,24 +70,25 @@ shouldRouteToOpenCode(toolInput, options)
     id: 'gpt-5.2-codex',
     name: 'GPT-5.2 Codex'
   },
-  opencodeAgent: 'Oracle'          // OpenCode 매핑 에이전트
+  opencodeAgent: 'build'           // OpenCode 매핑 에이전트 (OMO: build/explore/plan/general)
 }
 ```
 
-#### 에이전트 매핑 (29개 라우팅)
+#### 에이전트 매핑 (35개 라우팅)
 
 | OMC 에이전트 | 라우팅 대상 | 모델 | 이유 |
 |-------------|-----------|------|------|
-| architect-low | OpenCode Flash | Gemini 3 Flash | 빠른 분석 |
-| architect-medium | OpenCode Oracle | GPT-5.2 | 중간 복잡도 |
-| researcher | OpenCode Oracle | GPT-5.2 | 비용 효율 |
-| explore, explore-medium | OpenCode Flash/Oracle | Gemini/GPT | 검색 작업 |
-| designer | OpenCode Flash | Gemini 3 | UI 작업 |
-| writer | OpenCode Flash | Gemini 3 Flash | 문서 작성 |
-| vision | OpenCode Flash | Gemini 3 Flash | 이미지 분석 |
-| code-reviewer-low | OpenCode Flash | Gemini 3 Flash | 간단한 리뷰 |
-| security-reviewer-low | OpenCode Flash | Gemini 3 Flash | 빠른 검사 |
-| **planner, executor, critic** | Claude (유지) | Claude Opus | 높은 품질 |
+| architect-low | OMO explore | Gemini 3.0 Flash | 빠른 분석 |
+| architect-medium | OMO build | GPT-5.2-Codex | 중간 복잡도 |
+| researcher | OMO general | GPT-5.2-Codex | 비용 효율 |
+| explore | OMO explore | Gemini 3.0 Flash | 빠른 탐색 |
+| explore-medium | OMO explore | GPT-5.2-Codex | 깊은 탐색 |
+| designer | OMO build | GPT-5.2-Codex | UI 작업 |
+| writer | OMO general | Gemini 3.0 Flash | 문서 작성 |
+| vision | OMO general | GPT-5.2-Codex | 이미지 분석 |
+| code-reviewer-low | OMO build | Gemini 3.0 Flash | 간단한 리뷰 |
+| security-reviewer-low | OMO build | Gemini 3.0 Flash | 빠른 검사 |
+| **HIGH 13개** (architect, planner, critic 등) | Claude (유지) | Claude Opus | 높은 품질 (fallbackToOMC) |
 
 ### 1.2 서버 풀 (src/executor/opencode-server-pool.mjs)
 
@@ -489,34 +490,59 @@ Claude Code의 훅 시스템을 통해 자동으로 통합됩니다.
 
 ```json
 {
-  "hooks": [
-    {
-      "id": "fusion-router-hook",
-      "event": "tool:before",
-      "handler": "src/hooks/fusion-router-logic.mjs",
-      "priority": 1,
-      "description": "라우팅 결정 전 실행"
-    },
-    {
-      "id": "detect-handoff",
-      "event": "message:after",
-      "handler": "src/hooks/detect-handoff.mjs",
-      "description": "키워드/임계치 감지"
-    }
-  ]
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/fusion-router.mjs", "timeout": 120 }]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/read-optimizer.mjs", "timeout": 5 }]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/bash-optimizer.mjs", "timeout": 5 }]
+      }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/detect-handoff.mjs", "timeout": 5 }] }
+    ],
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/session-start.mjs", "timeout": 3 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/persistent-mode.mjs", "timeout": 5 }] }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Edit|Bash|Grep|Glob|Task",
+        "hooks": [{ "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/tool-tracker.mjs", "timeout": 5 }]
+      }
+    ]
+  }
 }
 ```
 
 #### 훅 동작 순서
 
 ```
-사용자 요청 → tool:before (fusion-router-hook)
-              ├─ Fusion Router Logic 실행
-              ├─ shouldRouteToOpenCode() 결정
-              └─ 라우팅 결정 반환
-           → Claude 또는 OpenCode 실행
-           → message:after (detect-handoff)
-              └─ 키워드/임계치 체크
+세션 시작 → SessionStart (session-start.mjs)
+              └─ 사용량 정보 로드
+
+사용자 프롬프트 → UserPromptSubmit (detect-handoff.mjs)
+                   └─ 키워드/임계치 체크
+
+도구 호출 전 → PreToolUse
+              ├─ Task → fusion-router.mjs (퓨전 라우팅 결정)
+              ├─ Read → read-optimizer.mjs (읽기 최적화)
+              └─ Bash → bash-optimizer.mjs (명령어 최적화)
+
+도구 호출 후 → PostToolUse (tool-tracker.mjs)
+              └─ 도구 사용 추적
+
+세션 종료 → Stop (persistent-mode.mjs)
+              └─ 활성 모드 확인
 ```
 
 ### 4.2 OMC 에이전트 위임 구조
@@ -717,10 +743,10 @@ oh-my-claude-money/
 │   │   ├── opencode-server-pool.mjs   # v1.0.0 서버 풀
 │   │   └── acp-client.mjs             # ACP 클라이언트
 │   │
-│   ├── hooks/                     # Claude Code 훅
-│   │   ├── fusion-router-logic.mjs    # 라우팅 로직
-│   │   ├── detect-handoff.mjs         # 키워드 감지
-│   │   └── session-start.mjs          # 세션 초기화
+│   ├── hooks/                     # Claude Code 훅 (src/)
+│   │   ├── detect-handoff.mjs         # 키워드/임계치 감지
+│   │   ├── session-start.mjs          # 세션 초기화
+│   │   └── persistent-mode.mjs        # 활성 모드 확인
 │   │
 │   ├── hud/                       # HUD 렌더링
 │   │   ├── fusion-renderer.mjs        # 퓨전 상태 렌더
@@ -736,7 +762,10 @@ oh-my-claude-money/
 │       └── usage.mjs                  # 사용량 계산
 │
 ├── hooks/
-│   ├── fusion-router.mjs             # 훅 진입점
+│   ├── fusion-router.mjs             # 퓨전 라우팅 훅 (PreToolUse:Task)
+│   ├── read-optimizer.mjs            # 읽기 최적화 훅 (PreToolUse:Read)
+│   ├── bash-optimizer.mjs            # 명령어 최적화 훅 (PreToolUse:Bash)
+│   ├── tool-tracker.mjs              # 도구 사용 추적 훅 (PostToolUse)
 │   └── hooks.json                     # 훅 정의
 │
 ├── commands/

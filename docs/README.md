@@ -21,4 +21,6 @@
 - [Troubleshooting](en/TROUBLESHOOTING.md)
 
 ## Quick Links
-- [CHANGELOG](../CHANGELOG.md)
+- [README](../README.md) - Project overview
+- [CHANGELOG](../CHANGELOG.md) - Version history
+- [LICENSE](../LICENSE) - MIT License

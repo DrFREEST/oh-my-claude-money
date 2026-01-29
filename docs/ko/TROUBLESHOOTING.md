@@ -275,10 +275,10 @@ EOF
 ps aux | grep opencode
 
 # 2단계: 포트 확인
-lsof -i :8000  # 또는 설정된 포트
+lsof -i :4096  # 또는 설정된 포트
 
 # 3단계: 서버 수동 시작
-opencode serve --port 8000
+opencode serve --port 4096
 
 # 4단계: OMCM 서버 풀 시작
 ~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
@@ -529,8 +529,8 @@ bash /opt/oh-my-claude-money/scripts/install-hud.sh
 
 ```bash
 # 사용 중인 포트 확인
-lsof -i :8000
-lsof -i :8001
+lsof -i :4096
+lsof -i :4097
 netstat -tuln | grep LISTEN
 
 # 충돌하는 프로세스 종료
@@ -548,7 +548,7 @@ export OMCM_BASE_PORT=9000
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "maxOpencodeWorkers": 5,
+    "maxOpencodeWorkers": 4,
     "basePort": 9000
   }
 }
@@ -562,7 +562,7 @@ EOF
 sudo ~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
 
 # 또는 1024 이상 포트 사용
-export OMCM_BASE_PORT=8000
+export OMCM_BASE_PORT=4096
 ```
 
 ---
@@ -747,8 +747,8 @@ cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 EOF
 
 # 환경 변수도 설정
-export OMCM_MAX_SERVERS=10
-export OMCM_BASE_PORT=8000
+export OMCM_MAX_SERVERS=4
+export OMCM_BASE_PORT=4096
 ```
 
 ---
@@ -822,7 +822,7 @@ OMCM은 OpenCode를 Claude Code와 연결하여:
 **A**: 네, 실제 데이터 기반입니다.
 
 **절약 구조**:
-- **18개 에이전트** (62%)가 GPT/Gemini로 오프로드됨
+- **22개 에이전트** (62%)가 GPT/Gemini로 오프로드됨
 - 단순 작업은 저비용 모델 사용
 - 핵심 추론은 Claude Opus 사용
 

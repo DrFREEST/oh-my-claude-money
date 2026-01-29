@@ -729,12 +729,19 @@ export const TASK_ROUTING_PREFERENCES = {
 };
 
 export const OPENCODE_AGENT_MAPPING = {
-  explore: 'Librarian',
-  'explore-medium': 'Explore',
-  researcher: 'Oracle',
-  writer: 'Librarian',
-  designer: 'Frontend Engineer',
-  executor: 'Sisyphus'
+  explore: 'explore',
+  'explore-medium': 'explore',
+  researcher: 'general',
+  writer: 'general',
+  designer: 'build',
+  executor: 'build',
+  'architect-medium': 'build',
+  'architect-low': 'build',
+  vision: 'general',
+  'qa-tester': 'build',
+  'build-fixer': 'build',
+  'tdd-guide': 'build',
+  scientist: 'build'
 };
 ```
 
@@ -886,7 +893,7 @@ import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
 
 const pool = new OpenCodeServerPool({
   minServers: 1,           // Minimum servers
-  maxServers: 5,           // Maximum servers
+  maxServers: 4,           // Maximum servers
   basePort: 4096,          // Starting port
   autoScale: true,         // Auto-scaling
   projectDir: process.cwd()
@@ -1513,7 +1520,7 @@ import { getDefaultPool } from 'src/executor/opencode-server-pool.mjs';
 
 const pool = getDefaultPool({
   minServers: 2,
-  maxServers: 5
+  maxServers: 4
 });
 
 await pool.initialize();

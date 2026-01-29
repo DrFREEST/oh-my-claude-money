@@ -728,13 +728,20 @@ export const TASK_ROUTING_PREFERENCES = {
   'build-fixer': 'any'
 };
 
+// OMO 에이전트 매핑 (agent-fusion-map.mjs 기반)
+// OMO 에이전트는 4종: build, explore, plan, general
 export const OPENCODE_AGENT_MAPPING = {
-  explore: 'Librarian',
-  'explore-medium': 'Explore',
-  researcher: 'Oracle',
-  writer: 'Librarian',
-  designer: 'Frontend Engineer',
-  executor: 'Sisyphus'
+  explore: 'explore',           // LOW → Gemini 3.0 Flash
+  'explore-medium': 'explore',  // MEDIUM → GPT-5.2-Codex
+  researcher: 'general',        // MEDIUM → GPT-5.2-Codex
+  'researcher-low': 'general',  // LOW → Gemini 3.0 Flash
+  writer: 'general',            // LOW → Gemini 3.0 Flash
+  designer: 'build',            // MEDIUM → GPT-5.2-Codex
+  executor: 'build',            // MEDIUM → GPT-5.2-Codex
+  'executor-low': 'build',      // LOW → Gemini 3.0 Flash
+  vision: 'general',            // MEDIUM → GPT-5.2-Codex
+  'architect-medium': 'build',  // MEDIUM → GPT-5.2-Codex
+  'architect-low': 'explore'    // LOW → Gemini 3.0 Flash
 };
 ```
 

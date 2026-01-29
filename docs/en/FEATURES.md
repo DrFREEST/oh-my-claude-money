@@ -37,20 +37,23 @@ All 32 OMC agents are intelligently mapped to optimal providers:
 
 **Key agents by tier:**
 
-HIGH (Claude Opus - No change):
+HIGH (Claude Opus - Retained, 11 agents):
 - `architect`, `planner`, `critic`, `analyst`
-- `executor-high`, `explore-high`
-- `architect-high`, `qa-tester-high`, `security-reviewer`
+- `executor-high`, `explore-high`, `designer-high`
+- `qa-tester-high`, `security-reviewer`, `code-reviewer`
+- `scientist-high`
 
-MEDIUM → GPT-5.2-Codex:
-- `architect-medium`, `executor`
-- `researcher`, `designer`, `qa-tester`
-- `science`, `build-fixer`, `tdd-guide`
+MEDIUM → GPT-5.2-Codex (10 agents):
+- `architect-medium`, `executor`, `explore-medium`
+- `researcher`, `designer`, `vision`
+- `qa-tester`, `build-fixer`, `tdd-guide`
+- `scientist`
 
-LOW → Gemini 3.0 Flash:
+LOW → Gemini 3.0 Flash (8+ agents):
 - `architect-low`, `executor-low`, `explore`
 - `writer`, `designer-low`, `researcher-low`
-- `security-reviewer-low`, `build-fixer-low`, `code-reviewer-low`
+- `security-reviewer-low`, `build-fixer-low`
+- `tdd-guide-low`, `code-reviewer-low`, `scientist-low`
 
 ### API Reference
 
@@ -89,7 +92,7 @@ Let's implement a new dashboard hulw
 1. Detects `hulw` keyword
 2. Enables `fusionRouter` with mode='always'
 3. Dispatches tasks to parallel executor
-4. Starts OpenCode server pool (1-5 servers)
+4. Starts OpenCode server pool (1-4 servers)
 5. Distributes work: Claude handles architecture, OpenCode handles exploration
 
 #### 2. Auto Fusion Ultrawork (ulw)
@@ -227,7 +230,7 @@ import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
 
 const pool = new OpenCodeServerPool({
   minServers: 1,
-  maxServers: 5,
+  maxServers: 4,
   basePort: 4096,
   autoScale: true,
   projectDir: process.cwd()
@@ -239,7 +242,7 @@ const pool = new OpenCodeServerPool({
 | Option | Type | Default | Description |
 |--------|------|---------|---|
 | `minServers` | number | 1 | Minimum servers to maintain |
-| `maxServers` | number | 5 | Maximum servers to start |
+| `maxServers` | number | 4 | Maximum servers to start |
 | `basePort` | number | 4096 | Base port number |
 | `autoScale` | boolean | true | Enable auto-scaling |
 | `projectDir` | string | cwd | Project directory |
@@ -346,7 +349,7 @@ import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
 async function parallelProcessing() {
   const pool = new OpenCodeServerPool({
     minServers: 2,
-    maxServers: 5,
+    maxServers: 4,
     autoScale: true
   });
 
@@ -1071,7 +1074,7 @@ async function buildComplexSystem() {
   // 2. Start server pool
   const pool = new OpenCodeServerPool({
     minServers: 2,
-    maxServers: 5,
+    maxServers: 4,
     autoScale: true
   });
   await pool.initialize();
@@ -1178,9 +1181,9 @@ buildComplexSystem().catch(console.error);
 |------|---|---|---|
 | CLI (no pool) | 12s | 11s | 122s |
 | **Server pool (1 server)** | 4s | 1.2s | 16s |
-| **Server pool (5 servers)** | 5s | 1.1s per task | 6s |
+| **Server pool (4 servers)** | 5s | 1.1s per task | 6s |
 
-**Parallel speedup:** 5 servers = ~20x faster for independent tasks
+**Parallel speedup:** 4 servers = ~16x faster for independent tasks
 
 ---
 
@@ -1204,7 +1207,7 @@ buildComplexSystem().catch(console.error);
 
 ## See Also
 
-- [README.md](../README.md) - Project overview and quick start
-- [CHANGELOG.md](../CHANGELOG.md) - Version history and release notes
-- [Configuration Guide](../docs/CONFIG.md) - Detailed configuration options
-- [API Reference](../docs/API.md) - Complete API documentation
+- [README.md](../../README.md) - Project overview and quick start
+- [CHANGELOG.md](../../CHANGELOG.md) - Version history and release notes
+- [Configuration Guide](./CONFIGURATION.md) - Detailed configuration options
+- [API Reference](./API-REFERENCE.md) - Complete API documentation

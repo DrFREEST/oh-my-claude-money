@@ -335,44 +335,52 @@ Production: `~/.omcm/agent-mapping.json` for custom configuration
 {
   "mappings": [
     {
-      "source": ["architect", "architect-medium", "architect-low"],
-      "target": "Oracle",
+      "source": ["architect-medium"],
+      "target": "build",
       "provider": "opencode",
-      "model": "gpt-4",
-      "tier": "HIGH",
-      "reason": "Delegate architectural analysis to GPT-4 Oracle"
+      "model": "gpt-5.2-codex",
+      "tier": "MEDIUM",
+      "reason": "Delegate medium architecture analysis to Codex"
     },
     {
-      "source": ["designer", "designer-high", "designer-low"],
-      "target": "frontend-engineer",
+      "source": ["architect-low"],
+      "target": "build",
       "provider": "opencode",
-      "model": "gemini-pro",
+      "model": "gemini-3.0-flash",
+      "tier": "LOW",
+      "reason": "Delegate quick architecture checks to Flash"
+    },
+    {
+      "source": ["designer"],
+      "target": "build",
+      "provider": "opencode",
+      "model": "gpt-5.2-codex",
       "tier": "MEDIUM",
-      "reason": "Delegate UI/UX work to Gemini Pro"
+      "reason": "Delegate UI/UX work to Codex"
     },
     {
       "source": ["researcher", "researcher-low"],
-      "target": "Oracle",
+      "target": "general",
       "provider": "opencode",
-      "model": "gpt-4",
+      "model": "gpt-5.2-codex",
       "tier": "MEDIUM",
-      "reason": "Delegate research work to GPT-4 Oracle"
+      "reason": "Delegate research work to general agent"
     },
     {
-      "source": ["explore", "explore-medium"],
+      "source": ["explore"],
       "target": "explore",
       "provider": "opencode",
-      "model": "gemini-flash",
+      "model": "gemini-3.0-flash",
       "tier": "LOW",
-      "reason": "Delegate quick exploration to Gemini Flash"
+      "reason": "Delegate quick exploration to Flash"
     },
     {
       "source": ["writer"],
-      "target": "document-writer",
+      "target": "general",
       "provider": "opencode",
-      "model": "gemini-flash",
+      "model": "gemini-3.0-flash",
       "tier": "LOW",
-      "reason": "Delegate documentation to Gemini Flash"
+      "reason": "Delegate documentation to Flash"
     }
   ],
   "fallback": {
@@ -651,7 +659,48 @@ Uses Claude Code's hook system to execute OMCM logic at specific events.
 - Decides whether to switch to OpenCode based on routing rules
 - Exports context if needed
 
-#### 2. UserPromptSubmit (User Input Submission)
+#### 2. PreToolUse - Read Optimizer (Phase 1-5)
+
+**Purpose**: Optimize Read tool calls to reduce token usage
+
+**Execution**: `node ${CLAUDE_PLUGIN_ROOT}/hooks/read-optimizer.mjs`
+
+**Timeout**: 5 seconds
+
+**Behavior**:
+- Detects duplicate Read calls for the same file
+- Suggests using line ranges for large files
+- Reduces unnecessary token consumption
+
+#### 3. PreToolUse - Bash Optimizer (Phase 1-5)
+
+**Purpose**: Optimize Bash tool calls to reduce token usage
+
+**Execution**: `node ${CLAUDE_PLUGIN_ROOT}/hooks/bash-optimizer.mjs`
+
+**Timeout**: 5 seconds
+
+**Behavior**:
+- Detects redundant bash commands
+- Suggests more efficient alternatives
+- Prevents wasteful command execution
+
+#### 4. PostToolUse - Tool Tracker (Phase 1-5)
+
+**Purpose**: Track tool usage for analytics and optimization
+
+**Execution**: `node ${CLAUDE_PLUGIN_ROOT}/hooks/tool-tracker.mjs`
+
+**Matcher**: `Read|Edit|Bash|Grep|Glob|Task`
+
+**Timeout**: 5 seconds
+
+**Behavior**:
+- Records every tool call (type, timestamp, duration)
+- Aggregates tool usage statistics
+- Enables Phase 1-5 token savings calculations
+
+#### 5. UserPromptSubmit (User Input Submission)
 
 **Purpose**: Usage threshold and keyword detection
 
@@ -741,7 +790,7 @@ Uses Claude Code's hook system to execute OMCM logic at specific events.
 - Saves hulw/ulw state
 - Records session metadata
 
-### Complete Hook Configuration
+### Complete Hook Configuration (7 hooks across 5 events)
 
 ```json
 {
@@ -756,6 +805,26 @@ Uses Claude Code's hook system to execute OMCM logic at specific events.
             "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/fusion-router.mjs",
             "timeout": 120,
             "statusMessage": "Checking fusion routing..."
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/read-optimizer.mjs",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/bash-optimizer.mjs",
+            "timeout": 5
           }
         ]
       }
@@ -792,6 +861,18 @@ Uses Claude Code's hook system to execute OMCM logic at specific events.
             "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/persistent-mode.mjs",
             "timeout": 5,
             "statusMessage": "Checking active modes..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Edit|Bash|Grep|Glob|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/tool-tracker.mjs",
+            "timeout": 5
           }
         ]
       }
@@ -841,9 +922,9 @@ chmod +x ~/.claude/plugins/omcm/hooks/custom-hook.mjs
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `OMCM_BASE_PORT` | OpenCode server pool base port | 8000 | `export OMCM_BASE_PORT=8000` |
+| `OMCM_BASE_PORT` | OpenCode server pool base port | 4096 | `export OMCM_BASE_PORT=4096` |
 | `OMCM_MIN_SERVERS` | Minimum server instances | 1 | `export OMCM_MIN_SERVERS=1` |
-| `OMCM_MAX_SERVERS` | Maximum server instances | 5 | `export OMCM_MAX_SERVERS=5` |
+| `OMCM_MAX_SERVERS` | Maximum server instances | 4 | `export OMCM_MAX_SERVERS=4` |
 | `OMCM_FUSION_MODE` | Force fusion mode | (none) | `export OMCM_FUSION_MODE=hulw` |
 | `OMCM_DEBUG` | Debug logging | false | `export OMCM_DEBUG=true` |
 | `OMCM_CONFIG_DIR` | Configuration directory | `~/.omcm` | `export OMCM_CONFIG_DIR=$HOME/.omcm` |
@@ -869,9 +950,9 @@ opencode
 **Permanent Setting** (~/.bashrc or ~/.zshrc):
 ```bash
 # OMCM Configuration
-export OMCM_BASE_PORT=8000
+export OMCM_BASE_PORT=4096
 export OMCM_MIN_SERVERS=1
-export OMCM_MAX_SERVERS=5
+export OMCM_MAX_SERVERS=4
 export OMCM_DEBUG=false
 
 # Provider API Keys
@@ -892,8 +973,8 @@ OMCM uses consecutive ports for the OpenCode server pool.
 
 **Port Allocation**:
 ```
-OMCM_BASE_PORT=8000, OMCM_MAX_SERVERS=5
-└─ 8000, 8001, 8002, 8003, 8004
+OMCM_BASE_PORT=4096, OMCM_MAX_SERVERS=4
+└─ 4096, 4097, 4098, 4099
 ```
 
 **Collision Prevention**:
@@ -904,7 +985,7 @@ netstat -tuln | grep LISTEN
 
 2. Change Port Range:
 ```bash
-export OMCM_BASE_PORT=9000  # Uses 9000-9004
+export OMCM_BASE_PORT=9000  # Uses 9000-9003
 ```
 
 ---
@@ -1008,7 +1089,7 @@ Optimized for large parallel workloads:
       "writer", "vision"
     ],
     "preferClaude": [
-      "architect", "architect-high",
+      "architect",
       "executor-high", "critic", "planner"
     ],
     "autoDelegate": true
@@ -1084,7 +1165,7 @@ claude
 
 ### Q3: OpenCode Server Port Conflict
 
-**Error**: `Address already in use 0.0.0.0:8000`
+**Error**: `Address already in use 0.0.0.0:4096`
 
 **Solution**:
 ```bash

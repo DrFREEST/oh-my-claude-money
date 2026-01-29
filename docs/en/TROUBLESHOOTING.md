@@ -275,10 +275,10 @@ EOF
 ps aux | grep opencode
 
 # Step 2: Check port
-lsof -i :8000  # or configured port
+lsof -i :4096  # or configured port
 
 # Step 3: Start server manually
-opencode serve --port 8000
+opencode serve --port 4096
 
 # Step 4: Start OMCM server pool
 ~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
@@ -529,8 +529,8 @@ bash /opt/oh-my-claude-money/scripts/install-hud.sh
 
 ```bash
 # Check ports in use
-lsof -i :8000
-lsof -i :8001
+lsof -i :4096
+lsof -i :4097
 netstat -tuln | grep LISTEN
 
 # Kill conflicting process
@@ -562,7 +562,7 @@ EOF
 sudo ~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
 
 # Or use port >= 1024
-export OMCM_BASE_PORT=8000
+export OMCM_BASE_PORT=4096
 ```
 
 ---
@@ -747,8 +747,8 @@ cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 EOF
 
 # Also set environment variables
-export OMCM_MAX_SERVERS=10
-export OMCM_BASE_PORT=8000
+export OMCM_MAX_SERVERS=4
+export OMCM_BASE_PORT=4096
 ```
 
 ---

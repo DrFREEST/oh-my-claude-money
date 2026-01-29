@@ -18,6 +18,8 @@
 
 ## 버전 관리 (Semantic Versioning)
 
+**형식**: `a.b.c` (메이저.마이너.패치)
+
 | 버전 | 기준 |
 |------|------|
 | **a (메이저)** | 하위 호환성이 깨지는 변경 |
@@ -28,9 +30,13 @@
 
 - [ ] `package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` 버전 동기화
 - [ ] `CHANGELOG.md` 변경사항 기록
-- [ ] 파일 동기화: `rsync -av --exclude='.git' --exclude='.omc' --exclude='.omcm' /opt/oh-my-claude-money/ ~/.claude/marketplaces/omcm/`
+- [ ] `/opt/oh-my-claude-money/` ↔ `~/.claude/marketplaces/omcm/` 파일 동기화
+
+동기화: `rsync -av --exclude='.git' --exclude='.omc' --exclude='.omcm' /opt/oh-my-claude-money/ ~/.claude/marketplaces/omcm/`
 
 ## 문서화 규칙
+
+src/ 수정 시 `docs/ko/` + `docs/en/` 관련 문서 동시 업데이트 필수.
 
 | 수정 영역 | 업데이트 문서 |
 |----------|-------------|

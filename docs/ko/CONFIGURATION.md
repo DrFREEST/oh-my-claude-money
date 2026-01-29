@@ -336,49 +336,65 @@ OMC 에이전트를 OpenCode 에이전트로 매핑하여 최적의 LLM으로 �
 {
   "mappings": [
     {
-      "source": ["architect", "architect-medium", "architect-low"],
-      "target": "Oracle",
-      "provider": "opencode",
-      "model": "gpt-4",
+      "source": ["architect", "executor-high", "explore-high", "planner", "critic", "analyst"],
+      "target": "build/plan",
+      "provider": "claude",
+      "model": "claude-opus-4-5-20251101",
       "tier": "HIGH",
-      "reason": "아키텍처 분석은 GPT-4 Oracle에게 위임"
+      "reason": "HIGH 에이전트는 Claude Opus 유지 (fallbackToOMC: true)"
     },
     {
-      "source": ["designer", "designer-high", "designer-low"],
-      "target": "frontend-engineer",
+      "source": ["architect-medium", "executor", "designer", "qa-tester", "build-fixer", "tdd-guide", "scientist"],
+      "target": "build",
       "provider": "opencode",
-      "model": "gemini-pro",
+      "model": "gpt-5.2-codex",
       "tier": "MEDIUM",
-      "reason": "UI/UX 작업은 Gemini Pro에게 위임"
+      "reason": "표준 구현 작업은 GPT-5.2-Codex로 위임"
     },
     {
-      "source": ["researcher", "researcher-low"],
-      "target": "Oracle",
-      "provider": "opencode",
-      "model": "gpt-4",
-      "tier": "MEDIUM",
-      "reason": "리서치 작업은 GPT-4 Oracle에게 위임"
-    },
-    {
-      "source": ["explore", "explore-medium"],
+      "source": ["explore-medium"],
       "target": "explore",
       "provider": "opencode",
-      "model": "gemini-flash",
-      "tier": "LOW",
-      "reason": "빠른 탐색은 Gemini Flash에게 위임"
+      "model": "gpt-5.2-codex",
+      "tier": "MEDIUM",
+      "reason": "중간 복잡도 탐색은 GPT-5.2-Codex로 위임"
     },
     {
-      "source": ["writer"],
-      "target": "document-writer",
+      "source": ["researcher", "vision"],
+      "target": "general",
       "provider": "opencode",
-      "model": "gemini-flash",
+      "model": "gpt-5.2-codex",
+      "tier": "MEDIUM",
+      "reason": "리서치/비전은 GPT-5.2-Codex general로 위임"
+    },
+    {
+      "source": ["explore", "architect-low"],
+      "target": "explore",
+      "provider": "opencode",
+      "model": "gemini-3.0-flash",
       "tier": "LOW",
-      "reason": "문서 작성은 Gemini Flash에게 위임"
+      "reason": "빠른 탐색은 Gemini 3.0 Flash로 위임"
+    },
+    {
+      "source": ["writer", "researcher-low"],
+      "target": "general",
+      "provider": "opencode",
+      "model": "gemini-3.0-flash",
+      "tier": "LOW",
+      "reason": "문서/리서치는 Gemini 3.0 Flash general로 위임"
+    },
+    {
+      "source": ["executor-low", "designer-low", "security-reviewer-low", "build-fixer-low"],
+      "target": "build",
+      "provider": "opencode",
+      "model": "gemini-3.0-flash",
+      "tier": "LOW",
+      "reason": "간단한 작업은 Gemini 3.0 Flash build로 위임"
     }
   ],
   "fallback": {
     "provider": "claude",
-    "model": "sonnet"
+    "model": "opus"
   }
 }
 ```
@@ -759,6 +775,26 @@ Claude Code의 훅 시스템을 사용하여 특정 이벤트에서 OMCM 로직�
             "statusMessage": "퓨전 라우팅 확인 중..."
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/read-optimizer.mjs",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/bash-optimizer.mjs",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -793,6 +829,18 @@ Claude Code의 훅 시스템을 사용하여 특정 이벤트에서 OMCM 로직�
             "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/persistent-mode.mjs",
             "timeout": 5,
             "statusMessage": "활성 모드 확인 중..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Edit|Bash|Grep|Glob|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/tool-tracker.mjs",
+            "timeout": 5
           }
         ]
       }
@@ -842,9 +890,9 @@ chmod +x ~/.claude/plugins/omcm/hooks/custom-hook.mjs
 
 | 변수 | 설명 | 기본값 | 예제 |
 |------|------|--------|------|
-| `OMCM_BASE_PORT` | OpenCode 서버 풀 기본 포트 | 8000 | `export OMCM_BASE_PORT=8000` |
+| `OMCM_BASE_PORT` | OpenCode 서버 풀 기본 포트 | 4096 | `export OMCM_BASE_PORT=4096` |
 | `OMCM_MIN_SERVERS` | 최소 서버 인스턴스 수 | 1 | `export OMCM_MIN_SERVERS=1` |
-| `OMCM_MAX_SERVERS` | 최대 서버 인스턴스 수 | 5 | `export OMCM_MAX_SERVERS=5` |
+| `OMCM_MAX_SERVERS` | 최대 서버 인스턴스 수 | 4 | `export OMCM_MAX_SERVERS=4` |
 | `OMCM_FUSION_MODE` | 강제 퓨전 모드 | (없음) | `export OMCM_FUSION_MODE=hulw` |
 | `OMCM_DEBUG` | 디버그 로깅 | false | `export OMCM_DEBUG=true` |
 | `OMCM_CONFIG_DIR` | 설정 디렉토리 | `~/.omcm` | `export OMCM_CONFIG_DIR=$HOME/.omcm` |
@@ -870,9 +918,9 @@ opencode
 **영구 설정** (~/.bashrc 또는 ~/.zshrc):
 ```bash
 # OMCM 설정
-export OMCM_BASE_PORT=8000
+export OMCM_BASE_PORT=4096
 export OMCM_MIN_SERVERS=1
-export OMCM_MAX_SERVERS=5
+export OMCM_MAX_SERVERS=4
 export OMCM_DEBUG=false
 
 # 프로바이더 API 키
@@ -893,8 +941,8 @@ OMCM은 OpenCode 서버 풀을 위해 연속적인 포트를 사용합니다.
 
 **포트 할당**:
 ```
-OMCM_BASE_PORT=8000, OMCM_MAX_SERVERS=5
-└─ 8000, 8001, 8002, 8003, 8004
+OMCM_BASE_PORT=4096, OMCM_MAX_SERVERS=4
+└─ 4096, 4097, 4098, 4099
 ```
 
 **충돌 방지**:
@@ -1009,8 +1057,8 @@ EOF
       "writer", "vision"
     ],
     "preferClaude": [
-      "architect", "architect-high",
-      "executor-high", "critic", "planner"
+      "architect", "executor-high",
+      "explore-high", "critic", "planner"
     ],
     "autoDelegate": true
   },

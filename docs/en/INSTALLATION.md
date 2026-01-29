@@ -720,7 +720,7 @@ Edit `~/.claude/plugins/omcm/config.json`:
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 5
+    "maxOpencodeWorkers": 4
   }
 }
 ```
@@ -793,9 +793,10 @@ claude
 
 ### 3. Read Additional Documentation
 
-- [README.md](../README.md) - Overall overview and features
+- [README.md](../../README.md) - Overall overview and features
 - [CONFIGURATION.md](./CONFIGURATION.md) - Detailed configuration options
-- [USAGE.md](./USAGE.md) - Usage examples and tips
+- [FEATURES.md](./FEATURES.md) - Feature guide and usage examples
+- [SKILLS-REFERENCE.md](./SKILLS-REFERENCE.md) - Skills reference
 
 ---
 

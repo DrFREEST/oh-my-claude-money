@@ -69,12 +69,12 @@ OMCM이 자동으로 다음과 같이 라우팅합니다:
 
 | 단계 | OMC 에이전트 | → | OMO 에이전트 | 모델 |
 |------|-------------|---|-------------|------|
-| 요구사항 분석 | analyst | → | Oracle | GPT 5.2 |
-| 코드 탐색 | explore | → | explore | Gemini Flash |
-| UI 구현 | designer | → | frontend-ui-ux-engineer | Gemini Pro |
-| 리서치 | researcher | → | Oracle | GPT 5.2 |
-| 실행/구현 | executor | → | Codex | GPT 5.2 Codex |
-| 최종 검증 | architect | → | Oracle | GPT 5.2 |
+| 요구사항 분석 | analyst | → | Claude (fallback) | Opus |
+| 코드 탐색 | explore | → | explore | Gemini 3.0 Flash |
+| UI 구현 | designer | → | build | GPT-5.2-Codex |
+| 리서치 | researcher | → | general | GPT-5.2-Codex |
+| 실행/구현 | executor | → | build | GPT-5.2-Codex |
+| 최종 검증 | architect | → | Claude (fallback) | Opus |
 
 ### 중요: 병렬 처리 규칙
 
@@ -143,15 +143,20 @@ OMCM이 사용량과 설정에 따라 자동 처리:
 
 | OMC 에이전트 | → | OMO 에이전트 | 모델 |
 |-------------|---|-------------|------|
-| explore, explore-* | → | explore | Gemini Flash |
-| architect, architect-* | → | Oracle | GPT 5.2 |
-| researcher | → | Oracle | GPT 5.2 |
-| researcher-low | → | librarian | GLM |
-| designer, designer-* | → | frontend-ui-ux-engineer | Gemini Pro |
-| writer | → | document-writer | Gemini Flash |
-| vision | → | multimodal-looker | Gemini Flash |
-| executor, executor-* | → | Codex | GPT 5.2 Codex |
-| orchestrator | → | Oracle | GPT 5.2 |
+| explore | → | explore | Gemini 3.0 Flash |
+| explore-medium | → | explore | GPT-5.2-Codex |
+| explore-high | → | Claude (fallback) | Opus |
+| architect | → | Claude (fallback) | Opus |
+| architect-medium | → | build | GPT-5.2-Codex |
+| architect-low | → | explore | Gemini 3.0 Flash |
+| researcher | → | general | GPT-5.2-Codex |
+| researcher-low | → | general | Gemini 3.0 Flash |
+| designer | → | build | GPT-5.2-Codex |
+| designer-low | → | build | Gemini 3.0 Flash |
+| writer | → | general | Gemini 3.0 Flash |
+| vision | → | general | GPT-5.2-Codex |
+| executor | → | build | GPT-5.2-Codex |
+| executor-low | → | build | Gemini 3.0 Flash |
 
 ### 알림 메시지
 
@@ -202,8 +207,8 @@ hulw: 데이터베이스 스키마 마이그레이션 구현
 1. 작업 분석
    ↓
 2. 라우팅 결정
-   - 분석/탐색 작업 → OpenCode (Oracle/GPT)
-   - UI/프론트엔드 → OpenCode (Frontend Engineer/Gemini)
+   - 분석/탐색 작업 → OMO explore/general (GPT-5.2-Codex/Gemini Flash)
+   - UI/프론트엔드 → OMO build (GPT-5.2-Codex)
    - 복잡한 구현 → Claude (Opus)
    ↓
 3. 병렬 실행
@@ -215,11 +220,11 @@ hulw: 데이터베이스 스키마 마이그레이션 구현
 
 | 작업 유형 | 라우팅 | 모델 | 절약 |
 |----------|--------|------|------|
-| 아키텍처 분석 | OpenCode Oracle | GPT | ✅ |
-| 코드 탐색 | OpenCode Librarian | - | ✅ |
-| UI 작업 | OpenCode Frontend | Gemini | ✅ |
-| 리서치 | OpenCode Oracle | GPT | ✅ |
-| 복잡한 구현 | Claude executor | Opus | - |
+| 아키텍처 분석 | Claude (fallback) | Opus | - |
+| 코드 탐색 | OMO explore | Gemini 3.0 Flash | ✅ |
+| UI 작업 | OMO build | GPT-5.2-Codex | ✅ |
+| 리서치 | OMO general | GPT-5.2-Codex | ✅ |
+| 복잡한 구현 | Claude executor-high | Opus | - |
 | 전략적 계획 | Claude planner | Opus | - |
 
 ### 설정

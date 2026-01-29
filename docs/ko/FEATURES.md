@@ -20,37 +20,39 @@ OMCM (oh-my-claude-money) v1.0.0의 모든 기능에 대한 완전한 기술 참
 ### 개요
 
 **주요 이점:**
-- 18개 에이전트를 GPT/Gemini로 오프로드하여 62% Claude 토큰 절약
+- 22개 에이전트를 GPT/Gemini로 오프로드하여 62% Claude 토큰 절약
 - 사용량 임계값 기반 자동 프로바이더 전환
 - `hulw` 및 `ulw` 키워드를 통한 제로 설정 활성화
 - 다양한 사용 사례를 위한 3가지 활성화 모드
 
 ### 에이전트-프로바이더 매핑 (v1.0.0)
 
-32개 OMC 에이전트 모두 최적의 프로바이더에 지능적으로 매핑됩니다:
+35개 OMC 에이전트 모두 최적의 프로바이더에 지능적으로 매핑됩니다:
 
 | 계층 | 개수 | 기본 모델 | 퓨전 모델 | 토큰 절약 |
 |------|------|-----------|-----------|-----------|
-| **HIGH** | 11 | Claude Opus 4.5 | Claude Opus 4.5 | - |
+| **HIGH** | 13 | Claude Opus 4.5 | Claude Opus 4.5 | - |
 | **MEDIUM** | 10 | Claude Sonnet | GPT-5.2-Codex (with thinking) | 40% |
-| **LOW** | 8 | Claude Haiku | Gemini 3.0 Flash (with thinking) | 70% |
+| **LOW** | 12 | Claude Haiku | Gemini 3.0 Flash (with thinking) | 70% |
 
 **계층별 주요 에이전트:**
 
 HIGH (Claude Opus - 변경 없음):
 - `architect`, `planner`, `critic`, `analyst`
-- `executor-high`, `explore-high`
-- `architect-high`, `qa-tester-high`, `security-reviewer`
+- `executor-high`, `explore-high`, `designer-high`
+- `qa-tester-high`, `security-reviewer`, `code-reviewer`
+- `scientist-high`, `researcher-high`, `build-fixer-high`
 
 MEDIUM → GPT-5.2-Codex:
-- `architect-medium`, `executor`
-- `researcher`, `designer`, `qa-tester`
-- `science`, `build-fixer`, `tdd-guide`
+- `architect-medium`, `executor`, `explore-medium`
+- `researcher`, `designer`, `vision`, `qa-tester`
+- `scientist`, `build-fixer`, `tdd-guide`
 
 LOW → Gemini 3.0 Flash:
 - `architect-low`, `executor-low`, `explore`
 - `writer`, `designer-low`, `researcher-low`
 - `security-reviewer-low`, `build-fixer-low`, `code-reviewer-low`
+- `tdd-guide-low`, `scientist-low`, `qa-tester-low`
 
 ### API 참조
 

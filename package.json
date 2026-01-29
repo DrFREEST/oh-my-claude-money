@@ -2,7 +2,7 @@
   "name": "omcm",
   "version": "1.0.0",
   "description": "Claude Code 사용량 관리 및 OpenCode 브릿지 플러그인",
-  "author": "user",
+  "author": "DrFREEST",
   "license": "MIT",
   "type": "module",
   "main": "src/index.mjs",
@@ -16,7 +16,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/user/oh-my-claude-money.git"
+    "url": "https://github.com/DrFREEST/oh-my-claude-money.git"
   },
   "scripts": {
     "test": "node --test tests/**/*.test.mjs",

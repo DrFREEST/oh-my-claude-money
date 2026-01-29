@@ -784,7 +784,19 @@ async function buildIndependentHud(stdinData) {
     parts.push(fusionOutput);
   }
 
-  // 5. Provider counts
+  // 5. 세션 분할 경고
+  const splitWarning = renderSplitWarning(claudeTokens.input);
+  if (splitWarning) {
+    parts.push(splitWarning);
+  }
+
+  // 6. 도구 사용 통계
+  var toolStatsOutput = renderToolStats(currentSessionId);
+  if (toolStatsOutput) {
+    parts.push(toolStatsOutput);
+  }
+
+  // 7. Provider counts
   const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
   const sessionCounts = {
     byProvider: {
@@ -798,7 +810,7 @@ async function buildIndependentHud(stdinData) {
     parts.push(countsOutput);
   }
 
-  // 6. Fallback status
+  // 8. Fallback status
   let fallbackOutput = null;
   try {
     const fallback = getFallbackOrchestrator();
@@ -809,18 +821,6 @@ async function buildIndependentHud(stdinData) {
   }
   if (fallbackOutput) {
     parts.push(fallbackOutput);
-  }
-
-  // 7. 세션 분할 경고
-  const splitWarning = renderSplitWarning(claudeTokens.input);
-  if (splitWarning) {
-    parts.push(splitWarning);
-  }
-
-  // 8. 도구 사용 통계
-  var toolStatsOutput = renderToolStats(currentSessionId);
-  if (toolStatsOutput) {
-    parts.push(toolStatsOutput);
   }
 
   // Sync Claude usage to provider-limits
@@ -908,8 +908,6 @@ async function main() {
         const extraParts = [];
         if (tokenOutput) extraParts.push(tokenOutput);
         if (fusionOutput) extraParts.push(fusionOutput);
-        if (countsOutput) extraParts.push(countsOutput);
-        if (fallbackOutput) extraParts.push(fallbackOutput);
 
         // 세션 분할 경고
         const splitWarning = renderSplitWarning(claudeTokens.input);
@@ -918,6 +916,9 @@ async function main() {
         // 도구 사용 통계
         var toolStatsOutput = renderToolStats(currentSessionId);
         if (toolStatsOutput) extraParts.push(toolStatsOutput);
+
+        if (countsOutput) extraParts.push(countsOutput);
+        if (fallbackOutput) extraParts.push(fallbackOutput);
 
         const extras = extraParts.join(' | ');
 

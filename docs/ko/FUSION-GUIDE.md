@@ -20,7 +20,7 @@
 
 ### 개요
 
-퓨전 모드는 Claude Code의 32개 OMC(oh-my-claudecode) 에이전트를 OpenCode의 OMO(oh-my-opencode) 에이전트와 통합하여 **Claude 토큰을 62% 절약**하면서도 최상의 작업 품질을 유지합니다.
+퓨전 모드는 Claude Code의 35개 OMC(oh-my-claudecode) 에이전트를 OpenCode의 OMO(oh-my-opencode) 에이전트와 통합하여 **Claude 토큰을 62% 절약**하면서도 최상의 작업 품질을 유지합니다.
 
 ### 토큰 절약 아키텍처
 
@@ -39,9 +39,9 @@
     │ Claude Opus     │  │ OpenCode Agents    │
     │ (HIGH TIER)     │  │ (LOW/MEDIUM TIER)  │
     │                 │  │                    │
-    │ • planner       │  │ • Oracle (GPT)     │
-    │ • critic        │  │ • Frontend (Gemini)│
-    │ • architect     │  │ • Librarian        │
+    │ • planner       │  │ • build (GPT/Gem)  │
+    │ • critic        │  │ • explore (Gem)    │
+    │ • architect     │  │ • general (GPT/Gem)│
     └─────────────────┘  └────────────────────┘
          ✓ 높은 품질      ✓ 토큰 절약!
 ```
@@ -57,7 +57,7 @@
 
 ### 토큰 절약 내역
 
-**18개 에이전트 (62%)가 OpenCode로 오프로드:**
+**22개 에이전트 (62%)가 OpenCode로 오프로드:**
 
 | 티어 | 원래 모델 | 퓨전 모드 모델 | 절약 |
 |------|---------|---------------|------|
@@ -175,11 +175,11 @@ I want a login system
 **오토파일럿 워크플로우:**
 
 ```
-1. 요구사항 분석 (analyst) → OMO (Oracle/GPT)
-2. 계획 수립 (planner) → Claude (전략 수립)
-3. 코드 탐색 (explore) → OMO (Gemini Flash)
-4. 구현 (executor) → OMO (Codex) 또는 Claude
-5. 검증 (architect) → OMO (Oracle/GPT)
+1. 요구사항 분석 (analyst) → Claude Opus (HIGH - fallback)
+2. 계획 수립 (planner) → Claude Opus (HIGH - 전략 수립)
+3. 코드 탐색 (explore) → OMO explore (Gemini 3.0 Flash)
+4. 구현 (executor) → OMO build (GPT-5.2-Codex)
+5. 검증 (architect) → Claude Opus (HIGH - fallback)
 6. 완료 보고
 ```
 
@@ -229,60 +229,60 @@ OMCM이 자동으로 처리하는 에이전트 라우팅:
 
 | OMC 에이전트 | 티어 | 기본 라우팅 | 퓨전 모드 라우팅 | 모델 | 절약 |
 |-------------|------|-----------|-----------------|------|------|
-| **planner** | HIGH | Claude | Claude | Opus | - |
-| **critic** | HIGH | Claude | Claude | Opus | - |
-| **architect** | HIGH | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **architect-medium** | MED | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **architect-low** | LOW | Claude | OMO Librarian | Gemini Flash | ✅ |
-| **executor** | MED | Claude | OMO Codex | GPT-5.2-Codex | ✅ |
-| **executor-high** | HIGH | Claude | Claude | Opus | - |
-| **executor-low** | LOW | Claude | OMO Codex | Gemini Flash | ✅ |
-| **explore** | LOW | Claude | OMO Librarian | Gemini Flash | ✅ |
-| **explore-medium** | MED | Claude | OMO Librarian | GPT-5.2 | ✅ |
-| **explore-high** | HIGH | Claude | Claude | Opus | - |
-| **designer** | MED | Claude | OMO Frontend | Gemini Pro | ✅ |
-| **designer-high** | HIGH | Claude | Claude | Opus | - |
-| **designer-low** | LOW | Claude | OMO Frontend | Gemini Flash | ✅ |
-| **researcher** | MED | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **researcher-low** | LOW | Claude | OMO Librarian | Gemini Flash | ✅ |
-| **writer** | LOW | Claude | OMO Document Writer | Gemini Flash | ✅ |
-| **vision** | MED | Claude | OMO Multimodal | Gemini Flash | ✅ |
-| **qa-tester** | MED | Claude | OMO QA | GPT-5.2 | ✅ |
-| **qa-tester-high** | HIGH | Claude | Claude | Opus | - |
-| **security-reviewer** | HIGH | Claude | OMO Security | GPT-5.2 | ✅ |
-| **security-reviewer-low** | LOW | Claude | OMO Security | Gemini Flash | ✅ |
-| **code-reviewer** | HIGH | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **code-reviewer-low** | LOW | Claude | OMO Librarian | Gemini Flash | ✅ |
-| **analyst** | HIGH | Claude | OMO Oracle | GPT-5.2 | ✅ |
-| **scientist** | MED | Claude | OMO Data Analyst | GPT-5.2 | ✅ |
-| **scientist-high** | HIGH | Claude | Claude | Opus | - |
-| **scientist-low** | LOW | Claude | OMO Data Analyst | Gemini Flash | ✅ |
-| **build-fixer** | MED | Claude | OMO Build | GPT-5.2 | ✅ |
-| **build-fixer-low** | LOW | Claude | OMO Build | Gemini Flash | ✅ |
+| **architect** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **executor-high** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **explore-high** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **planner** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **critic** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **analyst** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **qa-tester-high** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **security-reviewer** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **code-reviewer** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **scientist-high** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **designer-high** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **researcher-high** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **build-fixer-high** | HIGH | Claude | Claude (fallback) | Opus | - |
+| **architect-medium** | MED | Claude | OMO build | GPT-5.2-Codex | ✅ |
+| **executor** | MED | Claude | OMO build | GPT-5.2-Codex | ✅ |
+| **explore-medium** | MED | Claude | OMO explore | GPT-5.2-Codex | ✅ |
+| **researcher** | MED | Claude | OMO general | GPT-5.2-Codex | ✅ |
+| **designer** | MED | Claude | OMO build | GPT-5.2-Codex | ✅ |
+| **vision** | MED | Claude | OMO general | GPT-5.2-Codex | ✅ |
+| **qa-tester** | MED | Claude | OMO build | GPT-5.2-Codex | ✅ |
+| **build-fixer** | MED | Claude | OMO build | GPT-5.2-Codex | ✅ |
+| **tdd-guide** | MED | Claude | OMO build | GPT-5.2-Codex | ✅ |
+| **scientist** | MED | Claude | OMO build | GPT-5.2-Codex | ✅ |
+| **architect-low** | LOW | Claude | OMO explore | Gemini 3.0 Flash | ✅ |
+| **executor-low** | LOW | Claude | OMO build | Gemini 3.0 Flash | ✅ |
+| **explore** | LOW | Claude | OMO explore | Gemini 3.0 Flash | ✅ |
+| **researcher-low** | LOW | Claude | OMO general | Gemini 3.0 Flash | ✅ |
+| **designer-low** | LOW | Claude | OMO build | Gemini 3.0 Flash | ✅ |
+| **writer** | LOW | Claude | OMO general | Gemini 3.0 Flash | ✅ |
+| **security-reviewer-low** | LOW | Claude | OMO build | Gemini 3.0 Flash | ✅ |
+| **build-fixer-low** | LOW | Claude | OMO build | Gemini 3.0 Flash | ✅ |
+| **tdd-guide-low** | LOW | Claude | OMO build | Gemini 3.0 Flash | ✅ |
+| **code-reviewer-low** | LOW | Claude | OMO build | Gemini 3.0 Flash | ✅ |
+| **scientist-low** | LOW | Claude | OMO build | Gemini 3.0 Flash | ✅ |
+| **qa-tester-low** | LOW | Claude | OMO build | Gemini 3.0 Flash | ✅ |
 
 ### 라우팅 규칙
 
 **퓨전 모드에서의 자동 라우팅 규칙:**
 
 ```javascript
-// 1. HIGH TIER (Opus) - 퓨전 미적용
-if (tier === 'HIGH' && ['planner', 'critic'].includes(agent)) {
-  return 'Claude Opus'; // 전략/조율: 품질 우선
+// 1. HIGH TIER (Opus) - 퓨전 미적용 (fallbackToOMC: true)
+if (tier === 'HIGH') {
+  return 'Claude Opus'; // 모든 HIGH 에이전트는 Claude 유지
 }
 
-// 2. HIGH TIER (Opus) - 퓨전 적용 (일부)
-if (tier === 'HIGH' && ['architect', 'security-reviewer', 'code-reviewer'].includes(agent)) {
-  return 'OMO Oracle (GPT-5.2)'; // 분석은 오프로드 가능
-}
-
-// 3. MEDIUM TIER (Sonnet) - 퓨전 적용 (대부분)
+// 2. MEDIUM TIER (Sonnet) - 퓨전 적용 (GPT-5.2-Codex)
 if (tier === 'MEDIUM') {
-  return 'OMO Agent (GPT-5.2 또는 Gemini Pro)'; // 토큰 절약!
+  return 'OMO Agent (GPT-5.2-Codex)'; // 토큰 절약!
 }
 
-// 4. LOW TIER (Haiku) - 퓨전 적용 (100%)
+// 3. LOW TIER (Haiku) - 퓨전 적용 (Gemini 3.0 Flash)
 if (tier === 'LOW') {
-  return 'OMO Agent (Gemini Flash)'; // 최대 절약
+  return 'OMO Agent (Gemini 3.0 Flash)'; // 최대 절약
 }
 ```
 
@@ -292,12 +292,12 @@ if (tier === 'LOW') {
 
 | 작업 유형 | 선택 모델 | 이유 |
 |----------|---------|------|
-| 복잡한 분석 | GPT-5.2 | 강력한 추론 능력 |
-| 코드 구현 | GPT-5.2-Codex | 코딩 특화 모델 |
-| UI/프론트엔드 | Gemini Pro | 비주얼 작업 강화 |
-| 빠른 탐색 | Gemini Flash | 빠른 응답, 저비용 |
-| 데이터 분석 | GPT-5.2 | 통계 분석 능력 |
-| 보안 검토 | GPT-5.2 | 보안 전문성 |
+| 복잡한 분석/전략 | Claude Opus | HIGH 에이전트 - 품질 최우선 |
+| 코드 구현 (표준) | GPT-5.2-Codex | MEDIUM 에이전트 - 코딩 특화 |
+| UI/프론트엔드 | GPT-5.2-Codex | MEDIUM 에이전트 - 구현 작업 |
+| 빠른 탐색 | Gemini 3.0 Flash | LOW 에이전트 - 빠른 응답, 저비용 |
+| 데이터 분석 | GPT-5.2-Codex | MEDIUM 에이전트 - 분석 능력 |
+| 보안 검토 | Claude Opus | HIGH 에이전트 - 보안 전문성 |
 
 ---
 
@@ -328,9 +328,9 @@ if (tier === 'LOW') {
 ```
 
 **라우팅 결과** (사용량 85%):
-- 코드 탐색 → OpenCode Librarian (Gemini Flash) ✅
-- 아키텍처 분석 → OpenCode Oracle (GPT-5.2) ✅
-- UI 작업 → OpenCode Frontend (Gemini Pro) ✅
+- 코드 탐색 → OMO explore (Gemini 3.0 Flash) ✅
+- 아키텍처 분석 → OMO build (GPT-5.2-Codex) ✅
+- UI 작업 → OMO build (GPT-5.2-Codex) ✅
 - 복잡한 구현 → Claude Opus ✓ (품질 필요)
 - 토큰 절약: 약 45%
 
@@ -345,7 +345,7 @@ if (tier === 'LOW') {
 
 **라우팅 결과** (사용량 95%):
 - 모든 분석/탐색 → OpenCode
-- 모든 구현 → OpenCode Codex 또는 Gemini
+- 모든 구현 → OMO build (GPT-5.2-Codex 또는 Gemini 3.0 Flash)
 - Claude는 필수 조율만 사용
 - 토큰 절약: 약 62%
 
@@ -362,25 +362,25 @@ autopilot hulw 완전한 REST API 서버 만들어줘
 
 ```
 1. 요구사항 분석
-   → Task(analyst) → OMO Oracle (GPT-5.2)
+   → Task(analyst) → Claude Opus (HIGH - fallback)
 
 2. 계획 수립
-   → Task(planner) → Claude Opus (품질 필수)
+   → Task(planner) → Claude Opus (HIGH - 품질 필수)
 
 3. 디렉토리 구조 설계
-   → Task(explore) → OMO Librarian (Gemini Flash)
+   → Task(explore) → OMO explore (Gemini 3.0 Flash)
 
 4. 컨트롤러 구현
-   → Task(executor) → OMO Codex (GPT-5.2-Codex)
+   → Task(executor) → OMO build (GPT-5.2-Codex)
 
 5. 미들웨어 구현
-   → Task(executor) → OMO Codex
+   → Task(executor) → OMO build (GPT-5.2-Codex)
 
 6. 테스트 작성
-   → Task(qa-tester) → OMO QA (GPT-5.2)
+   → Task(qa-tester) → OMO build (GPT-5.2-Codex)
 
 7. 최종 검증
-   → Task(architect) → OMO Oracle (GPT-5.2)
+   → Task(architect) → Claude Opus (HIGH - fallback)
 
 8. 완료 보고
 ```
@@ -400,9 +400,9 @@ autopilot hulw 완전한 REST API 서버 만들어줘
 ```
 
 **라우팅 결과:**
-- Task(explore-high) → OMO Librarian (빠른 탐색) ✅
-- Task(researcher) → OMO Oracle (GPT-5.2) ✅
-- Task(architect) → OMO Oracle (GPT-5.2) ✅
+- Task(explore-high) → Claude Opus (HIGH - fallback)
+- Task(researcher) → OMO general (GPT-5.2-Codex) ✅
+- Task(architect) → Claude Opus (HIGH - fallback)
 - 토큰 절약: 약 70% (탐색 중심이므로 높음)
 
 ---

@@ -88,7 +88,7 @@ export function renderFusionMetrics(state) {
   var modeAbbrev = getModeAbbrev(state.mode);
 
   // 라우팅 레벨이 있으면 표시 (L1/L2/L3/L4)
-  var routingLevel = '';
+  var routingLevel = DIM + 'L1' + RESET;  // 기본값
   if (state.actualTokens && state.actualTokens.claude) {
     var sessionInput = state.actualTokens.claude.input || 0;
     if (sessionInput >= 40000000) {
@@ -102,11 +102,7 @@ export function renderFusionMetrics(state) {
     }
   }
 
-  if (routingLevel) {
-    parts.push(DIM + modeAbbrev + RESET + ' ' + routingLevel);
-  } else {
-    parts.push(DIM + modeAbbrev + RESET);
-  }
+  parts.push(DIM + modeAbbrev + RESET + ' ' + routingLevel);
 
   return parts.join(' ');
 }
@@ -281,26 +277,22 @@ export function renderProviderTokens(tokenData) {
 
   var parts = [];
 
-  // Claude (C:)
+  // Claude (C:) - 토큰이 있을 때만 표시
   if (tokenData.claude && (tokenData.claude.input > 0 || tokenData.claude.output > 0)) {
     var cInput = formatTokens(tokenData.claude.input || 0);
     var cOutput = formatTokens(tokenData.claude.output || 0);
     parts.push(CYAN + 'C' + RESET + ':' + cInput + '\u2191 ' + cOutput + '\u2193');
   }
 
-  // OpenAI (O:)
-  if (tokenData.openai && (tokenData.openai.input > 0 || tokenData.openai.output > 0)) {
-    var oInput = formatTokens(tokenData.openai.input || 0);
-    var oOutput = formatTokens(tokenData.openai.output || 0);
-    parts.push(GREEN + 'O' + RESET + ':' + oInput + '\u2191 ' + oOutput + '\u2193');
-  }
+  // OpenAI (O:) - 항상 표시 (0이어도)
+  var oInput = formatTokens((tokenData.openai && tokenData.openai.input) || 0);
+  var oOutput = formatTokens((tokenData.openai && tokenData.openai.output) || 0);
+  parts.push(GREEN + 'O' + RESET + ':' + oInput + '\u2191' + oOutput + '\u2193');
 
-  // Gemini (G:)
-  if (tokenData.gemini && (tokenData.gemini.input > 0 || tokenData.gemini.output > 0)) {
-    var gInput = formatTokens(tokenData.gemini.input || 0);
-    var gOutput = formatTokens(tokenData.gemini.output || 0);
-    parts.push(YELLOW + 'G' + RESET + ':' + gInput + '\u2191 ' + gOutput + '\u2193');
-  }
+  // Gemini (G:) - 항상 표시 (0이어도)
+  var gInput = formatTokens((tokenData.gemini && tokenData.gemini.input) || 0);
+  var gOutput = formatTokens((tokenData.gemini && tokenData.gemini.output) || 0);
+  parts.push(YELLOW + 'G' + RESET + ':' + gInput + '\u2191' + gOutput + '\u2193');
 
   if (parts.length === 0) {
     return null;

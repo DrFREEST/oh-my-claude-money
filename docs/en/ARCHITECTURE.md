@@ -22,9 +22,9 @@ OMCM is a Fusion Orchestrator that integrates Claude Code and OpenCode. A single
 │     │ oh-my-claudecode │ │  OpenCode    │ │   Server Pool │       │
 │     │ (Claude tokens)  │ │ (Other LLMs) │ │   (Parallel)  │       │
 │     │                  │ │              │ │              │        │
-│     │ • planner        │ │ • Oracle     │ │ HTTP ports   │        │
-│     │ • executor       │ │ • Codex      │ │ 4096-4100    │        │
-│     │ • critic         │ │ • Flash      │ │              │        │
+│     │ • planner        │ │ • build      │ │ HTTP ports   │        │
+│     │ • executor       │ │ • explore    │ │ 4096-4099    │        │
+│     │ • critic         │ │ • general    │ │              │        │
 │     └──────────────────┘ └──────────────┘ └──────────────┘        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -70,24 +70,35 @@ shouldRouteToOpenCode(toolInput, options)
     id: 'gpt-5.2-codex',
     name: 'GPT-5.2 Codex'
   },
-  opencodeAgent: 'Oracle'          // OpenCode mapped agent
+  opencodeAgent: 'build'           // OpenCode mapped agent (build/explore/general/plan)
 }
 ```
 
 #### Agent Mapping (29 Routing Targets)
 
-| OMC Agent | Routing Target | Model | Reason |
-|-----------|----------------|-------|--------|
-| architect-low | OpenCode Flash | Gemini 3 Flash | Fast Analysis |
-| architect-medium | OpenCode Oracle | GPT-5.2 | Medium Complexity |
-| researcher | OpenCode Oracle | GPT-5.2 | Cost Efficiency |
-| explore, explore-medium | OpenCode Flash/Oracle | Gemini/GPT | Search Tasks |
-| designer | OpenCode Flash | Gemini 3 | UI Tasks |
-| writer | OpenCode Flash | Gemini 3 Flash | Documentation |
-| vision | OpenCode Flash | Gemini 3 Flash | Image Analysis |
-| code-reviewer-low | OpenCode Flash | Gemini 3 Flash | Simple Review |
-| security-reviewer-low | OpenCode Flash | Gemini 3 Flash | Quick Scan |
-| **planner, executor, critic** | Claude (retained) | Claude Opus | High Quality |
+**HIGH Tier (Claude Opus -- retained, 11 agents):**
+- architect, planner, critic, analyst, executor-high, explore-high
+- designer-high, qa-tester-high, security-reviewer, code-reviewer, scientist-high
+
+**MEDIUM Tier (OpenCode CODEX -- 10 agents):**
+
+| OMC Agent | OpenCode Agent | Model |
+|-----------|----------------|-------|
+| architect-medium | build | GPT-5.2-Codex |
+| executor | build | GPT-5.2-Codex |
+| explore-medium | explore | GPT-5.2-Codex |
+| designer, researcher, vision | build/general | GPT-5.2-Codex |
+| qa-tester, build-fixer, tdd-guide, scientist | build | GPT-5.2-Codex |
+
+**LOW Tier (OpenCode FLASH -- 8+ agents):**
+
+| OMC Agent | OpenCode Agent | Model |
+|-----------|----------------|-------|
+| architect-low, executor-low | build | Gemini-3.0-Flash |
+| explore | explore | Gemini-3.0-Flash |
+| designer-low, researcher-low, writer | build/general | Gemini-3.0-Flash |
+| security-reviewer-low, build-fixer-low, tdd-guide-low | build | Gemini-3.0-Flash |
+| code-reviewer-low, scientist-low | build | Gemini-3.0-Flash |
 
 ### 1.2 Server Pool (src/executor/opencode-server-pool.mjs)
 
@@ -117,7 +128,7 @@ Check utilization
 ```javascript
 const pool = new OpenCodeServerPool({
   minServers: 1,      // Minimum servers to maintain
-  maxServers: 5,      // Maximum servers (Memory: 250-300MB/server)
+  maxServers: 4,      // Maximum servers (Memory: 250-300MB/server)
   basePort: 4096,     // Base port
   autoScale: true     // Enable auto scaling
 });
@@ -327,7 +338,7 @@ Performance:
    ├─ route === true
    │  └─ Delegate to OpenCode worker
    │     ├─ Initialize Server Pool (if needed)
-   │     ├─ Select idle server from ports 4096-4100
+   │     ├─ Select idle server from ports 4096-4099
    │     └─ Execute prompt
    │
    └─ route === false
@@ -485,38 +496,45 @@ const stats = balancer.getStats();
 
 Automatically integrates through Claude Code's hook system.
 
-#### hooks.json Definitions
+#### hooks.json Definitions (7 hooks, 5 events)
 
 ```json
 {
-  "hooks": [
-    {
-      "id": "fusion-router-hook",
-      "event": "tool:before",
-      "handler": "src/hooks/fusion-router-logic.mjs",
-      "priority": 1,
-      "description": "Execute before routing decision"
-    },
-    {
-      "id": "detect-handoff",
-      "event": "message:after",
-      "handler": "src/hooks/detect-handoff.mjs",
-      "description": "Detect keywords/thresholds"
-    }
-  ]
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Task", "hooks": [{ "command": "hooks/fusion-router.mjs", "timeout": 120 }] },
+      { "matcher": "Read", "hooks": [{ "command": "hooks/read-optimizer.mjs", "timeout": 5 }] },
+      { "matcher": "Bash", "hooks": [{ "command": "hooks/bash-optimizer.mjs", "timeout": 5 }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Read|Edit|Bash|Grep|Glob|Task", "hooks": [{ "command": "hooks/tool-tracker.mjs", "timeout": 5 }] }
+    ],
+    "UserPromptSubmit": [{ "hooks": [{ "command": "src/hooks/detect-handoff.mjs", "timeout": 5 }] }],
+    "SessionStart": [{ "hooks": [{ "command": "src/hooks/session-start.mjs", "timeout": 3 }] }],
+    "Stop": [{ "hooks": [{ "command": "src/hooks/persistent-mode.mjs", "timeout": 5 }] }]
+  }
 }
 ```
 
 #### Hook Execution Order
 
 ```
-User Request → tool:before (fusion-router-hook)
-              ├─ Execute Fusion Router Logic
-              ├─ shouldRouteToOpenCode() decision
-              └─ Return routing decision
-           → Execute on Claude or OpenCode
-           → message:after (detect-handoff)
-              └─ Keyword/Threshold check
+User Prompt → UserPromptSubmit (detect-handoff)
+                └─ Keyword/Threshold check
+
+Tool Call → PreToolUse (fusion-router / read-optimizer / bash-optimizer)
+              ├─ Task call: Execute Fusion Router Logic
+              ├─ Read call: Optimize read patterns
+              └─ Bash call: Optimize bash commands
+
+Tool Done → PostToolUse (tool-tracker)
+              └─ Record tool usage for analytics
+
+Session Start → SessionStart (session-start)
+                  └─ Load usage information
+
+Stop → Stop (persistent-mode)
+         └─ Save active mode state
 ```
 
 ### 4.2 OMC Agent Delegation Structure
@@ -717,10 +735,11 @@ oh-my-claude-money/
 │   │   ├── opencode-server-pool.mjs   # v1.0.0 Server pool
 │   │   └── acp-client.mjs             # ACP client
 │   │
-│   ├── hooks/                     # Claude Code hooks
-│   │   ├── fusion-router-logic.mjs    # Routing logic
+│   ├── hooks/                     # Claude Code hook handlers
 │   │   ├── detect-handoff.mjs         # Keyword detection
-│   │   └── session-start.mjs          # Session initialization
+│   │   ├── persistent-mode.mjs        # Mode persistence on Stop
+│   │   ├── session-start.mjs          # Session initialization
+│   │   └── token-savings.mjs          # Token savings calculation
 │   │
 │   ├── hud/                       # HUD rendering
 │   │   ├── fusion-renderer.mjs        # Fusion state render
@@ -736,8 +755,11 @@ oh-my-claude-money/
 │       └── usage.mjs                  # Usage calculation
 │
 ├── hooks/
-│   ├── fusion-router.mjs             # Hook entry point
-│   └── hooks.json                     # Hook definitions
+│   ├── bash-optimizer.mjs             # PreToolUse: Bash optimization
+│   ├── fusion-router.mjs             # PreToolUse: Fusion routing
+│   ├── hooks.json                     # Hook definitions (7 hooks)
+│   ├── read-optimizer.mjs             # PreToolUse: Read optimization
+│   └── tool-tracker.mjs              # PostToolUse: Tool usage tracking
 │
 ├── commands/
 │   ├── fusion-setup.md                # Initial setup
@@ -746,16 +768,27 @@ oh-my-claude-money/
 │   └── cancel-autopilot.md            # Cancel
 │
 ├── skills/
-│   ├── autopilot.md                   # Auto execution
-│   ├── hulw.md                        # Hybrid ultrawork
-│   ├── ulw.md                         # Auto fusion
-│   └── opencode.md                    # OpenCode switch
+│   ├── autopilot/SKILL.md             # Hybrid autopilot
+│   ├── cancel/SKILL.md                # Unified cancel
+│   ├── ecomode/SKILL.md               # Token-efficient mode
+│   ├── hulw/SKILL.md                  # Hybrid ultrawork
+│   ├── hybrid-ultrawork/SKILL.md      # Hybrid ultrawork (alias)
+│   ├── opencode/SKILL.md              # OpenCode handoff
+│   ├── ralph/SKILL.md                 # Persistent execution
+│   └── ulw/SKILL.md                   # Auto fusion ultrawork
 │
 ├── scripts/
-│   ├── opencode-server.sh             # Server management
+│   ├── agent-mapping.json             # Agent mapping data
 │   ├── export-context.sh              # Context export
+│   ├── fusion-bridge.sh               # Fusion bridge
+│   ├── fusion-setup.sh                # Fusion setup
+│   ├── fusion.sh                      # Fusion operations
 │   ├── handoff-to-opencode.sh         # Switch script
-│   └── install.sh                     # Installation script
+│   ├── install-hud.sh                 # HUD installation
+│   ├── migrate-to-omcm.sh            # Migration script
+│   ├── opencode-server.sh            # Server management
+│   ├── start-server-pool.sh          # Server pool startup
+│   └── uninstall-hud.sh              # HUD removal
 │
 ├── docs/
 │   ├── ARCHITECTURE.md                # This file
@@ -799,8 +832,8 @@ Request 3: HTTP call → execute → response (~1 second)
 RingBuffer (max 1000 events):
 Memory usage = ~100KB (1000 × 100 bytes/event)
 
-Server Pool (5 servers):
-Memory usage ≈ 250-300MB × 5 = 1.5GB
+Server Pool (4 servers):
+Memory usage ≈ 250-300MB × 4 = 1.2GB
 
 Total OMCM (including state files):
 Memory usage ≈ 2GB (Recommended: 4GB+)

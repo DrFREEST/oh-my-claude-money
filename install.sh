@@ -374,6 +374,13 @@ install_omcm() {
 
     ln -sf "$source_dir" "$plugin_dir"
 
+    # plugins/omcm 디렉토리도 심링크 (호환성)
+    local omcm_cache="$HOME/.claude/plugins/omcm"
+    if [[ ! -e "$omcm_cache" ]]; then
+        ln -sf "$source_dir" "$omcm_cache"
+        log_success "plugins/omcm 심링크 생성"
+    fi
+
     # 전역 변수로 저장 (나중에 참조용)
     OMCM_SOURCE_DIR="$source_dir"
 
@@ -410,18 +417,20 @@ setup_claude_hooks() {
         existing_settings=$(cat "$settings_file")
     fi
 
-    # PreToolUse hook 추가 (Task 라우팅용)
-    # 안정적인 경로 사용: 마켓플레이스 설치 위치
-    local hook_command="node ~/.claude/plugins/marketplaces/omcm/hooks/fusion-router.mjs"
+    # 통일된 hook 경로 (symlink 기반)
+    local plugin_hooks_dir="$HOME/.claude/plugins/local/oh-my-claude-money/hooks"
+    local plugin_src_hooks="$HOME/.claude/plugins/local/oh-my-claude-money/src/hooks"
 
-    # hooks 배열에 추가 (PreToolUse + PostToolUse)
-    local plugin_hooks_dir="$HOME/.claude/plugins/omcm/hooks"
+    # hooks 배열에 추가
     local updated_settings
     updated_settings=$(echo "$existing_settings" | jq \
-      --arg fusion_cmd "$hook_command" \
+      --arg fusion_cmd "node $plugin_hooks_dir/fusion-router.mjs" \
       --arg read_cmd "node $plugin_hooks_dir/read-optimizer.mjs" \
       --arg bash_cmd "node $plugin_hooks_dir/bash-optimizer.mjs" \
       --arg tracker_cmd "node $plugin_hooks_dir/tool-tracker.mjs" \
+      --arg session_start_cmd "node $plugin_src_hooks/session-start.mjs" \
+      --arg detect_handoff_cmd "node $plugin_src_hooks/detect-handoff.mjs" \
+      --arg persistent_mode_cmd "node $plugin_src_hooks/persistent-mode.mjs" \
     '
       .hooks = (.hooks // {}) |
       .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [
@@ -443,11 +452,29 @@ setup_claude_hooks() {
           "matcher": "Read|Edit|Bash|Grep|Glob|Task",
           "hooks": [{"type": "command", "command": $tracker_cmd, "timeout": 5}]
         }
+      ] | unique_by(.matcher)) |
+      .hooks.SessionStart = ((.hooks.SessionStart // []) + [
+        {
+          "matcher": "*",
+          "hooks": [{"type": "command", "command": $session_start_cmd, "timeout": 3}]
+        }
+      ] | unique_by(.matcher)) |
+      .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [
+        {
+          "matcher": "*",
+          "hooks": [{"type": "command", "command": $detect_handoff_cmd, "timeout": 5, "statusMessage": "사용량 확인 중..."}]
+        }
+      ] | unique_by(.matcher)) |
+      .hooks.Stop = ((.hooks.Stop // []) + [
+        {
+          "matcher": "*",
+          "hooks": [{"type": "command", "command": $persistent_mode_cmd, "timeout": 5, "statusMessage": "활성 모드 확인 중..."}]
+        }
       ] | unique_by(.matcher))
     ')
 
     echo "$updated_settings" > "$settings_file"
-    log_success "PreToolUse + PostToolUse hooks 설정 완료"
+    log_success "모든 Hooks 설정 완료 (PreToolUse/PostToolUse/SessionStart/UserPromptSubmit/Stop)"
 }
 
 # Handoff 디렉토리 설정
@@ -634,6 +661,7 @@ EOF
 install_hud_files() {
     local source_dir="$1"
     local hud_dir="$HOME/.claude/hud"
+    local settings_file="$HOME/.claude/settings.json"
 
     log_step "HUD 래퍼 설치"
 
@@ -646,6 +674,14 @@ install_hud_files() {
         log_success "HUD 래퍼 설치 완료 (마켓플레이스 소스 동적 참조)"
     else
         log_warn "omcm-hud-wrapper.mjs를 찾을 수 없습니다"
+    fi
+
+    # statusLine 설정
+    if [[ -f "$settings_file" ]] && command -v jq &>/dev/null; then
+        local updated
+        updated=$(jq '.statusLine = {"type": "command", "command": "node ~/.claude/hud/omcm-hud.mjs"}' "$settings_file")
+        echo "$updated" > "$settings_file"
+        log_success "statusLine 설정 완료"
     fi
 }
 

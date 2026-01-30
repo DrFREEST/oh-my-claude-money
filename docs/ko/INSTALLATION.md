@@ -533,7 +533,7 @@ ls -la ~/.claude/plugins/omcm/config.json
 ls -la ~/.omcm/fusion-state.json
 
 # HUD 파일
-ls -la ~/.claude/hud/omcm-hud.mjs
+ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 ```
 
 ### 3. 퓨전 기능 테스트
@@ -661,11 +661,10 @@ export GOOGLE_API_KEY="..."
 #### "HUD가 표시되지 않음"
 
 ```bash
-# HUD 파일 확인
-ls -la ~/.claude/hud/omcm-hud.mjs
+# HUD 파일 확인 (플러그인 설치 시 자동 설정됨)
+ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
-# 권한 확인
-chmod +x ~/.claude/hud/omcm-hud.mjs
+# HUD는 플러그인 파일이므로 직접 수정 불필요
 
 # settings.json 확인
 grep "statusLine" ~/.claude/settings.json
@@ -674,44 +673,14 @@ grep "statusLine" ~/.claude/settings.json
 ls ~/.claude/plugins/cache/omc/oh-my-claudecode/*/dist/hud/index.js
 ```
 
-HUD 파일이 없으면 수동 생성:
+HUD 파일이 없으면 플러그인 재설정:
 
 ```bash
-mkdir -p ~/.claude/hud
+# Claude Code에서 퓨전 셋업 재실행
+claude
+/omcm:fusion-setup
 
-cat > ~/.claude/hud/omcm-hud.mjs << 'EOF'
-#!/usr/bin/env node
-import { spawn } from 'child_process';
-
-const HUD_PATHS = [
-  process.env.HOME + '/.claude/plugins/marketplaces/omcm/src/hud/omcm-hud.mjs',
-  '/opt/oh-my-claude-money/src/hud/omcm-hud.mjs'
-];
-
-let hudPath = null;
-for (const p of HUD_PATHS) {
-  try { if (require('fs').existsSync(p)) { hudPath = p; break; } } catch {}
-}
-
-if (!hudPath) {
-  const omcHud = process.env.HOME + '/.claude/hud/omc-hud.mjs';
-  spawn('node', [omcHud], { stdio: 'inherit' });
-  process.exit(0);
-}
-
-let input = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => { input += chunk; });
-process.stdin.on('end', () => {
-  const child = spawn('node', [hudPath], {
-    stdio: ['pipe', 'inherit', 'inherit']
-  });
-  child.stdin.write(input);
-  child.stdin.end();
-});
-EOF
-
-chmod +x ~/.claude/hud/omcm-hud.mjs
+# HUD는 플러그인 설치 시 자동으로 설정됩니다
 ```
 
 #### "OMC 플러그인 미빌드"
@@ -810,8 +779,8 @@ rm -rf ~/.claude/plugins/marketplaces/omcm
 rm -rf ~/.claude/plugins/omcm
 rm -rf ~/.omcm
 
-# HUD 파일 제거
-rm ~/.claude/hud/omcm-hud.mjs
+# HUD는 플러그인 삭제로 자동 제거됨
+# 추가 작업 불필요
 
 # settings.json 정리 (선택)
 # ~/.claude/settings.json에서 OMCM 관련 설정 제거

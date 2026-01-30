@@ -679,7 +679,7 @@ install_hud_files() {
     # statusLine 설정
     if [[ -f "$settings_file" ]] && command -v jq &>/dev/null; then
         local updated
-        updated=$(jq '.statusLine = {"type": "command", "command": "node ~/.claude/hud/omcm-hud.mjs"}' "$settings_file")
+        updated=$(jq '.statusLine = {"type": "command", "command": "node ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs"}' "$settings_file")
         echo "$updated" > "$settings_file"
         log_success "statusLine 설정 완료"
     fi
@@ -753,7 +753,7 @@ print_summary() {
         echo -e "  ${GREEN}✓${NC} oh-my-claude-money 퓨전 플러그인"
     fi
 
-    if [[ -f "$HOME/.claude/hud/omcm-hud.mjs" ]]; then
+    if [[ -f "$HOME/.claude/plugins/omcm/src/hud/omcm-hud.mjs" ]]; then
         echo -e "  ${GREEN}✓${NC} OMCM HUD (토큰 추적)"
     fi
 

@@ -24,7 +24,6 @@ NC='\033[0m'
 SETTINGS_FILE="$HOME/.claude/settings.json"
 OMCM_DATA_DIR="$HOME/.omcm"
 OMCM_STATE_DIR="$HOME/.omc/state"
-OMCM_HUD_FILE="$HOME/.claude/hud/omcm-hud.mjs"
 OMCM_PLUGIN_LINK="$HOME/.claude/plugins/local/oh-my-claude-money"
 OMCM_MARKETPLACE_DIR="$HOME/.claude/plugins/marketplaces/omcm"
 OMCM_CACHE_DIR="$HOME/.claude/plugins/omcm"
@@ -103,39 +102,33 @@ if [[ -f "$installed_file" ]] && command -v jq &>/dev/null; then
 fi
 
 # ============================================================================
-# 3. HUD 파일 제거
+# 3. statusLine 설정 제거 (플러그인 경로 참조 방식)
 # ============================================================================
-echo -e "${BLUE}[3/6]${NC} HUD 파일 제거..."
-if [[ -f "$OMCM_HUD_FILE" ]]; then
-    rm "$OMCM_HUD_FILE"
-    echo -e "  ${GREEN}✓${NC} OMCM HUD 파일 제거됨"
-
-    # HUD 백업 복원 시도
-    OMS_HUD_BACKUP="$HOME/.claude/hud/.omc-hud-backup"
-    OMC_HUD_DEFAULT="$HOME/.claude/hud/omc-hud.mjs"
-
-    if [[ -f "$OMS_HUD_BACKUP" ]]; then
-        if [[ -f "$HOME/.claude/plugins/cache/omc/oh-my-claudecode/src/hud/omc-hud.mjs" ]]; then
-            cp "$HOME/.claude/plugins/cache/omc/oh-my-claudecode/src/hud/omc-hud.mjs" "$OMC_HUD_DEFAULT"
-            echo -e "  ${GREEN}✓${NC} OMC HUD 복원됨"
-        fi
-    fi
-
-    # statusLine 설정 복원 (OMC HUD로)
-    if [[ -f "$SETTINGS_FILE" ]] && [[ -f "$OMC_HUD_DEFAULT" ]]; then
-        node -e "
-            const fs = require('fs');
-            const settings = JSON.parse(fs.readFileSync('$SETTINGS_FILE', 'utf-8'));
-
-            if (settings.statusLine && settings.statusLine.includes('omcm-hud')) {
-                settings.statusLine = 'node ~/.claude/hud/omc-hud.mjs';
+echo -e "${BLUE}[3/6]${NC} statusLine 설정 제거..."
+if [[ -f "$SETTINGS_FILE" ]]; then
+    # statusLine에서 omcm-hud 참조 제거
+    if grep -q "omcm-hud" "$SETTINGS_FILE" 2>/dev/null; then
+        # statusLine을 OMC HUD로 복원
+        OMC_HUD_DEFAULT="$HOME/.claude/hud/omc-hud.mjs"
+        if [[ -f "$OMC_HUD_DEFAULT" ]] && command -v jq &>/dev/null; then
+            local updated
+            updated=$(jq '.statusLine = {"type": "command", "command": "node ~/.claude/hud/omc-hud.mjs"}' "$SETTINGS_FILE")
+            echo "$updated" > "$SETTINGS_FILE"
+            echo -e "  ${GREEN}✓${NC} statusLine을 OMC HUD로 복원됨"
+        else
+            # jq 없거나 OMC HUD 없으면 statusLine 제거
+            node -e "
+                const fs = require('fs');
+                const settings = JSON.parse(fs.readFileSync('$SETTINGS_FILE', 'utf-8'));
+                delete settings.statusLine;
                 fs.writeFileSync('$SETTINGS_FILE', JSON.stringify(settings, null, 2));
-                console.log('restored');
-            }
-        " 2>/dev/null && echo -e "  ${GREEN}✓${NC} statusLine을 OMC HUD로 복원됨"
+            " 2>/dev/null && echo -e "  ${GREEN}✓${NC} statusLine 제거됨"
+        fi
+    else
+        echo -e "  ${YELLOW}-${NC} OMCM statusLine 없음"
     fi
 else
-    echo -e "  ${YELLOW}-${NC} OMCM HUD 파일 없음"
+    echo -e "  ${YELLOW}-${NC} settings.json 없음"
 fi
 
 # ============================================================================

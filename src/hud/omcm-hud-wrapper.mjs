@@ -2,7 +2,7 @@
 /**
  * OMCM HUD Wrapper - Dynamic delegation to marketplace HUD
  *
- * 이 파일을 ~/.claude/hud/omcm-hud.mjs 로 설치합니다.
+ * statusLine이 ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs 를 직접 참조합니다.
  * 실제 HUD 소스는 마켓플레이스 디렉토리에서 동적 import하여
  * 상대 경로 모듈(utils/, tracking/ 등)이 올바르게 해석됩니다.
  *

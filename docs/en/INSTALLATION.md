@@ -465,7 +465,7 @@ ls -la ~/.claude/plugins/omcm/config.json
 ls -la ~/.omcm/fusion-state.json
 
 # HUD files
-ls -la ~/.claude/hud/omcm-hud.mjs
+ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 ```
 
 ### 3. Test Fusion Feature
@@ -593,11 +593,10 @@ export GOOGLE_API_KEY="..."
 #### "HUD not displayed"
 
 ```bash
-# Check HUD file
-ls -la ~/.claude/hud/omcm-hud.mjs
+# Check HUD file (automatically configured during plugin installation)
+ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
-# Check permissions
-chmod +x ~/.claude/hud/omcm-hud.mjs
+# HUD is a plugin file, no need to modify directly
 
 # Check settings.json
 grep "statusLine" ~/.claude/settings.json
@@ -606,44 +605,14 @@ grep "statusLine" ~/.claude/settings.json
 ls ~/.claude/plugins/cache/omc/oh-my-claudecode/*/dist/hud/index.js
 ```
 
-If HUD file is missing, create manually:
+If HUD file is missing, reconfigure plugin:
 
 ```bash
-mkdir -p ~/.claude/hud
+# Re-run fusion setup in Claude Code
+claude
+/omcm:fusion-setup
 
-cat > ~/.claude/hud/omcm-hud.mjs << 'EOF'
-#!/usr/bin/env node
-import { spawn } from 'child_process';
-
-const HUD_PATHS = [
-  process.env.HOME + '/.claude/plugins/marketplaces/omcm/src/hud/omcm-hud.mjs',
-  '/opt/oh-my-claude-money/src/hud/omcm-hud.mjs'
-];
-
-let hudPath = null;
-for (const p of HUD_PATHS) {
-  try { if (require('fs').existsSync(p)) { hudPath = p; break; } } catch {}
-}
-
-if (!hudPath) {
-  const omcHud = process.env.HOME + '/.claude/hud/omc-hud.mjs';
-  spawn('node', [omcHud], { stdio: 'inherit' });
-  process.exit(0);
-}
-
-let input = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => { input += chunk; });
-process.stdin.on('end', () => {
-  const child = spawn('node', [hudPath], {
-    stdio: ['pipe', 'inherit', 'inherit']
-  });
-  child.stdin.write(input);
-  child.stdin.end();
-});
-EOF
-
-chmod +x ~/.claude/hud/omcm-hud.mjs
+# HUD is automatically configured during plugin installation
 ```
 
 #### "OMC plugin not built"
@@ -742,8 +711,8 @@ rm -rf ~/.claude/plugins/marketplaces/omcm
 rm -rf ~/.claude/plugins/omcm
 rm -rf ~/.omcm
 
-# Remove HUD file
-rm ~/.claude/hud/omcm-hud.mjs
+# HUD is automatically removed when plugin is deleted
+# No additional action needed
 
 # Clean settings.json (optional)
 # Remove OMCM-related settings from ~/.claude/settings.json

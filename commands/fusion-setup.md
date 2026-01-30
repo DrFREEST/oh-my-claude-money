@@ -375,66 +375,22 @@ mkdir -p ~/.omcm
 echo "✅ HUD 캐시 초기화 완료"
 ```
 
-**OMCM-HUD Wrapper 설치:**
+**settings.json 업데이트 (플러그인 직접 참조):**
 
-OMCM-HUD는 OMC-HUD를 래핑하고 퓨전 메트릭을 추가합니다:
-
-```bash
-# OMCM HUD wrapper 생성
-cat > ~/.claude/hud/omcm-hud.mjs << 'EOF'
-#!/usr/bin/env node
-// OMCM HUD Wrapper - 원본 소스를 직접 실행
-import { spawn } from 'child_process';
-
-// OMCM HUD 경로 (마켓플레이스 또는 개발 경로)
-const HUD_PATHS = [
-  process.env.HOME + '/.claude/plugins/marketplaces/omcm/src/hud/omcm-hud.mjs',
-  '/opt/oh-my-claude-money/src/hud/omcm-hud.mjs'
-];
-
-let hudPath = null;
-for (const p of HUD_PATHS) {
-  try { if (require('fs').existsSync(p)) { hudPath = p; break; } } catch {}
-}
-
-if (!hudPath) {
-  // Fallback: OMC HUD 실행
-  const omcHud = process.env.HOME + '/.claude/hud/omc-hud.mjs';
-  const child = spawn('node', [omcHud], { stdio: 'inherit' });
-  process.exit(0);
-}
-
-// stdin을 원본 HUD로 파이프
-let input = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => { input += chunk; });
-process.stdin.on('end', () => {
-  const child = spawn('node', [hudPath], {
-    stdio: ['pipe', 'inherit', 'inherit']
-  });
-  child.stdin.write(input);
-  child.stdin.end();
-});
-EOF
-
-chmod +x ~/.claude/hud/omcm-hud.mjs
-echo "✅ OMCM HUD wrapper 설치 완료"
-```
-
-**settings.json 업데이트 (omc-hud → omcm-hud):**
-
-`~/.claude/settings.json`의 `statusLine`을 OMCM-HUD로 변경하세요:
+`~/.claude/settings.json`의 `statusLine`을 플러그인 경로로 직접 설정하세요:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "node ~/.claude/hud/omcm-hud.mjs"
+    "command": "node ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs"
   }
 }
 ```
 
-Edit 도구를 사용하여 `omc-hud.mjs`를 `omcm-hud.mjs`로 변경하세요.
+Edit 도구를 사용하여 statusLine command를 플러그인 경로로 변경하세요.
+
+**참고:** 더 이상 ~/.claude/hud/ 디렉토리에 HUD 파일을 복사하지 않습니다. statusLine이 플러그인 디렉토리의 소스를 직접 참조합니다.
 
 ### 5-2. 퓨전 설정 파일 생성
 

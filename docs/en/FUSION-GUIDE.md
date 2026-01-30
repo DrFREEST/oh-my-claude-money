@@ -720,8 +720,8 @@ echo $OMCM_CONTEXT_PATH
 **Solution:**
 
 ```bash
-# 1. Check HUD wrapper
-cat ~/.claude/hud/omcm-hud.mjs
+# 1. Check HUD file
+cat ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
 # 2. Check settings.json
 cat ~/.claude/settings.json | grep statusLine

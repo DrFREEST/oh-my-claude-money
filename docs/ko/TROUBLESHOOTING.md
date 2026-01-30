@@ -409,44 +409,11 @@ ping -c 3 8.8.8.8
 **확인**:
 
 ```bash
-# HUD 파일 존재 여부
-ls -la ~/.claude/hud/omcm-hud.mjs
+# HUD 파일 존재 여부 (플러그인 설치 시 자동 설정됨)
+ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
-# 파일이 없으면 생성
-mkdir -p ~/.claude/hud
-cat > ~/.claude/hud/omcm-hud.mjs << 'EOF'
-#!/usr/bin/env node
-import { spawn } from 'child_process';
-
-const HUD_PATHS = [
-  process.env.HOME + '/.claude/plugins/marketplaces/omcm/src/hud/omcm-hud.mjs',
-  '/opt/oh-my-claude-money/src/hud/omcm-hud.mjs'
-];
-
-let hudPath = null;
-for (const p of HUD_PATHS) {
-  try { if (require('fs').existsSync(p)) { hudPath = p; break; } } catch {}
-}
-
-if (!hudPath) {
-  const omcHud = process.env.HOME + '/.claude/hud/omc-hud.mjs';
-  spawn('node', [omcHud], { stdio: 'inherit' });
-  process.exit(0);
-}
-
-let input = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => { input += chunk; });
-process.stdin.on('end', () => {
-  const child = spawn('node', [hudPath], {
-    stdio: ['pipe', 'inherit', 'inherit']
-  });
-  child.stdin.write(input);
-  child.stdin.end();
-});
-EOF
-
-chmod +x ~/.claude/hud/omcm-hud.mjs
+# 플러그인이 설치되어 있으면 HUD가 자동으로 설정됩니다.
+# 수동 설정이 필요한 경우 /omcm:fusion-setup을 실행하세요.
 ```
 
 **settings.json 확인**:
@@ -460,7 +427,7 @@ cat >> ~/.claude/settings.json << 'EOF'
 {
   "statusLine": {
     "enabled": true,
-    "command": "node ~/.claude/hud/omcm-hud.mjs"
+    "command": "node ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs"
   }
 }
 EOF
@@ -505,12 +472,12 @@ npm run build --silent
 **해결**:
 
 ```bash
-# 1단계: HUD 파일 권한 확인
-chmod +x ~/.claude/hud/omcm-hud.mjs
+# 1단계: 플러그인 재설치로 HUD 파일 복구
+claude
+/omcm:fusion-setup
 
-# 2단계: 파일 재생성
-rm ~/.claude/hud/omcm-hud.mjs
-bash /opt/oh-my-claude-money/scripts/install-hud.sh
+# 2단계: HUD 파일 확인
+ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
 # 3단계: Claude Code 재시작
 # 현재 세션 종료
@@ -985,8 +952,8 @@ rm -rf ~/.claude/plugins/marketplaces/omcm
 rm -rf ~/.claude/plugins/omcm
 rm -rf ~/.omcm
 
-# HUD 제거
-rm ~/.claude/hud/omcm-hud.mjs
+# HUD는 플러그인 삭제로 자동 제거됩니다
+# 추가 작업 불필요
 
 # settings.json에서 OMCM 관련 항목 제거
 # ~/.claude/settings.json 수동 편집
@@ -1032,8 +999,8 @@ rm ~/.claude/hud/omcm-hud.mjs
 
 | 에러 | 원인 | 해결책 |
 |------|------|--------|
-| HUD 미표시 | HUD 파일 없음 | `install-hud.sh` 재실행 |
-| `[object Object]` | HUD 형식 오류 | HUD 파일 재생성 |
+| HUD 미표시 | HUD 파일 없음 | `/omcm:fusion-setup` 실행 |
+| `[object Object]` | HUD 형식 오류 | 플러그인 재설치 |
 | 토큰 안 업데이트 | 캐시 오류 | 캐시 삭제 후 재시작 |
 
 ---

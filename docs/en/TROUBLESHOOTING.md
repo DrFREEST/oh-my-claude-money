@@ -409,44 +409,11 @@ ping -c 3 8.8.8.8
 **Check**:
 
 ```bash
-# Check HUD file exists
-ls -la ~/.claude/hud/omcm-hud.mjs
+# Check HUD file exists (automatically configured during plugin installation)
+ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
-# If file doesn't exist, create it
-mkdir -p ~/.claude/hud
-cat > ~/.claude/hud/omcm-hud.mjs << 'EOF'
-#!/usr/bin/env node
-import { spawn } from 'child_process';
-
-const HUD_PATHS = [
-  process.env.HOME + '/.claude/plugins/marketplaces/omcm/src/hud/omcm-hud.mjs',
-  '/opt/oh-my-claude-money/src/hud/omcm-hud.mjs'
-];
-
-let hudPath = null;
-for (const p of HUD_PATHS) {
-  try { if (require('fs').existsSync(p)) { hudPath = p; break; } } catch {}
-}
-
-if (!hudPath) {
-  const omcHud = process.env.HOME + '/.claude/hud/omc-hud.mjs';
-  spawn('node', [omcHud], { stdio: 'inherit' });
-  process.exit(0);
-}
-
-let input = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => { input += chunk; });
-process.stdin.on('end', () => {
-  const child = spawn('node', [hudPath], {
-    stdio: ['pipe', 'inherit', 'inherit']
-  });
-  child.stdin.write(input);
-  child.stdin.end();
-});
-EOF
-
-chmod +x ~/.claude/hud/omcm-hud.mjs
+# If plugin is installed, HUD is automatically configured.
+# If manual setup is needed, run /omcm:fusion-setup
 ```
 
 **Check settings.json**:
@@ -460,7 +427,7 @@ cat >> ~/.claude/settings.json << 'EOF'
 {
   "statusLine": {
     "enabled": true,
-    "command": "node ~/.claude/hud/omcm-hud.mjs"
+    "command": "node ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs"
   }
 }
 EOF
@@ -505,12 +472,12 @@ npm run build --silent
 **Solution**:
 
 ```bash
-# Step 1: Check HUD file permissions
-chmod +x ~/.claude/hud/omcm-hud.mjs
+# Step 1: Reinstall plugin to restore HUD file
+claude
+/omcm:fusion-setup
 
-# Step 2: Regenerate file
-rm ~/.claude/hud/omcm-hud.mjs
-bash /opt/oh-my-claude-money/scripts/install-hud.sh
+# Step 2: Verify HUD file
+ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
 # Step 3: Restart Claude Code
 # Exit current session
@@ -985,8 +952,7 @@ rm -rf ~/.claude/plugins/marketplaces/omcm
 rm -rf ~/.claude/plugins/omcm
 rm -rf ~/.omcm
 
-# Remove HUD
-rm ~/.claude/hud/omcm-hud.mjs
+# Remove HUD (automatically removed with plugin uninstall)
 
 # Remove OMCM entries from settings.json
 # Manual edit ~/.claude/settings.json
@@ -1032,8 +998,8 @@ rm ~/.claude/hud/omcm-hud.mjs
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| HUD not showing | HUD file missing | Re-run `install-hud.sh` |
-| `[object Object]` | HUD format error | Regenerate HUD file |
+| HUD not showing | HUD file missing | Run `/omcm:fusion-setup` |
+| `[object Object]` | HUD format error | Reinstall plugin |
 | Token not updating | Cache error | Clear cache and restart |
 
 ---

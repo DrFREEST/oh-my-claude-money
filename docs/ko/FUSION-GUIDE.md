@@ -713,8 +713,8 @@ echo $OMCM_CONTEXT_PATH
 **해결책:**
 
 ```bash
-# 1. HUD 래퍼 확인
-cat ~/.claude/hud/omcm-hud.mjs
+# 1. HUD 파일 확인
+cat ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
 # 2. settings.json 확인
 cat ~/.claude/settings.json | grep statusLine

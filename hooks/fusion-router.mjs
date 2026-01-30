@@ -14,7 +14,8 @@ import {
   mapAgentToOpenCode,
   wrapWithUlwCommand,
   updateFusionState,
-  logRouting
+  logRouting,
+  applyGeminiFallbackToDecision
 } from '../src/hooks/fusion-router-logic.mjs';
 import { getSessionIdFromTty } from '../src/utils/session-id.mjs';
 import { logOpenCodeCall } from '../src/tracking/call-logger.mjs';
@@ -123,6 +124,19 @@ async function main() {
     // 라우팅 결정 확인
     var decision = shouldRouteToOpenCode(toolInput);
 
+    // Gemini rate limit 폴백 적용 (Gemini → OpenAI 자동 대체)
+    if (decision.route) {
+      decision = applyGeminiFallbackToDecision(decision);
+      if (decision.geminiRateLimit && decision.geminiRateLimit.fallbackApplied) {
+        var resetTime = decision.geminiRateLimit.earliestReset
+          ? new Date(decision.geminiRateLimit.earliestReset).toISOString()
+          : 'unknown';
+        console.error('[OMCM Fusion] Gemini rate-limited → OpenAI fallback applied');
+        console.error('[OMCM Fusion] Original: ' + (decision.originalAgent || '?') + ' → Fallback: ' + decision.opencodeAgent);
+        console.error('[OMCM Fusion] Gemini reset at: ' + resetTime);
+      }
+    }
+
     // 결정 로깅
     logRouting({
       toolName: toolName,
@@ -153,7 +167,10 @@ async function main() {
         var targetModelId = decision.targetModel && decision.targetModel.id
           ? decision.targetModel.id
           : '';
-        if (targetModelId.indexOf('gemini') !== -1 || targetModelId.indexOf('flash') !== -1 || targetModelId.indexOf('pro') !== -1) {
+        // 폴백 적용되지 않은 경우에만 Gemini로 분류
+        // (폴백 적용 시 targetModel이 이미 OpenAI로 변경됨)
+        var isFallbackApplied = decision.geminiRateLimit && decision.geminiRateLimit.fallbackApplied;
+        if (!isFallbackApplied && (targetModelId.indexOf('gemini') !== -1 || targetModelId.indexOf('flash') !== -1 || targetModelId.indexOf('pro') !== -1)) {
           provider = 'gemini';
         }
 

@@ -743,3 +743,219 @@ export function getRoutingLevel(sessionInputTokens) {
     agents: []  // 기본 모드, 에이전트 목록 불필요
   };
 }
+
+// =============================================================================
+// v0.9.0 Gemini Rate Limit 감지 + OpenAI 자동 폴백
+// =============================================================================
+
+/**
+ * Antigravity 계정 설정 파일 경로
+ */
+var ANTIGRAVITY_ACCOUNTS_FILE = join(HOME, '.config', 'opencode', 'antigravity-accounts.json');
+
+/**
+ * Rate limit 캐시 (5분 TTL)
+ * Hook이 단발 실행이므로 파일 I/O를 최소화하기 위한 파일 기반 캐시
+ */
+var RATE_LIMIT_CACHE_FILE = join(OMCM_DIR, 'gemini-rate-limit-cache.json');
+var RATE_LIMIT_CACHE_TTL_MS = 5 * 60 * 1000; // 5분
+
+/**
+ * Gemini rate limit 상태 확인
+ *
+ * antigravity-accounts.json의 rateLimitResetTimes를 읽어
+ * 모든 계정의 Gemini Flash가 rate-limited인지 확인합니다.
+ *
+ * @returns {object} { isLimited: boolean, earliestReset: number|null, availableAccounts: number }
+ */
+export function checkGeminiRateLimit() {
+  // 1. 캐시 확인 (파일 기반)
+  try {
+    if (existsSync(RATE_LIMIT_CACHE_FILE)) {
+      var cached = JSON.parse(readFileSync(RATE_LIMIT_CACHE_FILE, 'utf-8'));
+      var cacheAge = Date.now() - (cached.checkedAt || 0);
+      if (cacheAge < RATE_LIMIT_CACHE_TTL_MS) {
+        return cached.result;
+      }
+    }
+  } catch (e) {
+    // 캐시 읽기 실패 무시
+  }
+
+  var result = { isLimited: true, earliestReset: null, availableAccounts: 0 };
+  var now = Date.now();
+
+  // 2. Antigravity 계정 파일 읽기
+  try {
+    if (!existsSync(ANTIGRAVITY_ACCOUNTS_FILE)) {
+      // 계정 파일 없으면 rate limit 상태 알 수 없음 → 제한 없다고 가정
+      result.isLimited = false;
+      _saveRateLimitCache(result);
+      return result;
+    }
+
+    var accountData = JSON.parse(readFileSync(ANTIGRAVITY_ACCOUNTS_FILE, 'utf-8'));
+    var accounts = accountData.accounts || [];
+
+    if (accounts.length === 0) {
+      result.isLimited = false;
+      _saveRateLimitCache(result);
+      return result;
+    }
+
+    var earliestReset = Infinity;
+    var totalAccounts = 0;
+    var availableAccounts = 0;
+
+    for (var i = 0; i < accounts.length; i++) {
+      var account = accounts[i];
+      // 비활성 계정 스킵 (enabled 필드가 false인 경우)
+      if (account.enabled === false) continue;
+
+      totalAccounts++;
+      var resetTimes = account.rateLimitResetTimes || {};
+
+      // Gemini Flash의 rate limit reset time 확인
+      // 키 패턴: "gemini-antigravity:antigravity-gemini-3-flash" (Antigravity 프록시)
+      // 주의: "gemini-cli:gemini-3-flash-preview" (CLI 직접 접속)와 구분 필요
+      // OpenCode 서버풀은 Antigravity 프록시를 사용하므로 antigravity 키만 확인
+      var isAccountLimited = false;
+      var keys = Object.keys(resetTimes);
+      for (var j = 0; j < keys.length; j++) {
+        var key = keys[j];
+        // antigravity 키만 매칭 (CLI 키 제외)
+        if (key.indexOf('antigravity') !== -1 &&
+            (key.indexOf('gemini-3-flash') !== -1 || key.indexOf('gemini-flash') !== -1)) {
+          var resetTime = resetTimes[key];
+          if (typeof resetTime === 'number' && resetTime > now) {
+            isAccountLimited = true;
+            if (resetTime < earliestReset) {
+              earliestReset = resetTime;
+            }
+          }
+          break;
+        }
+      }
+
+      if (!isAccountLimited) {
+        availableAccounts++;
+      }
+    }
+
+    result.availableAccounts = availableAccounts;
+
+    if (totalAccounts === 0) {
+      // 계정이 없으면 제한 없다고 가정
+      result.isLimited = false;
+    } else if (availableAccounts === totalAccounts) {
+      // 모든 계정이 사용 가능할 때만 OK
+      result.isLimited = false;
+    } else {
+      // 어떤 계정이든 rate-limited이면 폴백 적용
+      // (OpenCode가 rate-limited 계정을 우선 선택하는 경우 방지)
+      result.isLimited = true;
+      result.earliestReset = earliestReset === Infinity ? null : earliestReset;
+    }
+  } catch (e) {
+    // 파일 읽기/파싱 실패 → 제한 없다고 가정 (안전한 기본값)
+    result.isLimited = false;
+  }
+
+  _saveRateLimitCache(result);
+  return result;
+}
+
+/**
+ * Rate limit 캐시 저장 (내부 함수)
+ * @param {object} result - rate limit 결과
+ */
+function _saveRateLimitCache(result) {
+  try {
+    ensureOmcmDir();
+    writeFileSync(RATE_LIMIT_CACHE_FILE, JSON.stringify({
+      checkedAt: Date.now(),
+      result: result
+    }));
+  } catch (e) {
+    // 캐시 저장 실패 무시
+  }
+}
+
+/**
+ * Gemini가 rate-limited일 때 OpenAI 폴백 에이전트/모델 결정
+ *
+ * Flash → Codex (빠른 작업은 GPT-5.2-Codex로 대체)
+ * Gemini Pro → Oracle (GPT-5.2)
+ *
+ * @param {string} omoAgent - 원래 OpenCode 에이전트 (Flash, Oracle, Codex 등)
+ * @param {object} modelInfo - 원래 모델 정보 { id, name }
+ * @returns {object|null} - { agent, model: { id, name }, reason } 또는 null (폴백 불필요)
+ */
+export function getGeminiFallback(omoAgent, modelInfo) {
+  if (!modelInfo || !modelInfo.id) return null;
+
+  var modelId = modelInfo.id;
+
+  // Gemini Flash → OpenAI Codex
+  if (modelId === 'gemini-flash' || modelId.indexOf('flash') !== -1) {
+    return {
+      agent: 'Codex',
+      model: { id: 'gpt-5.2-codex', name: 'GPT 5.2 Codex (Gemini Fallback)' },
+      reason: 'gemini-rate-limited'
+    };
+  }
+
+  // Gemini Pro → OpenAI Oracle
+  if (modelId === 'gemini-pro' || modelId.indexOf('pro') !== -1) {
+    return {
+      agent: 'Oracle',
+      model: { id: 'gpt-5.2', name: 'GPT 5.2 Oracle (Gemini Fallback)' },
+      reason: 'gemini-rate-limited'
+    };
+  }
+
+  return null;
+}
+
+/**
+ * 라우팅 결정에 Gemini rate limit 폴백 적용
+ *
+ * @param {object} decision - shouldRouteToOpenCode()의 반환값
+ * @returns {object} - 폴백 적용된 라우팅 결정
+ */
+export function applyGeminiFallbackToDecision(decision) {
+  if (!decision || !decision.route) return decision;
+
+  var modelId = decision.targetModel && decision.targetModel.id
+    ? decision.targetModel.id
+    : '';
+  var isGeminiTarget = modelId.indexOf('gemini') !== -1 ||
+                       modelId.indexOf('flash') !== -1 ||
+                       modelId.indexOf('pro') !== -1;
+
+  // Gemini 타겟이 아니면 폴백 불필요
+  if (!isGeminiTarget) return decision;
+
+  // Gemini rate limit 확인
+  var rateLimit = checkGeminiRateLimit();
+  if (!rateLimit.isLimited) return decision;
+
+  // 폴백 적용
+  var fallback = getGeminiFallback(decision.opencodeAgent, decision.targetModel);
+  if (!fallback) return decision;
+
+  // 원본 결정 보존 + 폴백 정보 병합
+  return {
+    route: decision.route,
+    reason: decision.reason + '+' + fallback.reason,
+    targetModel: fallback.model,
+    opencodeAgent: fallback.agent,
+    originalAgent: decision.opencodeAgent,
+    originalModel: decision.targetModel,
+    geminiRateLimit: {
+      isLimited: true,
+      earliestReset: rateLimit.earliestReset,
+      fallbackApplied: true
+    }
+  };
+}

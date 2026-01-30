@@ -8,7 +8,7 @@
  * @since v0.7.0
  */
 
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
@@ -19,16 +19,18 @@ import { join } from 'path';
 const STATE_DIR = join(homedir(), '.omcm/state');
 
 const STATE_FILES = {
-  ralph: 'ralph.json',
-  autopilot: 'autopilot.json',
-  ultrawork: 'ultrawork.json',
-  ecomode: 'ecomode.json',
-  hulw: 'hulw.json',
-  swarm: 'swarm.json',
-  pipeline: 'pipeline.json',
-  ultrapilot: 'ultrapilot.json',
-  ultraqa: 'ultraqa.json',
+  ralph: 'ralph-state.json',
+  autopilot: 'autopilot-state.json',
+  ultrawork: 'ultrawork-state.json',
+  ecomode: 'ecomode-state.json',
+  hulw: 'hulw-state.json',
+  swarm: 'swarm-summary.json',
+  pipeline: 'pipeline-state.json',
+  ultrapilot: 'ultrapilot-state.json',
+  ultraqa: 'ultraqa-state.json',
 };
+
+const MAX_REINFORCEMENTS = 50; // OMC v3.8+ 기준 탈출 장치
 
 // =============================================================================
 // stdin에서 JSON 읽기
@@ -54,6 +56,29 @@ function readStdin() {
       resolve(data);
     }, 2000);
   });
+}
+
+// =============================================================================
+// Context-Limit 감지 (교착 방지)
+// =============================================================================
+
+function isContextLimitStop(input) {
+  if (!input) return false;
+
+  try {
+    var data = typeof input === 'string' ? JSON.parse(input) : input;
+    var reason = (data.stop_reason || data.reason || '').toLowerCase();
+
+    var contextPatterns = ['context_limit', 'context_window', 'token_limit', 'max_tokens', 'compaction', 'context_exhausted'];
+    for (var i = 0; i < contextPatterns.length; i++) {
+      if (reason.indexOf(contextPatterns[i]) !== -1) {
+        return true;
+      }
+    }
+  } catch (e) {
+    // parse failure
+  }
+  return false;
 }
 
 // =============================================================================
@@ -120,12 +145,40 @@ async function main() {
     const rawInput = await readStdin();
     // Stop 이벤트는 input이 없을 수 있음
 
+    // Context-limit 감지 시 즉시 통과 (교착 방지)
+    if (isContextLimitStop(rawInput)) {
+      console.log(JSON.stringify({ continue: true }));
+      process.exit(0);
+    }
+
     const activeModes = checkActiveStates();
 
     // 활성 모드가 없으면 정상 종료 허용
     if (activeModes.length === 0) {
       console.log(JSON.stringify({ continue: true }));
       process.exit(0);
+    }
+
+    // 강화 카운트 업데이트 및 탈출 장치
+    for (const activeMode of activeModes) {
+      const stateFile = join(STATE_DIR, STATE_FILES[activeMode.mode]);
+      if (existsSync(stateFile)) {
+        try {
+          const state = JSON.parse(readFileSync(stateFile, 'utf-8'));
+          state.reinforcement_count = (state.reinforcement_count || 0) + 1;
+
+          // 탈출 장치: MAX_REINFORCEMENTS 초과 시 자동 비활성화
+          if (state.reinforcement_count > MAX_REINFORCEMENTS) {
+            state.active = false;
+            state.deactivatedReason = 'max_reinforcements_exceeded';
+            state.deactivatedAt = new Date().toISOString();
+          }
+
+          writeFileSync(stateFile, JSON.stringify(state, null, 2));
+        } catch (e) {
+          // 무시
+        }
+      }
     }
 
     // ralph 모드 검사 (가장 중요)
@@ -142,14 +195,17 @@ async function main() {
         console.log(
           JSON.stringify({
             continue: true,
-            message: `⚠️ **Ralph 모드 활성화 상태**
+            hookSpecificOutput: {
+              hookEventName: "Stop",
+              additionalContext: `⚠️ **Ralph 모드 활성화 상태**
 
 작업이 아직 완료되지 않았습니다.
 
 **미완료 검증 항목**: ${verification.missing.join(', ')}
 **반복 횟수**: ${ralphMode.iterations || 0}회${blockersStr}
 
-작업을 계속하시겠습니까? 강제 종료: \`cancel --force\``,
+작업을 계속하시겠습니까? 강제 종료: \`cancel --force\``
+            },
           })
         );
         process.exit(0);
@@ -165,12 +221,15 @@ async function main() {
       console.log(
         JSON.stringify({
           continue: true,
-          message: `ℹ️ **활성 모드 감지**
+          hookSpecificOutput: {
+            hookEventName: "Stop",
+            additionalContext: `ℹ️ **활성 모드 감지**
 
 다음 모드가 활성화되어 있습니다:
 ${modeList}
 
-종료하려면 \`cancel\` 명령을 사용하세요.`,
+종료하려면 \`cancel\` 명령을 사용하세요.`
+          },
         })
       );
       process.exit(0);

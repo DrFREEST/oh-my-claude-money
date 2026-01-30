@@ -177,6 +177,15 @@ export function renderProviderLimits(limits) {
     parts.push('G:' + color + tilde + percent + '%' + RESET);
   }
 
+  // Kimi
+  if (limits.kimi && limits.kimi.percent !== null && limits.kimi.percent !== undefined) {
+    const percent = limits.kimi.percent || 0;
+    const isLimited = limits.kimi.isLimited || false;
+    const color = getLimitColor(percent, isLimited);
+    const tilde = limits.kimi.isEstimated ? '~' : '';
+    parts.push('K:' + color + tilde + percent + '%' + RESET);
+  }
+
   if (parts.length === 0) {
     return null;
   }
@@ -207,6 +216,12 @@ export function renderProviderCounts(fusionState) {
   // Gemini - 항상 표시
   const gCount = typeof bp.gemini === 'number' ? bp.gemini : 0;
 
+  // Kimi - 있을 때만 표시
+  const kCount = typeof bp.kimi === 'number' ? bp.kimi : 0;
+
+  if (kCount > 0) {
+    return `C:${cCount}|O:${oCount}|G:${gCount}|K:${kCount}`;
+  }
   return `C:${cCount}|O:${oCount}|G:${gCount}`;
 }
 
@@ -293,6 +308,13 @@ export function renderProviderTokens(tokenData) {
   var gInput = formatTokens((tokenData.gemini && tokenData.gemini.input) || 0);
   var gOutput = formatTokens((tokenData.gemini && tokenData.gemini.output) || 0);
   parts.push(YELLOW + 'G' + RESET + ':' + gInput + '\u2191' + gOutput + '\u2193');
+
+  // Kimi (K:) - 토큰이 있을 때만 표시
+  if (tokenData.kimi && (tokenData.kimi.input > 0 || tokenData.kimi.output > 0)) {
+    var kInput = formatTokens(tokenData.kimi.input || 0);
+    var kOutput = formatTokens(tokenData.kimi.output || 0);
+    parts.push(RED + 'K' + RESET + ':' + kInput + '\u2191' + kOutput + '\u2193');
+  }
 
   if (parts.length === 0) {
     return null;

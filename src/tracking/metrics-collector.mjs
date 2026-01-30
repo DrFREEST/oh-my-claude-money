@@ -18,7 +18,8 @@ function getDefaultMetrics() {
     providers: {
       claude: { calls: 0, errors: 0, totalDuration: 0, estimatedTokens: 0 },
       openai: { calls: 0, errors: 0, totalDuration: 0, estimatedTokens: 0 },
-      gemini: { calls: 0, errors: 0, totalDuration: 0, estimatedTokens: 0 }
+      gemini: { calls: 0, errors: 0, totalDuration: 0, estimatedTokens: 0 },
+      kimi: { calls: 0, errors: 0, totalDuration: 0, estimatedTokens: 0 }
     },
     
     // Agent routing
@@ -27,13 +28,13 @@ function getDefaultMetrics() {
     // Token savings
     tokenSavings: {
       estimated: 0,
-      byProvider: { openai: 0, gemini: 0 }
+      byProvider: { openai: 0, gemini: 0, kimi: 0 }
     },
     
     // Error tracking
     errors: {
       total: 0,
-      byProvider: { claude: 0, openai: 0, gemini: 0 },
+      byProvider: { claude: 0, openai: 0, gemini: 0, kimi: 0 },
       byType: {}
     },
     
@@ -59,7 +60,8 @@ function normalizeProvider(provider) {
   if (lower === 'anthropic' || lower === 'claude') return 'claude';
   if (lower === 'openai' || lower === 'gpt') return 'openai';
   if (lower === 'google' || lower === 'gemini') return 'gemini';
-  
+  if (lower === 'kimi' || lower === 'kimi-for-coding' || lower === 'moonshot') return 'kimi';
+
   return 'claude';
 }
 
@@ -126,7 +128,7 @@ export class MetricsCollector {
           calls: 0,
           errors: 0,
           totalDuration: 0,
-          providers: { claude: 0, openai: 0, gemini: 0 }
+          providers: { claude: 0, openai: 0, gemini: 0, kimi: 0 }
         };
       }
       

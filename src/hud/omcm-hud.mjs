@@ -443,6 +443,7 @@ function aggregateOpenCodeTokens() {
   const result = {
     openai: { input: 0, output: 0, count: 0 },
     gemini: { input: 0, output: 0, count: 0 },
+    kimi: { input: 0, output: 0, count: 0 },
     anthropic: { input: 0, output: 0, count: 0 },
   };
 
@@ -475,6 +476,10 @@ function aggregateOpenCodeTokens() {
             result.gemini.input += inputTokens;
             result.gemini.output += outputTokens;
             result.gemini.count++;
+          } else if (provider === 'kimi' || provider === 'kimi-for-coding' || provider === 'moonshot') {
+            result.kimi.input += inputTokens;
+            result.kimi.output += outputTokens;
+            result.kimi.count++;
           } else if (provider === 'anthropic' || provider === 'claude') {
             result.anthropic.input += inputTokens;
             result.anthropic.output += outputTokens;
@@ -561,6 +566,9 @@ function aggregateOpenCodeTokens() {
             }
 
             let normalizedProvider = providerID;
+            if (providerID === 'kimi-for-coding' || providerID === 'kimi' || providerID === 'moonshot') {
+              normalizedProvider = 'kimi';
+            }
             if (providerID === 'opencode') {
               const modelLower = modelID.toLowerCase();
               if (modelLower.includes('gemini') || modelLower.includes('flash') || modelLower.includes('pro')) {
@@ -592,6 +600,10 @@ function aggregateOpenCodeTokens() {
               result.gemini.input += inputTokens;
               result.gemini.output += outputTokens;
               result.gemini.count++;
+            } else if (normalizedProvider === 'kimi') {
+              result.kimi.input += inputTokens;
+              result.kimi.output += outputTokens;
+              result.kimi.count++;
             } else if (normalizedProvider === 'anthropic') {
               result.anthropic.input += inputTokens;
               result.anthropic.output += outputTokens;
@@ -770,6 +782,7 @@ async function buildIndependentHud(stdinData) {
     claude: claudeTokens,
     openai: openCodeTokens.openai,
     gemini: openCodeTokens.gemini,
+    kimi: openCodeTokens.kimi,
   };
 
   const tokenOutput = renderProviderTokens(tokenData);
@@ -803,6 +816,7 @@ async function buildIndependentHud(stdinData) {
       anthropic: claudeCount,
       openai: openCodeTokens.openai.count,
       gemini: openCodeTokens.gemini.count,
+      kimi: openCodeTokens.kimi.count,
     }
   };
   const countsOutput = renderProviderCounts(sessionCounts);
@@ -880,6 +894,7 @@ async function main() {
           claude: claudeTokens,
           openai: openCodeTokens.openai,
           gemini: openCodeTokens.gemini,
+          kimi: openCodeTokens.kimi,
         };
 
         const tokenOutput = renderProviderTokens(tokenData);
@@ -892,6 +907,7 @@ async function main() {
             anthropic: claudeCount,
             openai: openCodeTokens.openai.count,
             gemini: openCodeTokens.gemini.count,
+            kimi: openCodeTokens.kimi.count,
           }
         };
         const countsOutput = renderProviderCounts(sessionCounts);

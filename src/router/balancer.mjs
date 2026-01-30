@@ -14,7 +14,8 @@
 const DEFAULT_PROVIDERS = {
   claude: { weight: 3, priority: 1 },
   openai: { weight: 2, priority: 2 },
-  gemini: { weight: 2, priority: 2 }
+  gemini: { weight: 2, priority: 2 },
+  kimi: { weight: 1, priority: 3 }
 };
 
 // =============================================================================

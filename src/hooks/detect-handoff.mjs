@@ -40,7 +40,7 @@ async function loadUtils() {
       modeKeywords: {
         ecomode: ['eco:', 'ecomode:', 'eco ', '효율', '절약', 'budget', 'save-tokens'],
         ralph: ['ralph:', 'ralph ', "don't stop", 'must complete', '끝까지', '완료할때까지', '멈추지마'],
-        cancel: ['cancel', 'stop', 'abort', '취소', '중지'],
+        cancel: ['cancelomc', 'stopomc', 'cancel', 'stop', 'abort', '취소', '중지'],
       },
     });
   }
@@ -151,14 +151,14 @@ function detectModeKeyword(prompt, modeKeywords) {
 // =============================================================================
 
 function saveModeState(mode, projectDir) {
-  const stateDir = join(homedir(), '.omcm/state');
+  const stateDir = join(homedir(), '.omc/state');
 
   try {
     if (!existsSync(stateDir)) {
       mkdirSync(stateDir, { recursive: true });
     }
 
-    const stateFile = join(stateDir, `${mode}.json`);
+    const stateFile = join(stateDir, `${mode}-state.json`);
     const state = {
       active: mode !== 'cancel',
       startedAt: new Date().toISOString(),
@@ -170,7 +170,7 @@ function saveModeState(mode, projectDir) {
     if (mode === 'cancel') {
       const modes = ['ralph', 'autopilot', 'ultrawork', 'ecomode', 'hulw', 'swarm', 'pipeline', 'ultrapilot', 'ultraqa'];
       for (const m of modes) {
-        const modeFile = join(stateDir, `${m}.json`);
+        const modeFile = join(stateDir, `${m}-state.json`);
         if (existsSync(modeFile)) {
           try {
             const modeState = JSON.parse(readFileSync(modeFile, 'utf-8'));
@@ -321,9 +321,12 @@ async function main() {
       console.log(
         JSON.stringify({
           continue: true,
-          message: `🎯 **${detectedMode.mode.toUpperCase()} 모드 감지**
+          hookSpecificOutput: {
+            hookEventName: "UserPromptSubmit",
+            additionalContext: `🎯 **${detectedMode.mode.toUpperCase()} 모드 감지**
 
-키워드 "${detectedMode.keyword}"로 ${detectedMode.mode} 모드가 활성화됩니다.`,
+키워드 "${detectedMode.keyword}"로 ${detectedMode.mode} 모드가 활성화됩니다.`
+          },
         })
       );
       process.exit(0);
@@ -339,7 +342,10 @@ async function main() {
         console.log(
           JSON.stringify({
             continue: true,
-            systemMessage: '[OMCM 토큰 절약 모드] 세션 입력 토큰 ' + Math.round(sessionInputTokens / 1000000) + 'M. ' + delegationPattern.suggestion + ' Task(subagent_type="oh-my-claudecode:' + delegationPattern.type + '")로 위임을 검토하세요.'
+            hookSpecificOutput: {
+              hookEventName: "UserPromptSubmit",
+              additionalContext: '[OMCM 토큰 절약 모드] 세션 입력 토큰 ' + Math.round(sessionInputTokens / 1000000) + 'M. ' + delegationPattern.suggestion + ' Task(subagent_type="oh-my-claudecode:' + delegationPattern.type + '")로 위임을 검토하세요.'
+            }
           })
         );
         process.exit(0);
@@ -350,7 +356,10 @@ async function main() {
         console.log(
           JSON.stringify({
             continue: true,
-            systemMessage: '[OMCM 토큰 절약 모드] 세션 입력 토큰 ' + Math.round(sessionInputTokens / 1000000) + 'M. 코드 탐색/분석/리서치 작업은 Task 에이전트에 위임하여 컨텍스트를 절약하세요.'
+            hookSpecificOutput: {
+              hookEventName: "UserPromptSubmit",
+              additionalContext: '[OMCM 토큰 절약 모드] 세션 입력 토큰 ' + Math.round(sessionInputTokens / 1000000) + 'M. 코드 탐색/분석/리서치 작업은 Task 에이전트에 위임하여 컨텍스트를 절약하세요.'
+            }
           })
         );
         process.exit(0);
@@ -370,7 +379,9 @@ async function main() {
       console.log(
         JSON.stringify({
           continue: true,
-          message: `🔄 **OpenCode 전환 감지**
+          hookSpecificOutput: {
+            hookEventName: "UserPromptSubmit",
+            additionalContext: `🔄 **OpenCode 전환 감지**
 
 키워드 "${detectedKeyword}"가 감지되었습니다.
 
@@ -384,7 +395,8 @@ cd ${projectDir} && /opt/oh-my-claude-money/scripts/handoff-to-opencode.sh
 또는 컨텍스트만 저장:
 \`\`\`bash
 /opt/oh-my-claude-money/scripts/export-context.sh
-\`\`\``,
+\`\`\``
+          },
         })
       );
       process.exit(0);
@@ -401,7 +413,9 @@ cd ${projectDir} && /opt/oh-my-claude-money/scripts/handoff-to-opencode.sh
       console.log(
         JSON.stringify({
           continue: true,
-          message: `⚠️ **사용량 임계치 도달**
+          hookSpecificOutput: {
+            hookEventName: "UserPromptSubmit",
+            additionalContext: `⚠️ **사용량 임계치 도달**
 
 ${typeLabel} 사용량이 **${thresholdCheck.percent}%**에 도달했습니다.
 
@@ -410,7 +424,8 @@ ${typeLabel} 사용량이 **${thresholdCheck.percent}%**에 도달했습니다.
 cd ${projectDir} && /opt/oh-my-claude-money/scripts/handoff-to-opencode.sh
 \`\`\`
 
-계속 사용하시려면 이 메시지를 무시하세요.`,
+계속 사용하시려면 이 메시지를 무시하세요.`
+          },
         })
       );
       process.exit(0);

@@ -56,11 +56,14 @@ async function main() {
       process.exit(0);
     }
 
-    // 위임 제안이 있으면 systemMessage에 추가
+    // 위임 제안이 있으면 hookSpecificOutput에 추가
     if (result && result.shouldSuggestDelegation && result.suggestion) {
       console.log(JSON.stringify({
         allow: true,
-        systemMessage: '[OMCM 토큰 절약 힌트] ' + result.suggestion
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          additionalContext: '[OMCM 토큰 절약 힌트] ' + result.suggestion
+        }
       }));
     } else {
       console.log(JSON.stringify({ allow: true }));

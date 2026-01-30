@@ -80,7 +80,7 @@ const MODE_DEFINITIONS = [
   {
     name: 'swarm',
     abbrev: 'SWM',
-    files: ['swarm-state.json'],
+    files: ['swarm-summary.json', 'swarm-state.json'],
     activeKey: 'active',
     color: '\x1b[34m', // Blue
   },

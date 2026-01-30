@@ -79,7 +79,7 @@ export function logOpenCodeCall(sessionId, callData) {
  * @returns {object} - { openai: number, gemini: number, anthropic: number, total: number, calls: Array }
  */
 export function getSessionCalls(sessionId, since) {
-  const result = { openai: 0, gemini: 0, anthropic: 0, total: 0, calls: [] };
+  const result = { openai: 0, gemini: 0, anthropic: 0, kimi: 0, total: 0, calls: [] };
   if (!sessionId) return result;
 
   const logFile = join(SESSIONS_DIR, sessionId, 'opencode-calls.jsonl');
@@ -109,6 +109,8 @@ export function getSessionCalls(sessionId, since) {
           result.gemini++;
         } else if (provider === 'anthropic' || provider === 'claude') {
           result.anthropic++;
+        } else if (provider === 'kimi' || provider === 'kimi-for-coding' || provider === 'moonshot') {
+          result.kimi++;
         }
       } catch (e) {
         // 개별 라인 파싱 실패 무시
@@ -129,7 +131,8 @@ export function getSessionCalls(sessionId, since) {
 export function aggregateSessionTokens(sessionId) {
   const result = {
     openai: { input: 0, output: 0, reasoning: 0, cost: 0, count: 0 },
-    gemini: { input: 0, output: 0, reasoning: 0, cost: 0, count: 0 }
+    gemini: { input: 0, output: 0, reasoning: 0, cost: 0, count: 0 },
+    kimi: { input: 0, output: 0, reasoning: 0, cost: 0, count: 0 }
   };
 
   if (!sessionId) return null;
@@ -159,6 +162,12 @@ export function aggregateSessionTokens(sessionId) {
       result.gemini.reasoning += reasoningT;
       result.gemini.cost += costT;
       result.gemini.count++;
+    } else if (provider === 'kimi' || provider === 'kimi-for-coding' || provider === 'moonshot') {
+      result.kimi.input += inputT;
+      result.kimi.output += outputT;
+      result.kimi.reasoning += reasoningT;
+      result.kimi.cost += costT;
+      result.kimi.count++;
     }
   }
 

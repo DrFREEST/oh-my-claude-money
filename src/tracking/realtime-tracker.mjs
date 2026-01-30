@@ -80,7 +80,7 @@ class TimeBucket {
   constructor() {
     this.routing = {
       total: 0,
-      byProvider: { claude: 0, openai: 0, gemini: 0 },
+      byProvider: { claude: 0, openai: 0, gemini: 0, kimi: 0 },
       byAgent: {}
     };
     this.performance = {
@@ -195,7 +195,8 @@ class TimeBucket {
     if (lower === 'anthropic' || lower === 'claude') return 'claude';
     if (lower === 'openai' || lower === 'gpt') return 'openai';
     if (lower === 'google' || lower === 'gemini') return 'gemini';
-    
+    if (lower === 'kimi' || lower === 'kimi-for-coding' || lower === 'moonshot') return 'kimi';
+
     return lower;
   }
 }

@@ -747,19 +747,11 @@ async function readStdin() {
  * Build independent HUD output (no OMC dependency)
  */
 async function buildIndependentHud(stdinData) {
-  const parts = [];
-
   // 1. Claude usage (5h/wk) - direct API call
   const usageOutput = await renderClaudeUsage();
-  if (usageOutput) {
-    parts.push(usageOutput);
-  }
 
   // 2. Mode status (ultrawork, ralph, etc.)
   const modeOutput = renderModeStatus();
-  if (modeOutput) {
-    parts.push(modeOutput);
-  }
 
   // 3. Token usage
   const claudeTokens = parseClaudeTokensFromStdin(stdinData);
@@ -786,28 +778,16 @@ async function buildIndependentHud(stdinData) {
   };
 
   const tokenOutput = renderProviderTokens(tokenData);
-  if (tokenOutput) {
-    parts.push(tokenOutput);
-  }
 
-  // 4. Fusion metrics (업데이트된 값 반영)
+  // 4. Fusion metrics
   const fusionState = readFusionState(currentSessionId);
   const fusionOutput = renderFusionMetrics(fusionState);
-  if (fusionOutput) {
-    parts.push(fusionOutput);
-  }
 
   // 5. 세션 분할 경고
   const splitWarning = renderSplitWarning(claudeTokens.input);
-  if (splitWarning) {
-    parts.push(splitWarning);
-  }
 
   // 6. 도구 사용 통계
   var toolStatsOutput = renderToolStats(currentSessionId);
-  if (toolStatsOutput) {
-    parts.push(toolStatsOutput);
-  }
 
   // 7. Provider counts
   const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
@@ -820,9 +800,6 @@ async function buildIndependentHud(stdinData) {
     }
   };
   const countsOutput = renderProviderCounts(sessionCounts);
-  if (countsOutput) {
-    parts.push(countsOutput);
-  }
 
   // 8. Fallback status
   let fallbackOutput = null;
@@ -832,9 +809,6 @@ async function buildIndependentHud(stdinData) {
     fallbackOutput = renderFallbackStatus(fallbackState);
   } catch (e) {
     // No fallback info
-  }
-  if (fallbackOutput) {
-    parts.push(fallbackOutput);
   }
 
   // Sync Claude usage to provider-limits
@@ -849,11 +823,29 @@ async function buildIndependentHud(stdinData) {
     }
   }
 
-  if (parts.length === 0) {
+  // 2줄 출력: Line1=상태, Line2=메트릭 (화면 깜빡임 방지)
+  const statusParts = [];  // 사용량, 모드, 퓨전, 폴백, 분할경고
+  const metricParts = [];  // 토큰, 카운트, 도구통계
+
+  if (usageOutput) statusParts.push(usageOutput);
+  if (modeOutput) statusParts.push(modeOutput);
+  if (fusionOutput) statusParts.push(fusionOutput);
+  if (fallbackOutput) statusParts.push(fallbackOutput);
+  if (splitWarning) statusParts.push(splitWarning);
+
+  if (tokenOutput) metricParts.push(tokenOutput);
+  if (countsOutput) metricParts.push(countsOutput);
+  if (toolStatsOutput) metricParts.push(toolStatsOutput);
+
+  if (statusParts.length === 0 && metricParts.length === 0) {
     return '[OMCM] run /fusion-setup to configure';
   }
 
-  return '[OMCM] ' + parts.join(' | ');
+  const line1 = '[OMCM] ' + (statusParts.length > 0 ? statusParts.join(' | ') : 'ready');
+  if (metricParts.length > 0) {
+    return line1 + '\n' + '       ' + metricParts.join(' | ');
+  }
+  return line1;
 }
 
 /**
@@ -921,31 +913,33 @@ async function main() {
           // No fallback info
         }
 
-        const extraParts = [];
-        if (tokenOutput) extraParts.push(tokenOutput);
-        if (fusionOutput) extraParts.push(fusionOutput);
-
         // 세션 분할 경고
         const splitWarning = renderSplitWarning(claudeTokens.input);
-        if (splitWarning) extraParts.push(splitWarning);
 
         // 도구 사용 통계
         var toolStatsOutput = renderToolStats(currentSessionId);
-        if (toolStatsOutput) extraParts.push(toolStatsOutput);
 
-        if (countsOutput) extraParts.push(countsOutput);
-        if (fallbackOutput) extraParts.push(fallbackOutput);
+        // 2줄 출력: Line1=OMC+상태, Line2=메트릭 (화면 깜빡임 방지)
+        const statusExtras = [];
+        if (fusionOutput) statusExtras.push(fusionOutput);
+        if (fallbackOutput) statusExtras.push(fallbackOutput);
+        if (splitWarning) statusExtras.push(splitWarning);
 
-        const extras = extraParts.join(' | ');
+        const metricExtras = [];
+        if (tokenOutput) metricExtras.push(tokenOutput);
+        if (countsOutput) metricExtras.push(countsOutput);
+        if (toolStatsOutput) metricExtras.push(toolStatsOutput);
 
-        let finalOutput = '';
-        if (extras) {
+        let finalOutput = omcOutput;
+        if (statusExtras.length > 0) {
           finalOutput = omcOutput.replace(
             /(\[OMC\])(\s*\|)?/,
-            '$1 | ' + extras + '$2'
+            '$1 | ' + statusExtras.join(' | ') + '$2'
           );
-        } else {
-          finalOutput = omcOutput;
+        }
+
+        if (metricExtras.length > 0) {
+          finalOutput += '\n       ' + metricExtras.join(' | ');
         }
 
         console.log(finalOutput);

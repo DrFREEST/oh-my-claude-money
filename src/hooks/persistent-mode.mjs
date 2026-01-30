@@ -8,7 +8,7 @@
  * @since v0.7.0
  */
 
-import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
@@ -16,7 +16,7 @@ import { join } from 'path';
 // 상태 파일 경로 정의
 // =============================================================================
 
-const STATE_DIR = join(homedir(), '.omcm/state');
+const STATE_DIR = join(homedir(), '.omc/state');
 
 const STATE_FILES = {
   ralph: 'ralph-state.json',

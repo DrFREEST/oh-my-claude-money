@@ -90,6 +90,9 @@ export class OpenCodeWorker {
         success: false,
         workerId: this.id,
         error: error.message,
+        partialOutput: error.partialOutput || '',
+        isTimeout: error.isTimeout || false,
+        contextLimitHit: /context.*(limit|length|window)|token limit/i.test(error.message),
         duration: this.endTime - this.startTime,
       };
     } finally {
@@ -128,7 +131,9 @@ export class OpenCodeWorker {
         if (code === 0) {
           resolve(stdout.trim());
         } else {
-          reject(new Error(`OpenCode exited with code ${code}: ${stderr}`));
+          const err = new Error(`OpenCode exited with code ${code}: ${stderr}`);
+          err.partialOutput = stdout.trim();
+          reject(err);
         }
       });
 
@@ -141,7 +146,10 @@ export class OpenCodeWorker {
         try {
           proc.kill('SIGTERM');
         } catch {}
-        reject(new Error(`OpenCode timeout after ${this.timeout}ms`));
+        const err = new Error(`OpenCode timeout after ${this.timeout}ms`);
+        err.partialOutput = stdout.trim();
+        err.isTimeout = true;
+        reject(err);
       }, this.timeout);
     });
   }

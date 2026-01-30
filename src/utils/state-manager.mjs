@@ -36,6 +36,9 @@ export const STATE_FILES = {
   // 추적/메트릭
   METRICS: 'metrics.json',
   ROUTING_CACHE: 'routing-cache.json',
+
+  // 컨텍스트 복구
+  CONTEXT_RECOVERY: 'context-recovery',
 };
 
 // =============================================================================

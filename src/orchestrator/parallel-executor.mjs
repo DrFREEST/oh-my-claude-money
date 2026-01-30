@@ -9,6 +9,11 @@ import { routeTask, planParallelDistribution } from './task-router.mjs';
 import { selectStrategy, buildExecutionOptions, analyzeTask } from './execution-strategy.mjs';
 import { executeOpenCode } from '../executor/opencode-executor.mjs';
 import { OpenCodeServerPool, getDefaultPool, shutdownDefaultPool } from '../executor/opencode-server-pool.mjs';
+import {
+  isContextLimitError,
+  attemptContextLimitRecovery,
+  _updateStats,
+} from './context-limit-handler.mjs';
 
 // =============================================================================
 // 병렬 실행 가능 여부 판단
@@ -151,6 +156,10 @@ export class ParallelExecutor {
     this.results = [];
     this.errors = [];
     this.cancelled = false;
+
+    // 컨텍스트 제한 복구
+    this.contextLimitRecovery = options.contextLimitRecovery !== false;
+    this.recoveryStats = { detected: 0, recovered: 0, failed: 0 };
 
     // 서버 풀 (Cold boot 최소화)
     this.serverPool = null;
@@ -422,6 +431,53 @@ export class ParallelExecutor {
       return result;
 
     } catch (err) {
+      // 컨텍스트 제한 복구 시도
+      if (this.contextLimitRecovery && isContextLimitError(err.message, err.partialOutput)) {
+        this.recoveryStats.detected++;
+        _updateStats('detected');
+
+        try {
+          var self = this;
+          var recoveryResult = await attemptContextLimitRecovery(
+            {
+              task: task,
+              errorMsg: err.message,
+              output: err.partialOutput || '',
+            },
+            function(retryTask) {
+              return self._executeRetryTask(retryTask);
+            }
+          );
+
+          if (recoveryResult.recovered) {
+            this.recoveryStats.recovered++;
+            _updateStats('recovered');
+            this.status.completed++;
+
+            var successResult = {
+              success: true,
+              output: recoveryResult.result,
+              route: 'recovered',
+              recoveryMethod: recoveryResult.recoveryMethod,
+              task: task
+            };
+
+            this.results.push(successResult);
+
+            if (this.onTaskComplete) {
+              this.onTaskComplete(task, successResult);
+            }
+
+            return successResult;
+          }
+        } catch (recoveryErr) {
+          // 복구 자체가 실패 → 아래 기존 에러 처리로 이동
+        }
+
+        this.recoveryStats.failed++;
+        _updateStats('failed');
+      }
+
       // 실패 처리
       this.status.failed++;
 
@@ -500,6 +556,21 @@ export class ParallelExecutor {
       route: 'claude',
       agent: task.type
     };
+  }
+
+  /**
+   * 복구용 재시도 작업 실행
+   *
+   * @private
+   */
+  async _executeRetryTask(retryTask) {
+    var routing = routeTask(retryTask.type || 'executor');
+
+    if (routing.target === 'opencode') {
+      return await this._executeOpenCodeTask(retryTask, routing);
+    } else {
+      return await this._executeClaudeTask(retryTask);
+    }
   }
 
   /**
@@ -639,7 +710,8 @@ export class ParallelExecutor {
       duration: duration,
       avgTaskDuration: this.status.completed > 0
         ? Math.round(duration / this.status.completed)
-        : 0
+        : 0,
+      recoveryStats: this.recoveryStats
     };
   }
 

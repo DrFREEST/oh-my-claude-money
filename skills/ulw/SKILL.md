@@ -91,3 +91,29 @@ ulw는 **사용량에 따라 자동으로 퓨전 모드를 결정**합니다:
 | 적합한 상황 | 일반 작업 | 토큰 절약이 항상 필요할 때 |
 
 **핵심**: Task를 호출하기만 하면 OMCM이 사용량과 설정에 따라 자동으로 라우팅합니다!
+
+## 컨텍스트 제한 복구
+
+ulw 모드에서 병렬 워커가 컨텍스트 리밋에 도달하면 자동 복구가 동작합니다:
+
+### 감지 패턴
+
+다음 에러 메시지가 감지되면 복구 시작:
+- `context limit reached`, `context window exceeded`
+- `maximum context length`, `token limit exceeded`
+- `conversation is too long`, `context_length_exceeded`
+
+### 복구 흐름
+
+```
+실패 감지 → 부분 결과 저장 (.omcm/state/context-recovery/)
+  → Phase 1: 프롬프트 축소 + 재시도 (최대 2회, 60% → 45% 압축)
+  → Phase 2: 작업 분할 + 서브태스크 개별 실행
+  → 최종: 부분 결과만이라도 반환 (데이터 손실 없음)
+```
+
+### 결과 확인
+
+- 복구 성공 시: 결과에 `recoveryMethod` 필드 포함
+- 부분 결과: `.omcm/state/context-recovery/{taskId}.json`에 저장
+- 통계: `getStats()` 반환값에 `recoveryStats` 포함

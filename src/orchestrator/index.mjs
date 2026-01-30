@@ -19,3 +19,6 @@ export * from './fusion-orchestrator.mjs';
 
 // 폴백 오케스트레이터
 export * from './fallback-orchestrator.mjs';
+
+// 컨텍스트 제한 복구
+export * from './context-limit-handler.mjs';

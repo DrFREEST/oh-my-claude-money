@@ -106,6 +106,33 @@ Claude 토큰을 최대한 절약하면서 OpenCode+OMO의 성능을 활용합�
 - 5시간/주간 사용량 70% 이상 → 자동으로 hulw 모드 권장
 - 90% 이상 → OpenCode 중심 모드로 강제 전환
 
+## 컨텍스트 제한 복구
+
+hulw 모드에서 워커가 컨텍스트 리밋에 도달하면 자동 복구가 동작합니다:
+
+### 감지 패턴
+
+다음 에러 메시지가 감지되면 복구 시작:
+- `context limit reached`, `context window exceeded`
+- `maximum context length`, `token limit exceeded`
+- `conversation is too long`, `context_length_exceeded`
+
+### 복구 흐름
+
+```
+실패 감지 → 부분 결과 저장 (.omcm/state/context-recovery/)
+  → Phase 1: 프롬프트 축소 + 같은 에이전트로 재시도 (최대 2회)
+  → Phase 2: OpenCode 폴백 (Claude에서 실패 시)
+  → Phase 3: 작업 분할 + 서브태스크 개별 실행
+  → 최종: 부분 결과만이라도 반환 (데이터 손실 없음)
+```
+
+### 결과 확인
+
+- 복구 성공 시: `recovered: true`, `recoveryMethod` 필드 포함
+- 부분 결과: `.omcm/state/context-recovery/{taskId}.json`에 저장
+- 통계: `getRecoveryStats()` → `{ detected, recovered, failed }`
+
 ## 주의사항
 
 - OpenCode 프로바이더 인증이 필요합니다 (OPENAI_API_KEY, GOOGLE_API_KEY)

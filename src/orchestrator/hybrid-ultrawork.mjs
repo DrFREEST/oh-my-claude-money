@@ -9,6 +9,12 @@ import { planParallelDistribution, getRoutingSummary, isOpenCodeAvailable } from
 import { OpenCodeServerPool } from '../executor/opencode-server-pool.mjs';
 import { getUsageFromCache, getUsageLevel } from '../utils/usage.mjs';
 import { loadConfig } from '../utils/config.mjs';
+import {
+  isContextLimitError,
+  savePartialResult,
+  compressPrompt,
+  _updateStats,
+} from './context-limit-handler.mjs';
 
 // =============================================================================
 // 하이브리드 울트라워크 클래스
@@ -96,6 +102,41 @@ export class HybridUltrawork {
             this.stats.claudeTasks++;
             return { success: true, task, result };
           } catch (error) {
+            // 컨텍스트 제한 감지 → OpenCode 폴백 시도
+            if (isContextLimitError(error.message, '')) {
+              _updateStats('detected');
+              const taskId = task.id || `hulw-claude-${Date.now()}`;
+              savePartialResult(taskId, {
+                partialOutput: error.partialOutput || '',
+                completionEstimate: 0,
+                task,
+                errorMsg: error.message,
+              });
+
+              // OpenCode 폴백
+              if (this.opencodePool) {
+                try {
+                  const compressed = compressPrompt(this._buildOpenCodePrompt(task), { maxLength: 6000 });
+                  const fallbackResult = await this.opencodePool.execute(compressed, { enableUltrawork: true });
+                  this.stats.opencodeTasks++;
+                  _updateStats('recovered');
+                  return {
+                    success: true,
+                    task,
+                    result: fallbackResult,
+                    recovered: true,
+                    recoveryMethod: 'opencode-fallback',
+                  };
+                } catch (fallbackErr) {
+                  _updateStats('failed');
+                  // 폴백도 실패 → 아래 기존 에러 처리
+                }
+              }
+
+              results.errors.push({ task, error: error.message, contextLimitHit: true });
+              return { success: false, task, error: error.message, contextLimitHit: true };
+            }
+
             results.errors.push({ task, error: error.message });
             return { success: false, task, error: error.message };
           }

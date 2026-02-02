@@ -471,6 +471,32 @@ describe('fusion-router-logic', () => {
       assert.strictEqual(state.byProvider.anthropic, 0);
     });
 
+    it('OpenCode 라우팅 시 통계 업데이트 (Kimi)', () => {
+      const decision = {
+        route: true,
+        reason: 'claude-limit-95%',
+        targetModel: { id: 'moonshot-v1', name: 'Moonshot v1' },
+        opencodeAgent: 'Codex'
+      };
+      const result = { success: true, tokens: { providerID: 'moonshot', input: 200, output: 100 } };
+      const initialState = {
+        enabled: true,
+        mode: 'balanced',
+        totalTasks: 0,
+        routedToOpenCode: 0,
+        routingRate: 0,
+        estimatedSavedTokens: 0,
+        byProvider: { gemini: 0, openai: 0, anthropic: 0 }
+      };
+
+      const state = updateFusionState(decision, result, initialState);
+
+      assert.strictEqual(state.totalTasks, 1);
+      assert.strictEqual(state.routedToOpenCode, 1);
+      assert.strictEqual(state.estimatedSavedTokens, 300);
+      assert.strictEqual(state.byProvider.kimi, 1);
+    });
+
     it('Claude 실행 시 통계 업데이트', () => {
       const decision = {
         route: false,
@@ -495,6 +521,31 @@ describe('fusion-router-logic', () => {
       assert.strictEqual(state.estimatedSavedTokens, 0);
       assert.strictEqual(state.byProvider.gemini, 0);
       assert.strictEqual(state.byProvider.openai, 0);
+      assert.strictEqual(state.byProvider.anthropic, 1);
+    });
+
+    it('OpenCode 실패 시 Claude로 카운트', () => {
+      const decision = {
+        route: true,
+        reason: 'claude-limit-95%',
+        targetModel: { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
+        opencodeAgent: 'Codex'
+      };
+      const result = { success: false };
+      const initialState = {
+        enabled: true,
+        mode: 'balanced',
+        totalTasks: 0,
+        routedToOpenCode: 0,
+        routingRate: 0,
+        estimatedSavedTokens: 0,
+        byProvider: { gemini: 0, openai: 0, anthropic: 0 }
+      };
+
+      const state = updateFusionState(decision, result, initialState);
+
+      assert.strictEqual(state.totalTasks, 1);
+      assert.strictEqual(state.routedToOpenCode, 0);
       assert.strictEqual(state.byProvider.anthropic, 1);
     });
 

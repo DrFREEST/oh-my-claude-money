@@ -39,9 +39,10 @@ export function logOpenCodeCall(sessionId, callData) {
   }
 
   const logFile = join(sessionDir, 'opencode-calls.jsonl');
+  const normalizedProvider = callData.actualProviderID || callData.provider || 'unknown';
   const entry = {
     timestamp: new Date().toISOString(),
-    provider: callData.provider || 'unknown',
+    provider: normalizedProvider,
     model: callData.model || '',
     agent: callData.agent || '',
     // 실제 토큰 데이터 (서버 풀 HTTP API에서 획득, 우선)
@@ -103,6 +104,22 @@ export function getSessionCalls(sessionId, since) {
         result.total++;
 
         var provider = entry.provider || '';
+        if ((!provider || provider === 'unknown' || provider === 'opencode') && entry.actualProviderID) {
+          provider = entry.actualProviderID;
+        }
+        if (provider === 'opencode') {
+          var modelHint = entry.actualModelID || entry.model || '';
+          var modelLower = String(modelHint).toLowerCase();
+          if (modelLower.indexOf('gemini') !== -1 || modelLower.indexOf('flash') !== -1 || modelLower.indexOf('pro') !== -1) {
+            provider = 'gemini';
+          } else if (modelLower.indexOf('gpt') !== -1 || modelLower.indexOf('o1') !== -1 || modelLower.indexOf('codex') !== -1) {
+            provider = 'openai';
+          } else if (modelLower.indexOf('kimi') !== -1 || modelLower.indexOf('moonshot') !== -1) {
+            provider = 'kimi';
+          } else if (modelLower.indexOf('claude') !== -1 || modelLower.indexOf('sonnet') !== -1 || modelLower.indexOf('opus') !== -1 || modelLower.indexOf('haiku') !== -1) {
+            provider = 'anthropic';
+          }
+        }
         if (provider === 'openai' || provider === 'gpt') {
           result.openai++;
         } else if (provider === 'gemini' || provider === 'google') {
@@ -143,6 +160,22 @@ export function aggregateSessionTokens(sessionId) {
   for (var i = 0; i < calls.calls.length; i++) {
     var call = calls.calls[i];
     var provider = call.provider || '';
+    if ((!provider || provider === 'unknown' || provider === 'opencode') && call.actualProviderID) {
+      provider = call.actualProviderID;
+    }
+    if (provider === 'opencode') {
+      var modelHint = call.actualModelID || call.model || '';
+      var modelLower = String(modelHint).toLowerCase();
+      if (modelLower.indexOf('gemini') !== -1 || modelLower.indexOf('flash') !== -1 || modelLower.indexOf('pro') !== -1) {
+        provider = 'gemini';
+      } else if (modelLower.indexOf('gpt') !== -1 || modelLower.indexOf('o1') !== -1 || modelLower.indexOf('codex') !== -1) {
+        provider = 'openai';
+      } else if (modelLower.indexOf('kimi') !== -1 || modelLower.indexOf('moonshot') !== -1) {
+        provider = 'kimi';
+      } else if (modelLower.indexOf('claude') !== -1 || modelLower.indexOf('sonnet') !== -1 || modelLower.indexOf('opus') !== -1 || modelLower.indexOf('haiku') !== -1) {
+        provider = 'anthropic';
+      }
+    }
 
     // 실제 토큰 데이터 우선, 레거시 추정값 폴백
     var inputT = call.inputTokens || call.estimatedInputTokens || 0;

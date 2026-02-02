@@ -236,7 +236,7 @@ export function getFusionState() {
       routedToOpenCode: 0,
       routingRate: 0,
       estimatedSavedTokens: 0,
-      byProvider: { gemini: 0, openai: 0, anthropic: 0 },
+      byProvider: { gemini: 0, openai: 0, anthropic: 0, kimi: 0 },
     }
   });
 }

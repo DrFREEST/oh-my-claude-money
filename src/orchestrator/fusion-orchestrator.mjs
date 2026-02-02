@@ -348,12 +348,18 @@ export class FusionOrchestrator {
     const agent = OPENCODE_AGENTS[agentName];
     if (!agent) return 'unknown';
 
-    const model = agent.model || '';
+    const model = (agent.model || '').toLowerCase();
     if (model.includes('gemini') || model.includes('google')) {
       return 'gemini';
     }
     if (model.includes('gpt') || model.includes('openai')) {
       return 'openai';
+    }
+    if (model.includes('kimi') || model.includes('moonshot')) {
+      return 'kimi';
+    }
+    if (model.includes('claude') || model.includes('anthropic')) {
+      return 'anthropic';
     }
     return 'unknown';
   }

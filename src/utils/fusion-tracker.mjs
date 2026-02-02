@@ -37,13 +37,15 @@ function getDefaultState() {
     actualTokens: {
       claude: { input: 0, output: 0 },
       openai: { input: 0, output: 0 },
-      gemini: { input: 0, output: 0 }
+      gemini: { input: 0, output: 0 },
+      kimi: { input: 0, output: 0 }
     },
     savingsRate: 0,
     byProvider: {
       gemini: 0,
       openai: 0,
-      anthropic: 0
+      anthropic: 0,
+      kimi: 0
     },
     lastUpdated: new Date().toISOString()
   };
@@ -88,7 +90,7 @@ export function writeFusionState(state, sessionId = null) {
 /**
  * 작업 라우팅 기록
  * @param {string} target - 라우팅 대상 ('opencode' 또는 'claude')
- * @param {string} provider - 프로바이더 ('gemini', 'openai', 'anthropic')
+ * @param {string} provider - 프로바이더 ('gemini', 'openai', 'anthropic', 'kimi')
  * @param {number} savedTokens - 절약된 토큰 수
  * @param {string|null} sessionId - 세션 ID (선택적)
  * @returns {object} 업데이트된 상태
@@ -99,6 +101,14 @@ export function recordRouting(target, provider, savedTokens, sessionId = null) {
     state = getDefaultState();
   }
 
+  if (!state.byProvider) {
+    state.byProvider = { gemini: 0, openai: 0, anthropic: 0, kimi: 0 };
+  }
+  if (typeof state.byProvider.gemini !== 'number') state.byProvider.gemini = 0;
+  if (typeof state.byProvider.openai !== 'number') state.byProvider.openai = 0;
+  if (typeof state.byProvider.anthropic !== 'number') state.byProvider.anthropic = 0;
+  if (typeof state.byProvider.kimi !== 'number') state.byProvider.kimi = 0;
+
   state.totalTasks++;
 
   if (target === 'opencode') {
@@ -108,6 +118,12 @@ export function recordRouting(target, provider, savedTokens, sessionId = null) {
     if (provider === 'gemini' || provider === 'google') {
       state.byProvider.gemini++;
     } else if (provider === 'openai' || provider === 'gpt') {
+      state.byProvider.openai++;
+    } else if (provider === 'kimi' || provider === 'kimi-for-coding' || provider === 'moonshot') {
+      state.byProvider.kimi++;
+    } else if (provider === 'anthropic' || provider === 'claude') {
+      state.byProvider.anthropic++;
+    } else {
       state.byProvider.openai++;
     }
   } else {
@@ -162,11 +178,20 @@ export function setFusionEnabled(enabled, sessionId = null) {
  * @param {Object} claudeTokens - { input: number, output: number }
  * @param {Object} openaiTokens - { input: number, output: number }
  * @param {Object} geminiTokens - { input: number, output: number }
+ * @param {Object} kimiTokens - { input: number, output: number }
  * @param {string|null} sessionId - 세션 ID (선택적)
  * @returns {Object} 업데이트된 상태
  */
-export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens, sessionId = null) {
-  let state = readFusionState(sessionId);
+export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens, kimiTokens, sessionId = null) {
+  // 레거시 시그니처 호환: (claude, openai, gemini, sessionId)
+  let actualSessionId = sessionId;
+  let actualKimiTokens = kimiTokens;
+  if (actualSessionId === null && typeof kimiTokens === 'string') {
+    actualSessionId = kimiTokens;
+    actualKimiTokens = null;
+  }
+
+  let state = readFusionState(actualSessionId);
   if (!state) {
     state = getDefaultState();
   }
@@ -176,24 +201,40 @@ export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens
     state.actualTokens = {
       claude: { input: 0, output: 0 },
       openai: { input: 0, output: 0 },
-      gemini: { input: 0, output: 0 }
+      gemini: { input: 0, output: 0 },
+      kimi: { input: 0, output: 0 }
     };
+  }
+  if (!state.actualTokens.claude) {
+    state.actualTokens.claude = { input: 0, output: 0 };
+  }
+  if (!state.actualTokens.openai) {
+    state.actualTokens.openai = { input: 0, output: 0 };
+  }
+  if (!state.actualTokens.gemini) {
+    state.actualTokens.gemini = { input: 0, output: 0 };
+  }
+  if (!state.actualTokens.kimi) {
+    state.actualTokens.kimi = { input: 0, output: 0 };
   }
 
   // 현재 세션 토큰으로 대체 (누적 X, 세션 값 그대로)
   // Claude: stdin에서 현재 세션 누적값
   // OpenCode: 세션 시작 이후 집계값
-  state.actualTokens.claude.input = claudeTokens.input || 0;
-  state.actualTokens.claude.output = claudeTokens.output || 0;
-  state.actualTokens.openai.input = openaiTokens.input || 0;
-  state.actualTokens.openai.output = openaiTokens.output || 0;
-  state.actualTokens.gemini.input = geminiTokens.input || 0;
-  state.actualTokens.gemini.output = geminiTokens.output || 0;
+  state.actualTokens.claude.input = Number(claudeTokens && claudeTokens.input) || 0;
+  state.actualTokens.claude.output = Number(claudeTokens && claudeTokens.output) || 0;
+  state.actualTokens.openai.input = Number(openaiTokens && openaiTokens.input) || 0;
+  state.actualTokens.openai.output = Number(openaiTokens && openaiTokens.output) || 0;
+  state.actualTokens.gemini.input = Number(geminiTokens && geminiTokens.input) || 0;
+  state.actualTokens.gemini.output = Number(geminiTokens && geminiTokens.output) || 0;
+  state.actualTokens.kimi.input = Number(actualKimiTokens && actualKimiTokens.input) || 0;
+  state.actualTokens.kimi.output = Number(actualKimiTokens && actualKimiTokens.output) || 0;
 
   // 절약 토큰 계산 (OpenCode 사용량 = Claude 대신 사용된 양)
   const totalOpenCode =
     state.actualTokens.openai.input + state.actualTokens.openai.output +
-    state.actualTokens.gemini.input + state.actualTokens.gemini.output;
+    state.actualTokens.gemini.input + state.actualTokens.gemini.output +
+    state.actualTokens.kimi.input + state.actualTokens.kimi.output;
 
   const totalClaude =
     state.actualTokens.claude.input + state.actualTokens.claude.output;
@@ -203,7 +244,7 @@ export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens
   state.estimatedSavedTokens = totalOpenCode;
   state.savingsRate = total > 0 ? Math.round((totalOpenCode / total) * 100) : 0;
 
-  writeFusionState(state, sessionId);
+  writeFusionState(state, actualSessionId);
   return state;
 }
 

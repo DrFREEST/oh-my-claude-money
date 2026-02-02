@@ -587,8 +587,13 @@ function aggregateOpenCodeTokens() {
             let outputTokens = 0;
 
             if (tokens) {
-              const cacheRead = (tokens.cache && tokens.cache.read) || 0;
-              inputTokens = (tokens.input || 0) + cacheRead;
+              let cacheRead = 0;
+              let cacheCreate = 0;
+              if (tokens.cache) {
+                cacheRead = tokens.cache.read || 0;
+                cacheCreate = tokens.cache.create || tokens.cache.write || 0;
+              }
+              inputTokens = (tokens.input || 0) + cacheRead + cacheCreate;
               outputTokens = tokens.output || 0;
             }
 
@@ -768,7 +773,7 @@ async function buildIndependentHud(stdinData) {
   } catch (e) { /* 무시 */ }
 
   // 실제 토큰 기반 절약율 업데이트
-  updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini, currentSessionId);
+  updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini, openCodeTokens.kimi, currentSessionId);
 
   const tokenData = {
     claude: claudeTokens,
@@ -880,7 +885,7 @@ async function main() {
         } catch (e) { /* 무시 */ }
 
         // 실제 토큰 기반 절약율 업데이트
-        updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini, currentSessionId);
+        updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini, openCodeTokens.kimi, currentSessionId);
 
         const tokenData = {
           claude: claudeTokens,

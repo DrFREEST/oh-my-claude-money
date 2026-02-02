@@ -409,6 +409,97 @@ export function wrapWithUlwCommand(prompt) {
   return '/ulw ' + prompt;
 }
 
+// =============================================================================
+// Provider/Token helpers
+// =============================================================================
+
+/**
+ * providerId/modelId/agentName 기반으로 프로바이더 정규화
+ * @param {string} providerId
+ * @param {string} modelId
+ * @param {string} agentName
+ * @returns {string} 'openai' | 'gemini' | 'anthropic' | 'kimi'
+ */
+function normalizeProvider(providerId, modelId, agentName) {
+  var provider = '';
+
+  if (providerId) {
+    var pid = String(providerId).toLowerCase();
+    if (pid === 'google' || pid === 'gemini') return 'gemini';
+    if (pid === 'openai' || pid === 'gpt') return 'openai';
+    if (pid === 'anthropic' || pid === 'claude') return 'anthropic';
+    if (pid === 'kimi' || pid === 'kimi-for-coding' || pid === 'moonshot') return 'kimi';
+    if (pid === 'opencode') {
+      var mid = String(modelId || '').toLowerCase();
+      if (mid.indexOf('gemini') !== -1 || mid.indexOf('flash') !== -1 || mid.indexOf('pro') !== -1) {
+        return 'gemini';
+      }
+      if (mid.indexOf('gpt') !== -1 || mid.indexOf('o1') !== -1 || mid.indexOf('codex') !== -1) {
+        return 'openai';
+      }
+      if (mid.indexOf('claude') !== -1 || mid.indexOf('sonnet') !== -1 || mid.indexOf('opus') !== -1 || mid.indexOf('haiku') !== -1) {
+        return 'anthropic';
+      }
+    }
+  }
+
+  if (agentName) {
+    var agentHint = String(agentName).toLowerCase();
+    if (agentHint.indexOf('flash') !== -1) return 'gemini';
+  }
+
+  if (modelId) {
+    var midFallback = String(modelId).toLowerCase();
+    if (midFallback.indexOf('gemini') !== -1 || midFallback.indexOf('flash') !== -1 || midFallback.indexOf('pro') !== -1) {
+      return 'gemini';
+    }
+    if (midFallback.indexOf('gpt') !== -1 || midFallback.indexOf('o1') !== -1 || midFallback.indexOf('codex') !== -1) {
+      return 'openai';
+    }
+    if (midFallback.indexOf('claude') !== -1 || midFallback.indexOf('sonnet') !== -1 || midFallback.indexOf('opus') !== -1 || midFallback.indexOf('haiku') !== -1) {
+      return 'anthropic';
+    }
+    if (midFallback.indexOf('kimi') !== -1 || midFallback.indexOf('moonshot') !== -1) {
+      return 'kimi';
+    }
+  }
+
+  if (agentName) {
+    var agentLower = String(agentName).toLowerCase();
+    if (agentLower.indexOf('flash') !== -1) return 'gemini';
+    if (agentLower.indexOf('oracle') !== -1 || agentLower.indexOf('codex') !== -1) return 'openai';
+  }
+
+  return 'openai';
+}
+
+/**
+ * OpenCode 결과에서 실제 토큰 사용량 추출
+ * @param {object|null} result
+ * @returns {number} 실제 토큰 합계 (input + cache + output)
+ */
+function getActualTokenTotal(result) {
+  if (!result || !result.tokens) return 0;
+
+  var inputTokens = result.tokens.input || 0;
+  var outputTokens = result.tokens.output || 0;
+  var cacheRead = 0;
+  var cacheCreate = 0;
+
+  if (result.tokens.cache) {
+    cacheRead = result.tokens.cache.read || 0;
+    cacheCreate = result.tokens.cache.create || result.tokens.cache.write || 0;
+  }
+  if (typeof result.tokens.cacheRead === 'number') {
+    cacheRead = result.tokens.cacheRead;
+  }
+  if (typeof result.tokens.cacheCreate === 'number') {
+    cacheCreate = result.tokens.cacheCreate;
+  }
+
+  return inputTokens + cacheRead + cacheCreate + outputTokens;
+}
+
 /**
  * 퓨전 상태 업데이트
  * @param {object} decision - 라우팅 결정
@@ -419,6 +510,12 @@ export function wrapWithUlwCommand(prompt) {
  */
 export function updateFusionState(decision, result, sessionId = null, currentState = null) {
   ensureOmcmDir();
+
+  // 테스트 호환: sessionId 자리에 currentState 객체가 전달된 경우
+  if (sessionId && typeof sessionId === 'object' && currentState === null) {
+    currentState = sessionId;
+    sessionId = null;
+  }
 
   // 세션별 또는 글로벌 상태 파일 경로 결정
   var stateFile = FUSION_STATE_FILE;
@@ -439,33 +536,89 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
       routedToOpenCode: 0,
       routingRate: 0,
       estimatedSavedTokens: 0,
-      byProvider: { gemini: 0, openai: 0, anthropic: 0 },
+      byProvider: { gemini: 0, openai: 0, anthropic: 0, kimi: 0 },
       sessionId: sessionId
     };
   }
 
-  state.totalTasks++;
+  if (!state.byProvider) {
+    state.byProvider = { gemini: 0, openai: 0, anthropic: 0, kimi: 0 };
+  }
+  if (typeof state.byProvider.gemini !== 'number') state.byProvider.gemini = 0;
+  if (typeof state.byProvider.openai !== 'number') state.byProvider.openai = 0;
+  if (typeof state.byProvider.anthropic !== 'number') state.byProvider.anthropic = 0;
+  if (typeof state.byProvider.kimi !== 'number') state.byProvider.kimi = 0;
 
-  if (decision.route) {
-    state.routedToOpenCode++;
-    state.estimatedSavedTokens += 1000;
-
-    var model = decision.targetModel ? decision.targetModel.id : '';
-    var agent = decision.opencodeAgent || '';
-
-    if (model.indexOf('gemini') !== -1 || agent === 'Flash') {
-      state.byProvider.gemini++;
-    } else if (model.indexOf('gpt') !== -1 || model.indexOf('codex') !== -1) {
-      state.byProvider.openai++;
-    }
-  } else {
-    state.byProvider.anthropic++;
+  // 실제 OpenCode 실행 성공 여부 판단
+  var routeRequested = decision && decision.route === true;
+  var openCodeSucceeded = routeRequested;
+  if (routeRequested && result && result.success === false) {
+    openCodeSucceeded = false;
   }
 
-  state.routingRate = state.totalTasks > 0
-    ? Math.round((state.routedToOpenCode / state.totalTasks) * 100)
-    : 0;
-  state.lastUpdated = new Date().toISOString();
+  // 업데이트 적용 함수
+  function applyUpdate(targetState, didOpenCode, providerName, savedTokens) {
+    targetState.totalTasks++;
+
+    if (didOpenCode) {
+      targetState.routedToOpenCode++;
+      targetState.estimatedSavedTokens += savedTokens;
+
+      if (providerName === 'gemini') {
+        targetState.byProvider.gemini++;
+      } else if (providerName === 'openai') {
+        targetState.byProvider.openai++;
+      } else if (providerName === 'kimi') {
+        targetState.byProvider.kimi++;
+      } else if (providerName === 'anthropic') {
+        targetState.byProvider.anthropic++;
+      } else {
+        targetState.byProvider.openai++;
+      }
+    } else {
+      targetState.byProvider.anthropic++;
+    }
+
+    targetState.routingRate = targetState.totalTasks > 0
+      ? Math.round((targetState.routedToOpenCode / targetState.totalTasks) * 100)
+      : 0;
+    targetState.lastUpdated = new Date().toISOString();
+  }
+
+  var providerId = '';
+  var modelId = '';
+  if (result) {
+    if (result.providerID) providerId = result.providerID;
+    if (!providerId && result.actualProviderID) providerId = result.actualProviderID;
+    if (!providerId && result.tokens && result.tokens.providerID) providerId = result.tokens.providerID;
+    if (!providerId && result.result && result.result.providerID) providerId = result.result.providerID;
+    if (!providerId && result.result && result.result.model && result.result.model.providerID) {
+      providerId = result.result.model.providerID;
+    }
+
+    if (result.modelID) modelId = result.modelID;
+    if (!modelId && result.actualModelID) modelId = result.actualModelID;
+    if (!modelId && result.tokens && result.tokens.modelID) modelId = result.tokens.modelID;
+    if (!modelId && result.result && result.result.model && result.result.model.modelID) {
+      modelId = result.result.model.modelID;
+    }
+    if (!modelId && result.result && result.result.model && result.result.model.id) {
+      modelId = result.result.model.id;
+    }
+  }
+  if (!modelId && decision && decision.targetModel && decision.targetModel.id) {
+    modelId = decision.targetModel.id;
+  }
+  var agentName = decision ? decision.opencodeAgent : '';
+  var normalizedProvider = normalizeProvider(providerId, modelId, agentName);
+
+  var savedTokens = 1000;
+  var actualTokenTotal = getActualTokenTotal(result);
+  if (actualTokenTotal > 0) {
+    savedTokens = actualTokenTotal;
+  }
+
+  applyUpdate(state, openCodeSucceeded, normalizedProvider, savedTokens);
 
   writeFileSync(stateFile, JSON.stringify(state, null, 2));
 
@@ -480,26 +633,18 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
         routedToOpenCode: 0,
         routingRate: 0,
         estimatedSavedTokens: 0,
-        byProvider: { gemini: 0, openai: 0, anthropic: 0 }
+        byProvider: { gemini: 0, openai: 0, anthropic: 0, kimi: 0 }
       };
     }
-    globalState.totalTasks++;
-    if (decision.route) {
-      globalState.routedToOpenCode++;
-      globalState.estimatedSavedTokens += 1000;
-      var gModel = decision.targetModel ? decision.targetModel.id : '';
-      var gAgent = decision.opencodeAgent || '';
-      if (gModel.indexOf('gemini') !== -1 || gAgent === 'Flash') {
-        globalState.byProvider.gemini++;
-      } else if (gModel.indexOf('gpt') !== -1 || gModel.indexOf('codex') !== -1) {
-        globalState.byProvider.openai++;
-      }
-    } else {
-      globalState.byProvider.anthropic++;
+    if (!globalState.byProvider) {
+      globalState.byProvider = { gemini: 0, openai: 0, anthropic: 0, kimi: 0 };
     }
-    globalState.routingRate = globalState.totalTasks > 0
-      ? Math.round((globalState.routedToOpenCode / globalState.totalTasks) * 100) : 0;
-    globalState.lastUpdated = new Date().toISOString();
+    if (typeof globalState.byProvider.gemini !== 'number') globalState.byProvider.gemini = 0;
+    if (typeof globalState.byProvider.openai !== 'number') globalState.byProvider.openai = 0;
+    if (typeof globalState.byProvider.anthropic !== 'number') globalState.byProvider.anthropic = 0;
+    if (typeof globalState.byProvider.kimi !== 'number') globalState.byProvider.kimi = 0;
+
+    applyUpdate(globalState, openCodeSucceeded, normalizedProvider, savedTokens);
     writeFileSync(FUSION_STATE_FILE, JSON.stringify(globalState, null, 2));
   }
 

@@ -33,16 +33,16 @@ async function waitForServer(port, timeout = 10000) {
 
   return new Promise((resolve, reject) => {
     const intervalId = setInterval(async () => {
-      try {
-        // HTTP GET 요청으로 서버 상태 확인
-        const http = await import('http');
-        const req = http.request({
-          hostname: 'localhost',
-          port: port,
-          path: '/health',
-          method: 'GET',
-          timeout: 1000
-        }, (res) => {
+       try {
+         // HTTP GET 요청으로 서버 상태 확인
+         const http = await import('http');
+         const req = http.request({
+           hostname: 'localhost',
+           port: port,
+           path: '/global/health',
+           method: 'GET',
+           timeout: 1000
+         }, (res) => {
           if (res.statusCode === 200 || res.statusCode === 404) {
             // 404도 서버 응답으로 간주 (health 엔드포인트 없을 수 있음)
             clearInterval(intervalId);

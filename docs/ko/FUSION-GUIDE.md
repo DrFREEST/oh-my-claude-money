@@ -716,6 +716,10 @@ echo $OMCM_CONTEXT_PATH
 # 1. HUD 파일 확인
 cat ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
+# 플러그인 설치 시 자동 설정됨.
+# 필요한 경우 다음 스크립트 실행:
+# bash /opt/oh-my-claude-money/scripts/install-hud.sh
+
 # 2. settings.json 확인
 cat ~/.claude/settings.json | grep statusLine
 
@@ -832,7 +836,7 @@ echo "6. OpenCode 인증"
 opencode auth status | grep -q "authenticated" && echo "✅" || echo "❌"
 
 echo "7. 서버 풀 상태"
-curl -s http://localhost:4096/health > /dev/null && echo "✅ Running" || echo "❌ Not running"
+curl -s http://localhost:4096/global/health > /dev/null && echo "✅ Running" || echo "❌ Not running"
 
 echo "8. 컨텍스트 디렉토리"
 [ -d ~/.omcm ] && echo "✅" || echo "❌"

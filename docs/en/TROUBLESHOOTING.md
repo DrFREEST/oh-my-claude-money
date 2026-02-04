@@ -409,11 +409,12 @@ ping -c 3 8.8.8.8
 **Check**:
 
 ```bash
-# Check HUD file exists (automatically configured during plugin installation)
+# Check HUD file exists
 ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
-# If plugin is installed, HUD is automatically configured.
-# If manual setup is needed, run /omcm:fusion-setup
+# Installed automatically when the plugin is installed.
+# If action is needed, run:
+# bash /opt/oh-my-claude-money/scripts/install-hud.sh
 ```
 
 **Check settings.json**:
@@ -952,7 +953,7 @@ rm -rf ~/.claude/plugins/marketplaces/omcm
 rm -rf ~/.claude/plugins/omcm
 rm -rf ~/.omcm
 
-# Remove HUD (automatically removed with plugin uninstall)
+# Removed automatically when the plugin is uninstalled.
 
 # Remove OMCM entries from settings.json
 # Manual edit ~/.claude/settings.json
@@ -998,7 +999,7 @@ rm -rf ~/.omcm
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| HUD not showing | HUD file missing | Run `/omcm:fusion-setup` |
+| HUD not showing | HUD file missing | Installed automatically when the plugin is installed. If missing, run `bash /opt/oh-my-claude-money/scripts/install-hud.sh` |
 | `[object Object]` | HUD format error | Reinstall plugin |
 | Token not updating | Cache error | Clear cache and restart |
 

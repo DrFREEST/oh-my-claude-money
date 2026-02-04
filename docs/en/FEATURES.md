@@ -287,6 +287,29 @@ const status = pool.getStatus();
 await pool.shutdown();
 ```
 
+### Server Pool Execution Method (REST API)
+
+**Previous Approach (CLI):**
+```javascript
+spawn('opencode', ['run', '--attach', `http://localhost:${port}`])
+```
+
+**Current Approach (REST API):**
+```javascript
+POST http://localhost:${port}/session
+  → { sessionId }
+
+POST http://localhost:${port}/session/{sessionId}/message
+  → Server-Sent Events stream
+  → Parse token info (input_tokens, output_tokens)
+```
+
+**Benefits:**
+- More stable HTTP-based communication
+- Accurate token usage extraction
+- Automatic call-logger JSONL recording
+- Real-time fusion-tracker updates
+
 ### Dynamic Scaling
 
 The pool automatically scales based on load:

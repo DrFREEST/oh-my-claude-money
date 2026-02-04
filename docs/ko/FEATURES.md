@@ -286,6 +286,29 @@ const status = pool.getStatus();
 await pool.shutdown();
 ```
 
+### 서버 풀 실행 방식 (REST API)
+
+**이전 방식 (CLI):**
+```javascript
+spawn('opencode', ['run', '--attach', `http://localhost:${port}`])
+```
+
+**현재 방식 (REST API):**
+```javascript
+POST http://localhost:${port}/session
+  → { sessionId }
+
+POST http://localhost:${port}/session/{sessionId}/message
+  → Server-Sent Events 스트림
+  → 토큰 정보 파싱 (input_tokens, output_tokens)
+```
+
+**장점:**
+- HTTP 기반으로 더 안정적인 통신
+- 토큰 사용량 정확한 추출
+- call-logger JSONL 자동 기록
+- fusion-tracker 실시간 업데이트
+
 ### 동적 스케일링
 
 풀은 부하에 따라 자동으로 스케일됩니다:

@@ -12,14 +12,14 @@
     },
     "sonnet": {
       "provider": "openai",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "tier": "MEDIUM",
       "description": "표준 구현, 분석 작업"
     },
     "haiku": {
       "provider": "google",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "tier": "LOW",
       "description": "빠른 탐색, 간단한 작업"
@@ -36,14 +36,14 @@
     "architect-medium": {
       "omo_agent": "build",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "중간 복잡도 아키텍처 분석"
     },
     "architect-low": {
       "omo_agent": "explore",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "간단한 코드 질문"
     },
@@ -57,14 +57,14 @@
     "executor": {
       "omo_agent": "build",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "표준 기능 구현"
     },
     "executor-low": {
       "omo_agent": "build",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "간단한 싱글파일 작업"
     },
@@ -78,28 +78,28 @@
     "explore-medium": {
       "omo_agent": "explore",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "깊은 코드베이스 탐색"
     },
     "explore": {
       "omo_agent": "explore",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "빠른 코드베이스 탐색"
     },
     "researcher": {
       "omo_agent": "general",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "외부 문서 리서치"
     },
     "researcher-low": {
       "omo_agent": "general",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "빠른 문서 조회"
     },
@@ -113,28 +113,28 @@
     "designer": {
       "omo_agent": "build",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "UI/UX 디자인 구현"
     },
     "designer-low": {
       "omo_agent": "build",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "간단한 스타일링"
     },
     "writer": {
       "omo_agent": "general",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "기술 문서 작성"
     },
     "vision": {
       "omo_agent": "general",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "이미지/다이어그램 분석"
     },
@@ -169,7 +169,7 @@
     "qa-tester": {
       "omo_agent": "build",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "인터랙티브 CLI 테스팅"
     },
@@ -183,35 +183,35 @@
     "security-reviewer-low": {
       "omo_agent": "build",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "빠른 보안 스캔"
     },
     "build-fixer": {
       "omo_agent": "build",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "빌드/타입 오류 수정"
     },
     "build-fixer-low": {
       "omo_agent": "build",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "간단한 빌드 오류 수정"
     },
     "tdd-guide": {
       "omo_agent": "build",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "TDD 워크플로우 가이드"
     },
     "tdd-guide-low": {
       "omo_agent": "build",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "빠른 테스트 제안"
     },
@@ -225,7 +225,7 @@
     "code-reviewer-low": {
       "omo_agent": "build",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "빠른 코드 체크"
     },
@@ -239,21 +239,21 @@
     "scientist": {
       "omo_agent": "build",
       "tier": "MEDIUM",
-      "model": "gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "thinking": true,
       "description": "데이터 분석"
     },
     "scientist-low": {
       "omo_agent": "build",
       "tier": "LOW",
-      "model": "gemini-3.0-flash",
+      "model": "google/antigravity-gemini-3-flash",
       "thinking": true,
       "description": "빠른 데이터 검사"
     }
   },
   "fallback": {
     "omo_agent": "build",
-    "model": "gemini-3.0-flash",
+    "model": "google/antigravity-gemini-3-flash",
     "thinking": true
   },
   "statistics": {

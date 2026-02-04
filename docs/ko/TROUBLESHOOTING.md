@@ -409,11 +409,12 @@ ping -c 3 8.8.8.8
 **확인**:
 
 ```bash
-# HUD 파일 존재 여부 (플러그인 설치 시 자동 설정됨)
+# HUD 파일 존재 여부
 ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
-# 플러그인이 설치되어 있으면 HUD가 자동으로 설정됩니다.
-# 수동 설정이 필요한 경우 /omcm:fusion-setup을 실행하세요.
+# 플러그인 설치 시 자동 설정됨.
+# 필요한 경우 다음 스크립트 실행:
+# bash /opt/oh-my-claude-money/scripts/install-hud.sh
 ```
 
 **settings.json 확인**:
@@ -952,8 +953,7 @@ rm -rf ~/.claude/plugins/marketplaces/omcm
 rm -rf ~/.claude/plugins/omcm
 rm -rf ~/.omcm
 
-# HUD는 플러그인 삭제로 자동 제거됩니다
-# 추가 작업 불필요
+# 플러그인 삭제로 자동 제거됨.
 
 # settings.json에서 OMCM 관련 항목 제거
 # ~/.claude/settings.json 수동 편집
@@ -999,7 +999,7 @@ rm -rf ~/.omcm
 
 | 에러 | 원인 | 해결책 |
 |------|------|--------|
-| HUD 미표시 | HUD 파일 없음 | `/omcm:fusion-setup` 실행 |
+| HUD 미표시 | HUD 파일 없음 | 플러그인 설치 시 자동 설정됨. 필요한 경우 `bash /opt/oh-my-claude-money/scripts/install-hud.sh` 실행 |
 | `[object Object]` | HUD 형식 오류 | 플러그인 재설치 |
 | 토큰 안 업데이트 | 캐시 오류 | 캐시 삭제 후 재시작 |
 

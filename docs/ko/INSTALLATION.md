@@ -661,10 +661,12 @@ export GOOGLE_API_KEY="..."
 #### "HUD가 표시되지 않음"
 
 ```bash
-# HUD 파일 확인 (플러그인 설치 시 자동 설정됨)
+# HUD 파일 확인
 ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
-# HUD는 플러그인 파일이므로 직접 수정 불필요
+# 플러그인 설치 시 자동 설정됨.
+# 필요한 경우 다음 스크립트 실행:
+# bash /opt/oh-my-claude-money/scripts/install-hud.sh
 
 # settings.json 확인
 grep "statusLine" ~/.claude/settings.json
@@ -673,14 +675,10 @@ grep "statusLine" ~/.claude/settings.json
 ls ~/.claude/plugins/cache/omc/oh-my-claudecode/*/dist/hud/index.js
 ```
 
-HUD 파일이 없으면 플러그인 재설정:
+HUD 파일이 없으면 다음을 실행:
 
 ```bash
-# Claude Code에서 퓨전 셋업 재실행
-claude
-/omcm:fusion-setup
-
-# HUD는 플러그인 설치 시 자동으로 설정됩니다
+bash /opt/oh-my-claude-money/scripts/install-hud.sh
 ```
 
 #### "OMC 플러그인 미빌드"
@@ -779,7 +777,7 @@ rm -rf ~/.claude/plugins/marketplaces/omcm
 rm -rf ~/.claude/plugins/omcm
 rm -rf ~/.omcm
 
-# HUD는 플러그인 삭제로 자동 제거됨
+# 플러그인 삭제로 자동 제거됨.
 # 추가 작업 불필요
 
 # settings.json 정리 (선택)

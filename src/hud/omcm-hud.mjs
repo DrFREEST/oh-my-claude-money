@@ -425,6 +425,54 @@ function parseClaudeTokensFromStdin(stdinData) {
 }
 
 /**
+ * stdin JSON에서 프로젝트 경로 추출 (프로젝트 스코프 OMC 지원)
+ */
+function getProjectDirFromStdin(stdinData) {
+  if (!stdinData) return null;
+
+  try {
+    var data = JSON.parse(stdinData);
+    var candidates = [];
+
+    if (data.project_root) candidates.push(data.project_root);
+    if (data.projectRoot) candidates.push(data.projectRoot);
+    if (data.cwd) candidates.push(data.cwd);
+    if (data.directory) candidates.push(data.directory);
+    if (data.working_directory) candidates.push(data.working_directory);
+    if (data.workingDirectory) candidates.push(data.workingDirectory);
+
+    if (data.context) {
+      if (data.context.cwd) candidates.push(data.context.cwd);
+      if (data.context.directory) candidates.push(data.context.directory);
+      if (data.context.project_root) candidates.push(data.context.project_root);
+    }
+
+    if (data.session) {
+      if (data.session.cwd) candidates.push(data.session.cwd);
+      if (data.session.directory) candidates.push(data.session.directory);
+      if (data.session.project_root) candidates.push(data.session.project_root);
+    }
+
+    for (var i = 0; i < candidates.length; i++) {
+      var candidate = candidates[i];
+      if (typeof candidate !== 'string' || candidate.length === 0) continue;
+      try {
+        var stat = statSync(candidate);
+        if (stat && stat.isDirectory()) {
+          return candidate;
+        }
+      } catch (e) {
+        // ignore invalid path
+      }
+    }
+  } catch (e) {
+    // JSON parse failure - ignore
+  }
+
+  return null;
+}
+
+/**
  * Token cache for OpenCode files
  */
 let openCodeTokenCache = null;
@@ -634,73 +682,91 @@ function aggregateOpenCodeTokens() {
 /**
  * Find OMC HUD path
  */
-function findOmcHudPath() {
-  const homeDir = process.env.HOME || '';
+function findLatestOmcCacheHud(cacheDir) {
+  if (!cacheDir || !existsSync(cacheDir)) return null;
 
-  const locations = [
-    join(homeDir, '.claude', 'hud', 'omc-hud.mjs'),
-    join(homeDir, '.claude', 'plugins', 'cache', 'omc', 'oh-my-claudecode'),
-  ];
+  try {
+    var versions = readdirSync(cacheDir)
+      .filter(function (f) { return /^\d+\.\d+\.\d+$/.test(f); })
+      .sort(function (a, b) {
+        var ap = a.split('.').map(function (s) { return parseInt(s, 10) || 0; });
+        var bp = b.split('.').map(function (s) { return parseInt(s, 10) || 0; });
+        for (var i = 0; i < Math.max(ap.length, bp.length); i++) {
+          var na = ap[i] || 0;
+          var nb = bp[i] || 0;
+          if (na !== nb) return nb - na;
+        }
+        return 0;
+      });
 
-  for (const loc of locations) {
-    if (existsSync(loc)) {
-      return loc;
+    if (versions.length > 0) {
+      var hudPath = join(cacheDir, versions[0], 'dist', 'hud', 'index.js');
+      if (existsSync(hudPath)) {
+        return hudPath;
+      }
     }
+  } catch (e) {
+    // ignore cache read failure
   }
 
-  const cacheDir = join(homeDir, '.claude', 'plugins', 'cache', 'omc', 'oh-my-claudecode');
-  if (existsSync(cacheDir)) {
-    return join(homeDir, '.claude', 'hud', 'omc-hud.mjs');
+  return null;
+}
+
+function findOmcHudPath(projectDir) {
+  const homeDir = process.env.HOME || '';
+
+  // Project-scoped OMC (if available)
+  if (projectDir) {
+    var projectHud = join(projectDir, '.claude', 'hud', 'omc-hud.mjs');
+    if (existsSync(projectHud)) return projectHud;
+
+    var projectCache = join(projectDir, '.claude', 'plugins', 'cache', 'omc', 'oh-my-claudecode');
+    var projectCacheHud = findLatestOmcCacheHud(projectCache);
+    if (projectCacheHud) return projectCacheHud;
+
+    var projectMarketplaceOmc = join(projectDir, '.claude', 'plugins', 'marketplaces', 'omc', 'dist', 'hud', 'index.js');
+    if (existsSync(projectMarketplaceOmc)) return projectMarketplaceOmc;
+
+    var projectMarketplaceOhMy = join(projectDir, '.claude', 'plugins', 'marketplaces', 'oh-my-claudecode', 'dist', 'hud', 'index.js');
+    if (existsSync(projectMarketplaceOhMy)) return projectMarketplaceOhMy;
+  }
+
+  // Global OMC HUD wrapper
+  var globalHud = join(homeDir, '.claude', 'hud', 'omc-hud.mjs');
+  if (existsSync(globalHud)) return globalHud;
+
+  // Global plugin cache
+  var globalCache = join(homeDir, '.claude', 'plugins', 'cache', 'omc', 'oh-my-claudecode');
+  var globalCacheHud = findLatestOmcCacheHud(globalCache);
+  if (globalCacheHud) return globalCacheHud;
+
+  // Global marketplace install (if built)
+  var globalMarketplaceOmc = join(homeDir, '.claude', 'plugins', 'marketplaces', 'omc', 'dist', 'hud', 'index.js');
+  if (existsSync(globalMarketplaceOmc)) return globalMarketplaceOmc;
+
+  var globalMarketplaceOhMy = join(homeDir, '.claude', 'plugins', 'marketplaces', 'oh-my-claudecode', 'dist', 'hud', 'index.js');
+  if (existsSync(globalMarketplaceOhMy)) return globalMarketplaceOhMy;
+
+  // Development paths
+  var devPaths = [
+    join(homeDir, 'Workspace/oh-my-claudecode/dist/hud/index.js'),
+    join(homeDir, 'workspace/oh-my-claudecode/dist/hud/index.js'),
+    join(homeDir, 'projects/oh-my-claudecode/dist/hud/index.js'),
+  ];
+
+  for (var i = 0; i < devPaths.length; i++) {
+    if (existsSync(devPaths[i])) {
+      return devPaths[i];
+    }
   }
 
   return null;
 }
 
 /**
- * Check if OMC HUD is properly installed (not just wrapper exists)
- */
-function isOmcHudAvailable() {
-  const homeDir = process.env.HOME || '';
-
-  // Check if OMC plugin is actually built
-  const cacheDir = join(homeDir, '.claude', 'plugins', 'cache', 'omc', 'oh-my-claudecode');
-  if (existsSync(cacheDir)) {
-    try {
-      const versions = readdirSync(cacheDir);
-      if (versions.length > 0) {
-        const latestVersion = versions.sort().reverse()[0];
-        const builtPath = join(cacheDir, latestVersion, 'dist', 'hud', 'index.js');
-        if (existsSync(builtPath)) {
-          return true;
-        }
-      }
-    } catch {
-      // continue
-    }
-  }
-
-  // Check development paths
-  const devPaths = [
-    join(homeDir, 'Workspace/oh-my-claudecode/dist/hud/index.js'),
-    join(homeDir, 'workspace/oh-my-claudecode/dist/hud/index.js'),
-  ];
-
-  for (const devPath of devPaths) {
-    if (existsSync(devPath)) {
-      return true;
-    }
-  }
-
-  // OMC not properly installed - use independent mode
-  return false;
-}
-
-/**
  * Execute OMC HUD and get output
  */
-async function getOmcHudOutput(stdinData) {
-  const omcHudPath = findOmcHudPath();
-
+async function getOmcHudOutput(stdinData, omcHudPath) {
   if (!omcHudPath || !existsSync(omcHudPath)) {
     return null;
   }
@@ -860,12 +926,12 @@ async function main() {
   try {
     const stdinData = await readStdin();
 
-    // Check if OMC HUD is available
-    const omcAvailable = isOmcHudAvailable();
+    const projectDir = getProjectDirFromStdin(stdinData);
+    const omcHudPath = findOmcHudPath(projectDir);
 
-    if (omcAvailable) {
+    if (omcHudPath) {
       // OMC available: wrap OMC output with OMCM extras
-      const omcOutput = await getOmcHudOutput(stdinData);
+      const omcOutput = await getOmcHudOutput(stdinData, omcHudPath);
 
       if (omcOutput) {
         syncClaudeUsageFromOmcOutput(omcOutput);

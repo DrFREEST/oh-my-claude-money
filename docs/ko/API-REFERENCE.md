@@ -882,7 +882,23 @@ const result = await runOpenCodeUltrawork('Complex task');
 ## OpenCode 서버 풀 (Server Pool)
 
 ### 모듈 위치
-`src/executor/opencode-server-pool.mjs`
+`src/executor/opencode-server-pool.mjs` (thin wrapper, 내부적으로 `src/pool/server-pool.mjs` 사용)
+
+**권장**: 새 코드는 `src/pool/server-pool.mjs`의 `executeOnPool()` API 직접 사용
+
+### REST API 기반 서버 풀
+
+기존 CLI 방식 (`spawn('opencode', ['run', '--attach', url])`)에서 REST API 방식으로 전환되었습니다.
+
+**실행 흐름:**
+```
+executeOnPool() → POST /session → sessionId 획득
+                → POST /session/{id}/message → 응답 스트림 파싱
+                → 토큰 정보 추출 (input_tokens, output_tokens)
+                → call-logger에 JSONL 기록
+                → fusion-tracker로 전달
+                → HUD 업데이트
+```
 
 ### OpenCodeServerPool 클래스
 
@@ -911,7 +927,7 @@ await pool.initialize();
 
 #### `execute(prompt, options)`
 
-프롬프트를 실행합니다.
+프롬프트를 실행합니다 (REST API 사용).
 
 ```javascript
 const result = await pool.execute('Fix authentication bug', {
@@ -925,7 +941,8 @@ const result = await pool.execute('Fix authentication bug', {
 //   success: boolean,
 //   result: { ... },
 //   serverPort: number,
-//   duration: number
+//   duration: number,
+//   tokens: { input: number, output: number }  // REST API에서 추출
 // }
 ```
 
@@ -1056,6 +1073,32 @@ const results = await executeBatchWithPool([
 
 // 기본 풀 종료
 await shutdownDefaultPool();
+```
+
+### 새 권장 API (src/pool/server-pool.mjs)
+
+```javascript
+import { executeOnPool } from 'src/pool/server-pool.mjs';
+
+// REST API 기반 실행
+const result = await executeOnPool({
+  prompt: 'Analyze this code',
+  providerID: 'anthropic',      // 프로바이더
+  modelID: 'claude-opus-4',     // 모델
+  timeout: 30000                // 타임아웃 (ms)
+});
+
+// Returns:
+// {
+//   stdout: string,              // 출력
+//   stderr: string,              // 에러 출력
+//   exitCode: number,            // 종료 코드
+//   executionTime: number,       // 실행 시간 (ms)
+//   tokens: {
+//     input: number,             // 입력 토큰 (REST API에서 파싱)
+//     output: number             // 출력 토큰 (REST API에서 파싱)
+//   }
+// }
 ```
 
 ---

@@ -17,7 +17,8 @@ import { homedir } from 'os';
 
 var HOME = homedir();
 var OMCM_DIR = join(HOME, '.omcm');
-var POOL_STATE_FILE = join(OMCM_DIR, 'server-pool.json');
+var SERVER_POOL_DIR = join(OMCM_DIR, 'server-pool');
+var POOL_STATE_FILE = join(SERVER_POOL_DIR, 'pool-state.json');
 var CONFIG_FILE = join(HOME, '.claude', 'plugins', 'omcm', 'config.json');
 
 /** 기본 설정 */
@@ -36,8 +37,8 @@ var DEFAULT_CONFIG = {
  * @returns {object} - 서버 풀 상태
  */
 function loadPoolState() {
-  if (!existsSync(OMCM_DIR)) {
-    mkdirSync(OMCM_DIR, { recursive: true });
+  if (!existsSync(SERVER_POOL_DIR)) {
+    mkdirSync(SERVER_POOL_DIR, { recursive: true });
   }
   if (!existsSync(POOL_STATE_FILE)) {
     return { servers: [], lastUpdated: null };
@@ -54,8 +55,8 @@ function loadPoolState() {
  * @param {object} state - 서버 풀 상태
  */
 function savePoolState(state) {
-  if (!existsSync(OMCM_DIR)) {
-    mkdirSync(OMCM_DIR, { recursive: true });
+  if (!existsSync(SERVER_POOL_DIR)) {
+    mkdirSync(SERVER_POOL_DIR, { recursive: true });
   }
   state.lastUpdated = new Date().toISOString();
   writeFileSync(POOL_STATE_FILE, JSON.stringify(state, null, 2));

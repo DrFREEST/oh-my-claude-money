@@ -97,7 +97,7 @@ start_opencode_server() {
     fi
 
     # 이미 실행 중인지 확인
-    if curl -s "http://localhost:$SERVER_PORT/health" >/dev/null 2>&1; then
+    if curl -s "http://localhost:$SERVER_PORT/global/health" >/dev/null 2>&1; then
         log_success "OpenCode 서버 이미 실행 중 (포트: $SERVER_PORT)"
         return 0
     fi
@@ -112,7 +112,7 @@ start_opencode_server() {
     # 서버 준비 대기 (최대 30초)
     local count=0
     while [[ $count -lt 30 ]]; do
-        if curl -s "http://localhost:$SERVER_PORT/health" >/dev/null 2>&1; then
+        if curl -s "http://localhost:$SERVER_PORT/global/health" >/dev/null 2>&1; then
             log_success "OpenCode 서버 시작됨 (PID: $pid, 포트: $SERVER_PORT)"
             return 0
         fi

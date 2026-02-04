@@ -147,11 +147,22 @@ function detectModeKeyword(prompt, modeKeywords) {
 }
 
 // =============================================================================
-// 모드 상태 저장
+// 경로 정규화 (OMC v3.9.8+ 호환)
+// =============================================================================
+
+function normalizePath(p) {
+  if (!p) return '';
+  return p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
+// =============================================================================
+// 모드 상태 저장 (OMC v3.9.8+ 프로젝트 격리 지원)
 // =============================================================================
 
 function saveModeState(mode, projectDir) {
-  const stateDir = join(homedir(), '.omc/state');
+  // OMC v3.9.8+: 프로젝트 로컬 경로 사용
+  const cwd = projectDir || process.cwd();
+  const stateDir = join(cwd, '.omc/state');
 
   try {
     if (!existsSync(stateDir)) {
@@ -161,24 +172,35 @@ function saveModeState(mode, projectDir) {
     const stateFile = join(stateDir, `${mode}-state.json`);
     const state = {
       active: mode !== 'cancel',
-      startedAt: new Date().toISOString(),
-      projectDir,
-      iterations: 0,
+      started_at: new Date().toISOString(),  // OMC v3.9.8 스키마
+      project_path: cwd,                      // OMC v3.9.8 프로젝트 격리
+      iteration: 0,                           // OMC v3.9.8 스키마
     };
 
-    // cancel 모드의 경우 모든 상태 파일 비활성화
+    // cancel 모드의 경우 모든 상태 파일 비활성화 (로컬 + 글로벌)
     if (mode === 'cancel') {
       const modes = ['ralph', 'autopilot', 'ultrawork', 'ecomode', 'hulw', 'swarm', 'pipeline', 'ultrapilot', 'ultraqa'];
+      const searchDirs = [
+        join(cwd, '.omc/state'),           // 프로젝트 로컬
+        join(homedir(), '.omc/state'),     // 글로벌 (레거시)
+      ];
+
       for (const m of modes) {
-        const modeFile = join(stateDir, `${m}-state.json`);
-        if (existsSync(modeFile)) {
-          try {
-            const modeState = JSON.parse(readFileSync(modeFile, 'utf-8'));
-            modeState.active = false;
-            modeState.cancelledAt = new Date().toISOString();
-            writeFileSync(modeFile, JSON.stringify(modeState, null, 2));
-          } catch (e) {
-            // 무시
+        for (const searchDir of searchDirs) {
+          const modeFile = join(searchDir, `${m}-state.json`);
+          if (existsSync(modeFile)) {
+            try {
+              const modeState = JSON.parse(readFileSync(modeFile, 'utf-8'));
+              // project_path 검증 (다른 프로젝트 상태는 건드리지 않음)
+              if (modeState.project_path && normalizePath(modeState.project_path) !== normalizePath(cwd)) {
+                continue;
+              }
+              modeState.active = false;
+              modeState.cancelled_at = new Date().toISOString();
+              writeFileSync(modeFile, JSON.stringify(modeState, null, 2));
+            } catch (e) {
+              // 무시
+            }
           }
         }
       }

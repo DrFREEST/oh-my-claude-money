@@ -120,6 +120,32 @@ function isStateActive(state, activeKey) {
 }
 
 /**
+ * Normalize path for comparison (OMC v3.9.8+ Windows compatibility)
+ * @param {string} p - Path to normalize
+ * @returns {string}
+ */
+function normalizePath(p) {
+  if (!p) return '';
+  return p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
+/**
+ * Check if state belongs to current project (OMC v3.9.8+ project isolation)
+ * @param {Object} state - Parsed state object
+ * @param {string} currentDirectory - Current working directory
+ * @param {boolean} isGlobalState - Whether this is from global state path
+ * @returns {boolean}
+ */
+function isStateForCurrentProject(state, currentDirectory, isGlobalState = false) {
+  if (!state) return true;
+  if (!state.project_path) {
+    if (isGlobalState) return false; // Global state requires project_path
+    return true; // Legacy local state allowed (backward compatibility)
+  }
+  return normalizePath(state.project_path) === normalizePath(currentDirectory);
+}
+
+/**
  * Get all potential state file locations
  * @param {string} cwd - Current working directory
  * @returns {string[]}
@@ -161,18 +187,33 @@ function getStateSearchPaths(cwd) {
 }
 
 /**
- * Find and read state for a specific mode
+ * Find and read state for a specific mode (OMC v3.9.8+ project isolation)
  * @param {Object} modeDef - Mode definition
  * @param {string[]} searchPaths - Paths to search
+ * @param {string} cwd - Current working directory for project_path validation
  * @returns {Object|null} - State if active, null otherwise
  */
-function findModeState(modeDef, searchPaths) {
+function findModeState(modeDef, searchPaths, cwd) {
+  // Separate local and global paths for proper validation
+  const globalPaths = [
+    join(homedir(), '.claude'),
+    join(homedir(), '.claude/plugins/oh-my-claudecode'),
+    join(homedir(), '.omc/state'),
+  ];
+
   for (const basePath of searchPaths) {
+    const isGlobalState = globalPaths.some(gp => basePath.startsWith(gp));
+
     for (const fileName of modeDef.files) {
       const filePath = join(basePath, fileName);
       const state = readStateFile(filePath);
 
       if (state && isStateActive(state, modeDef.activeKey)) {
+        // OMC v3.9.8+ project_path validation
+        if (!isStateForCurrentProject(state, cwd, isGlobalState)) {
+          continue; // Skip state from different project
+        }
+
         return {
           ...state,
           _sourcePath: filePath,
@@ -224,7 +265,7 @@ export function detectActiveModes(cwd = process.cwd()) {
   const activeModes = [];
 
   for (const modeDef of MODE_DEFINITIONS) {
-    const state = findModeState(modeDef, searchPaths);
+    const state = findModeState(modeDef, searchPaths, cwd);
 
     if (state) {
       activeModes.push({

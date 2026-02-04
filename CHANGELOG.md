@@ -18,6 +18,47 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.0.2] - 2026-02-05
+
+### 호환성 업데이트 (Compatibility)
+- **OMC v3.9.9 ~ v3.10.3 호환성 검증 완료**
+  - Node.js 20+ 요구사항 동기화
+  - Project Memory 시스템 변경 영향 없음 (OMCM 독립 운영)
+  - 성능 최적화 (LRU Cache, Debounced Writes) 참조 가능
+- **OMO v3.2.2 ~ v3.2.3 호환성 검증 완료**
+  - Task 글로벌 저장소 이동 (`~/.opencode/tasks/`) - OMCM 영향 없음
+  - Write Existing File Guard 추가 - fusion 모드 동작 변경 인지 필요
+  - Atlas 에이전트 GPT 버전 분리 (`atlas/default.ts`, `atlas/gpt.ts`)
+  - Sisyphus Junior 리팩토링 (`sisyphus-junior/`)
+
+### 문서화 (Documentation)
+- OMC/OMO 버전별 호환성 매트릭스 추가
+- Write Existing File Guard 동작 변경 문서화
+  - OMO v3.2.3+에서 Write 도구가 기존 파일에 대해 차단됨
+  - Edit 도구 사용 권장 (fusion 모드 포함)
+
+### 검증됨 (Verified)
+- agent-fusion-map.mjs: 31개 에이전트 매핑 유효
+- 모든 HIGH/MEDIUM/LOW 티어 에이전트 정상 라우팅
+
+---
+
+## [1.0.1] - 2026-02-03
+
+### 수정 (Fixed)
+- **OMC v3.9.8 프로젝트 격리 호환성** - 3개 파일 수정
+  - `persistent-mode.mjs`: 로컬 경로 우선 + 글로벌 폴백, `project_path` 검증 추가
+  - `detect-handoff.mjs`: `projectDir` → `project_path` 스키마 정렬, 로컬 상태 파일 저장
+  - `mode-detector.mjs`: `project_path` 검증으로 교차 프로젝트 상태 오염 방지
+- Windows 경로 정규화 지원 (backslash → forward slash)
+- 레거시 상태 파일 하위 호환성 유지
+
+### 호환성
+- OMC v3.9.8+ 완전 호환
+- OMC v3.9.7 이하 레거시 호환 유지
+
+---
+
 ## [1.0.0] - 2026-01-28 🎉 첫 정식 릴리즈
 
 ### 추가 (Added)

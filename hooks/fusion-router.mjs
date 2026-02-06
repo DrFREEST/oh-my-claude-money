@@ -22,6 +22,32 @@ import { logOpenCodeCall } from '../src/tracking/call-logger.mjs';
 import { executeOnPool, discoverExistingServers } from '../src/pool/server-pool.mjs';
 
 /**
+ * OMC 4.0.8 flow-tracer 동적 로드 (best-effort)
+ */
+var flowTracer = null;
+try {
+  var HOME = process.env.HOME || '';
+  var omcCacheDir = HOME + '/.claude/plugins/cache/omc/oh-my-claudecode';
+  var fs = await import('fs');
+  var path = await import('path');
+  if (fs.existsSync(omcCacheDir)) {
+    var versions = fs.readdirSync(omcCacheDir)
+      .filter(function(f) { return /^\d+\.\d+\.\d+$/.test(f); })
+      .sort()
+      .reverse();
+    for (var i = 0; i < versions.length; i++) {
+      var tracerPath = path.join(omcCacheDir, versions[i], 'dist', 'hooks', 'subagent-tracker', 'flow-tracer.js');
+      if (fs.existsSync(tracerPath)) {
+        flowTracer = await import(tracerPath);
+        break;
+      }
+    }
+  }
+} catch (e) {
+  // flow-tracer 사용 불가 — 무시
+}
+
+/**
  * 내부 모델 ID를 OpenCode providerID/modelID로 변환
  * @param {string} modelId - 내부 모델 ID (예: 'gemini-flash', 'gpt-5.2')
  * @returns {object} - { providerID, modelID }
@@ -102,6 +128,8 @@ async function executeViaOpenCode(toolInput, decision) {
  * 메인 훅 핸들러
  */
 async function main() {
+  var hookStartTime = Date.now();
+
   // stdin 읽기
   var input = '';
   for await (var chunk of process.stdin) {
@@ -119,6 +147,16 @@ async function main() {
       sessionId = getSessionIdFromTty();
     } catch (e) {
       // 세션 ID 획득 실패 시 글로벌 모드
+    }
+
+    // flow-tracer: hook fire 기록
+    if (flowTracer) {
+      try {
+        var cwd = process.cwd();
+        flowTracer.recordHookFire(cwd, sessionId, 'omcm-fusion-router', 'PreToolUse');
+      } catch (e) {
+        // 무시
+      }
     }
 
     // Task 도구만 처리
@@ -151,6 +189,20 @@ async function main() {
       reason: decision.reason,
       target: decision.targetModel ? decision.targetModel.id : 'claude'
     });
+
+    // flow-tracer: hook result 기록
+    if (flowTracer) {
+      try {
+        var cwd = process.cwd();
+        var hookDuration = Date.now() - hookStartTime;
+        var routingInfo = decision.route
+          ? 'routed:opencode:' + (decision.opencodeAgent || 'unknown')
+          : 'passed:claude';
+        flowTracer.recordHookResult(cwd, sessionId, 'omcm-fusion-router', 'PreToolUse', hookDuration, true, routingInfo.length);
+      } catch (e) {
+        // 무시
+      }
+    }
 
     if (decision.route) {
       console.error('[OMCM Fusion] Routing Task to OpenCode');

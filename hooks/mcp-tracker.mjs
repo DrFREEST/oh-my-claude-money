@@ -2,14 +2,14 @@
 /**
  * mcp-tracker.mjs - PostToolUse Hook for OMC MCP-Direct call tracking
  *
- * OMC v4.0.6의 mcp__x__ask_codex, mcp__g__ask_gemini 등
- * MCP-Direct 호출을 감지하고 비용을 추적합니다.
+ * OMC v4.0.8의 mcp__x__ask_codex, mcp__g__ask_gemini 등
+ * MCP-Direct 호출을 감지하고 토큰/비용을 추적합니다.
  *
- * @version 1.1.0
+ * @version 1.2.0
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, writeSync, closeSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, writeSync, closeSync, readdirSync, statSync } from 'fs';
+import { join, dirname } from 'path';
 import { homedir } from 'os';
 
 var HOME = homedir();
@@ -66,29 +66,162 @@ function logMcpCall(entry) {
 }
 
 /**
+ * Response File 경로에서 Status File 경로 추출
+ */
+function extractStatusFilePath(responseFilePath) {
+  if (!responseFilePath) return null;
+  var dir = dirname(responseFilePath);
+  var filename = responseFilePath.split('/').pop();
+
+  if (filename.indexOf('codex-response-') === 0) {
+    return join(dir, filename.replace('codex-response-', 'codex-status-').replace('.md', '.json'));
+  }
+  if (filename.indexOf('gemini-response-') === 0) {
+    return join(dir, filename.replace('gemini-response-', 'gemini-status-').replace('.md', '.json'));
+  }
+  return null;
+}
+
+/**
+ * tool_output에서 파일 경로 추출
+ */
+function extractFilePathFromOutput(toolOutput, marker) {
+  if (!toolOutput || typeof toolOutput !== 'string') return null;
+  var markerIndex = toolOutput.indexOf(marker);
+  if (markerIndex === -1) return null;
+
+  var afterMarker = toolOutput.substring(markerIndex + marker.length);
+  var lines = afterMarker.split('\n');
+  if (lines.length === 0) return null;
+
+  var pathLine = lines[0].trim();
+  return pathLine || null;
+}
+
+/**
+ * Status File에서 토큰 데이터 읽기
+ */
+function readTokensFromStatusFile(statusFilePath) {
+  if (!statusFilePath || !existsSync(statusFilePath)) return null;
+
+  var statusData = readJsonFile(statusFilePath);
+  if (!statusData) return null;
+
+  var result = {};
+  if (statusData.tokens) {
+    if (statusData.tokens.input) result.inputTokens = statusData.tokens.input;
+    if (statusData.tokens.output) result.outputTokens = statusData.tokens.output;
+    if (statusData.tokens.reasoning) result.reasoningTokens = statusData.tokens.reasoning;
+  }
+  if (statusData.cost) result.cost = statusData.cost;
+  if (statusData.modelID) result.model = statusData.modelID;
+
+  return result;
+}
+
+/**
+ * job_id로 Status File 탐색
+ */
+function findStatusFileByJobId(jobId, workingDir) {
+  if (!jobId || !workingDir) return null;
+
+  var promptsDir = join(workingDir, '.omc', 'prompts');
+  if (!existsSync(promptsDir)) return null;
+
+  try {
+    var files = readdirSync(promptsDir);
+    var statusFiles = files.filter(function(f) {
+      return f.indexOf('-status-') !== -1 && f.indexOf('.json') !== -1;
+    });
+
+    for (var i = 0; i < statusFiles.length; i++) {
+      var filepath = join(promptsDir, statusFiles[i]);
+      var data = readJsonFile(filepath);
+      if (data && data.jobId === jobId) {
+        return filepath;
+      }
+    }
+  } catch (e) {
+    // 무시
+  }
+
+  return null;
+}
+
+/**
+ * 최근 Status File 탐색 (fallback)
+ */
+function findRecentStatusFile(workingDir, provider) {
+  if (!workingDir) return null;
+
+  var promptsDir = join(workingDir, '.omc', 'prompts');
+  if (!existsSync(promptsDir)) return null;
+
+  try {
+    var prefix = provider === 'openai' ? 'codex-status-' : 'gemini-status-';
+    var files = readdirSync(promptsDir);
+    var statusFiles = files.filter(function(f) {
+      return f.indexOf(prefix) === 0 && f.indexOf('.json') !== -1;
+    });
+
+    if (statusFiles.length === 0) return null;
+
+    var sorted = statusFiles.map(function(f) {
+      var filepath = join(promptsDir, f);
+      return { path: filepath, mtime: statSync(filepath).mtime.getTime() };
+    }).sort(function(a, b) {
+      return b.mtime - a.mtime;
+    });
+
+    return sorted[0].path;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * MCP 추적 상태 업데이트
  */
-function updateMcpTracking(classification) {
+function updateMcpTracking(classification, tokenData) {
   ensureOmcmDir();
   var tracking = readJsonFile(MCP_TRACKING_FILE) || {
     totalCalls: 0,
-    byProvider: { openai: 0, google: 0, omc: 0 },
+    byProvider: {
+      openai: { calls: 0, inputTokens: 0, outputTokens: 0, cost: 0 },
+      google: { calls: 0, inputTokens: 0, outputTokens: 0, cost: 0 },
+      omc: { calls: 0, inputTokens: 0, outputTokens: 0, cost: 0 }
+    },
     byAction: {},
     codexCalls: 0,
     geminiCalls: 0,
     lastUpdated: null
   };
 
+  // 이전 버전 호환성
+  if (typeof tracking.byProvider.openai === 'number') {
+    tracking.byProvider = {
+      openai: { calls: tracking.byProvider.openai || 0, inputTokens: 0, outputTokens: 0, cost: 0 },
+      google: { calls: tracking.byProvider.google || 0, inputTokens: 0, outputTokens: 0, cost: 0 },
+      omc: { calls: tracking.byProvider.omc || 0, inputTokens: 0, outputTokens: 0, cost: 0 }
+    };
+  }
+
   tracking.totalCalls++;
 
-  if (classification.provider === 'openai') {
-    tracking.byProvider.openai++;
-    if (classification.action === 'ask_codex') tracking.codexCalls++;
-  } else if (classification.provider === 'google') {
-    tracking.byProvider.google++;
-    if (classification.action === 'ask_gemini') tracking.geminiCalls++;
-  } else if (classification.provider === 'omc') {
-    tracking.byProvider.omc++;
+  var providerData = tracking.byProvider[classification.provider];
+  providerData.calls++;
+
+  if (tokenData) {
+    if (tokenData.inputTokens) providerData.inputTokens += tokenData.inputTokens;
+    if (tokenData.outputTokens) providerData.outputTokens += tokenData.outputTokens;
+    if (tokenData.cost) providerData.cost += tokenData.cost;
+  }
+
+  if (classification.provider === 'openai' && classification.action === 'ask_codex') {
+    tracking.codexCalls++;
+  }
+  if (classification.provider === 'google' && classification.action === 'ask_gemini') {
+    tracking.geminiCalls++;
   }
 
   var actionKey = classification.type + '.' + classification.action;
@@ -115,12 +248,75 @@ async function main() {
       process.exit(0);
     }
 
+    // Flow Tracer 통합 (best-effort)
+    var flowTracer = null;
+    try {
+      flowTracer = await import('../src/orchestration/flow-tracer.mjs');
+      if (flowTracer && flowTracer.recordHookFire) {
+        flowTracer.recordHookFire('mcp-tracker', 'PostToolUse', { tool: toolName });
+      }
+    } catch (e) {
+      // 무시
+    }
+
     var sessionId = null;
     try {
       var sessionModule = await import('../src/utils/session-id.mjs');
       sessionId = sessionModule.getSessionIdFromTty();
     } catch (e) {
       // 무시
+    }
+
+    var workingDir = process.env.PWD || process.cwd();
+    var tokenData = null;
+
+    // 토큰 추출 로직
+    if (classification.action === 'ask_codex' || classification.action === 'ask_gemini') {
+      // 1. Status File 경로 직접 추출 시도
+      var statusFilePath = extractFilePathFromOutput(toolOutput, '**Status File:**');
+
+      // 2. Response File에서 Status File 경로 변환
+      if (!statusFilePath) {
+        var responseFilePath = extractFilePathFromOutput(toolOutput, '**Response File:**');
+        statusFilePath = extractStatusFilePath(responseFilePath);
+      }
+
+      // 3. Status File 읽기
+      if (statusFilePath) {
+        tokenData = readTokensFromStatusFile(statusFilePath);
+      }
+
+      // 4. Fallback: 최근 파일 탐색
+      if (!tokenData) {
+        var recentStatusFile = findRecentStatusFile(workingDir, classification.provider);
+        if (recentStatusFile) {
+          tokenData = readTokensFromStatusFile(recentStatusFile);
+        }
+      }
+    }
+
+    // wait_for_job에서 토큰 추출
+    if (classification.action === 'wait_for_job' && toolOutput) {
+      try {
+        var outputData = typeof toolOutput === 'string' ? JSON.parse(toolOutput) : toolOutput;
+
+        if (outputData.tokens) {
+          tokenData = {
+            inputTokens: outputData.tokens.input || 0,
+            outputTokens: outputData.tokens.output || 0,
+            reasoningTokens: outputData.tokens.reasoning || 0,
+            cost: outputData.cost || 0
+          };
+        } else if (outputData.jobId) {
+          // job_id로 Status File 탐색
+          var statusFilePath = findStatusFileByJobId(outputData.jobId, workingDir);
+          if (statusFilePath) {
+            tokenData = readTokensFromStatusFile(statusFilePath);
+          }
+        }
+      } catch (e) {
+        // 파싱 실패 무시
+      }
     }
 
     var logEntry = {
@@ -138,17 +334,21 @@ async function main() {
       if (toolInput.background) logEntry.background = true;
     }
 
-    if (classification.action === 'wait_for_job' && toolOutput) {
-      try {
-        var outputData = typeof toolOutput === 'string' ? JSON.parse(toolOutput) : toolOutput;
-        if (outputData.tokens) logEntry.tokens = outputData.tokens;
-      } catch (e) {
-        // 파싱 실패 무시
-      }
+    if (tokenData) {
+      logEntry.tokens = tokenData;
     }
 
     logMcpCall(logEntry);
-    updateMcpTracking(classification);
+    updateMcpTracking(classification, tokenData);
+
+    // Flow Tracer 결과 기록
+    if (flowTracer && flowTracer.recordHookResult) {
+      flowTracer.recordHookResult('mcp-tracker', 'PostToolUse', {
+        tool: toolName,
+        provider: classification.provider,
+        tokensExtracted: !!tokenData
+      });
+    }
   } catch (e) {
     // 오류 시 조용히 종료
   }

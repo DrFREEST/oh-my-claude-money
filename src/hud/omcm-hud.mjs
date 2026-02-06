@@ -28,7 +28,7 @@ import { spawn } from 'child_process';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { renderFusionMetrics, renderProviderLimits, renderProviderCounts, renderFallbackStatus, renderProviderTokens } from './fusion-renderer.mjs';
+import { renderFusionMetrics, renderProviderLimits, renderProviderCounts, renderFallbackStatus, renderProviderTokens, renderMcpCostSummary } from './fusion-renderer.mjs';
 import { readFusionState, updateSavingsFromTokens, resetFusionStats } from '../utils/fusion-tracker.mjs';
 import { getLimitsForHUD, updateClaudeLimits } from '../utils/provider-limits.mjs';
 import { getFallbackOrchestrator } from '../orchestrator/fallback-orchestrator.mjs';
@@ -242,6 +242,44 @@ function renderSplitWarning(inputTokens) {
     return YELLOW + '⚠️SPLIT' + RESET;
   }
   return null;
+}
+
+/**
+ * MCP tracking 캐시
+ */
+let mcpTrackingCache = null;
+let mcpTrackingCacheTime = 0;
+const MCP_TRACKING_CACHE_TTL_MS = 5000; // 5초
+
+/**
+ * Read MCP tracking data
+ * @returns {Object|null} - MCP tracking data or null if not available
+ */
+function readMcpTracking() {
+  var now = Date.now();
+  if (mcpTrackingCache && (now - mcpTrackingCacheTime) < MCP_TRACKING_CACHE_TTL_MS) {
+    return mcpTrackingCache;
+  }
+
+  try {
+    var mcpTrackingPath = join(homedir(), '.omcm', 'mcp-tracking.json');
+    if (!existsSync(mcpTrackingPath)) {
+      mcpTrackingCache = null;
+      mcpTrackingCacheTime = now;
+      return null;
+    }
+
+    var content = readFileSync(mcpTrackingPath, 'utf-8');
+    var data = JSON.parse(content);
+
+    mcpTrackingCache = data;
+    mcpTrackingCacheTime = now;
+    return data;
+  } catch (e) {
+    mcpTrackingCache = null;
+    mcpTrackingCacheTime = now;
+    return null;
+  }
 }
 
 /**
@@ -789,7 +827,11 @@ async function buildIndependentHud(stdinData) {
   // 6. 도구 사용 통계
   var toolStatsOutput = renderToolStats(currentSessionId);
 
-  // 7. Provider counts
+  // 7. MCP tracking
+  var mcpData = readMcpTracking();
+  var mcpOutput = renderMcpCostSummary(mcpData);
+
+  // 8. Provider counts
   const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
   const sessionCounts = {
     byProvider: {
@@ -801,7 +843,7 @@ async function buildIndependentHud(stdinData) {
   };
   const countsOutput = renderProviderCounts(sessionCounts);
 
-  // 8. Fallback status
+  // 9. Fallback status
   let fallbackOutput = null;
   try {
     const fallback = getFallbackOrchestrator();
@@ -835,6 +877,7 @@ async function buildIndependentHud(stdinData) {
 
   if (tokenOutput) metricParts.push(tokenOutput);
   if (countsOutput) metricParts.push(countsOutput);
+  if (mcpOutput) metricParts.push(mcpOutput);
   if (toolStatsOutput) metricParts.push(toolStatsOutput);
 
   if (statusParts.length === 0 && metricParts.length === 0) {
@@ -919,6 +962,10 @@ async function main() {
         // 도구 사용 통계
         var toolStatsOutput = renderToolStats(currentSessionId);
 
+        // MCP tracking
+        var mcpData = readMcpTracking();
+        var mcpOutput = renderMcpCostSummary(mcpData);
+
         // 2줄 출력: Line1=OMC+상태, Line2=메트릭 (화면 깜빡임 방지)
         const statusExtras = [];
         if (fusionOutput) statusExtras.push(fusionOutput);
@@ -928,6 +975,7 @@ async function main() {
         const metricExtras = [];
         if (tokenOutput) metricExtras.push(tokenOutput);
         if (countsOutput) metricExtras.push(countsOutput);
+        if (mcpOutput) metricExtras.push(mcpOutput);
         if (toolStatsOutput) metricExtras.push(toolStatsOutput);
 
         let finalOutput = omcOutput;

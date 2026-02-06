@@ -1,10 +1,14 @@
 /**
- * prompt-file.mjs - OMC v4.0.6 Prompt-file 시스템 호환 유틸리티
+ * prompt-file.mjs - OMC v4.0.8 Prompt-file 시스템 호환 유틸리티
  *
  * OMCM이 OpenCode로 라우팅할 때도 prompt-file 시스템을 활용하여
  * OMC의 감사 추적과 호환되는 프롬프트 파일을 생성합니다.
  *
- * @version 1.1.0
+ * OMC 4.0.8 Breaking Changes:
+ * - output_file 파라미터 필수화
+ * - prompt 파라미터 제거 (prompt_file만 사용)
+ *
+ * @version 1.2.0
  */
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
@@ -16,7 +20,7 @@ import { join } from 'path';
  * @param {string} baseDir - 기본 디렉토리 (.omc/prompts/ 또는 ~/.omcm/prompts/)
  * @param {string} prompt - 프롬프트 내용
  * @param {object} metadata - 메타데이터
- * @returns {object} - { promptFile, responseFile, statusFile }
+ * @returns {object} - { promptFile, outputFile, responseFile, statusFile }
  */
 export function writePromptFile(baseDir, prompt, metadata) {
   if (!existsSync(baseDir)) {
@@ -31,6 +35,7 @@ export function writePromptFile(baseDir, prompt, metadata) {
                metadata.provider === 'openai' ? 'codex' : 'omcm';
 
   var promptFileName = prefix + '-prompt-' + slug + '-' + id + '.md';
+  var outputFileName = prefix + '-summary-' + slug + '-' + id + '.md';
   var responseFileName = prefix + '-response-' + slug + '-' + id + '.md';
   var statusFileName = prefix + '-status-' + slug + '-' + id + '.json';
 
@@ -59,6 +64,7 @@ export function writePromptFile(baseDir, prompt, metadata) {
   var promptFile = join(baseDir, promptFileName);
   writeFileSync(promptFile, content, 'utf-8');
 
+  var outputFile = join(baseDir, outputFileName);
   var statusFile = join(baseDir, statusFileName);
   writeFileSync(statusFile, JSON.stringify({
     status: 'spawned',
@@ -66,12 +72,14 @@ export function writePromptFile(baseDir, prompt, metadata) {
     model: metadata.model,
     agent: metadata.agent,
     promptFile: promptFile,
+    outputFile: outputFile,
     responseFile: join(baseDir, responseFileName),
     createdAt: timestamp
   }, null, 2));
 
   return {
     promptFile: promptFile,
+    outputFile: outputFile,
     responseFile: join(baseDir, responseFileName),
     statusFile: statusFile
   };

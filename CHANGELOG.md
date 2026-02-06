@@ -18,6 +18,46 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.2.0] - 2026-02-06
+
+### 추가 (Added)
+- **MCP-Direct 토큰 추적** (`hooks/mcp-tracker.mjs`)
+  - ask_codex/ask_gemini PostToolUse에서 Response File 토큰 데이터 자동 추출
+  - `~/.omcm/mcp-tracking.json`에 프로바이더별 토큰/비용 집계
+  - `~/.omcm/mcp-calls.jsonl` 상세 호출 로그 (토큰 포함)
+  - wait_for_job/check_job_status 완료 시 status file 토큰 추출
+- **HUD MCP 토큰 통합 표시** (`src/hud/omcm-hud.mjs`, `src/hud/fusion-renderer.mjs`)
+  - `readMcpTracking()` 5초 캐시 읽기
+  - MCP 비용 요약 렌더러 토큰 포함 표시 (`cx(3)12k↑3k↓$0.24`)
+  - Independent/Wrapping 양쪽 모드에서 MCP 메트릭 표시
+- **Flow Tracer 통합** (`hooks/fusion-router.mjs`, `hooks/mcp-tracker.mjs`)
+  - OMC flow-tracer 동적 import (best-effort)
+  - `recordHookFire()` / `recordHookResult()` 연동
+  - `/trace` 명령에서 fusion-router 라우팅 결정 표시
+
+### 변경 (Changed)
+- **OMC 4.0.8 호환** (`src/utils/prompt-file.mjs`)
+  - `output_file` 필수 파라미터 지원 (Breaking Change 대응)
+  - `writePromptFile()` 반환값에 `outputFile` 추가
+- **모델 폴백 체인** (`scripts/agent-mapping.json`)
+  - `codex_fallback_chain`: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
+  - `gemini_fallback_chain`: gemini-3-pro-preview → gemini-3-flash-preview → gemini-2.5-pro → gemini-2.5-flash
+  - `metadata.omc_version`: 4.0.8
+
+---
+
+## [1.1.0] - 2026-02-06
+
+### 추가 (Added)
+- **HUD MCP 비용 통합 표시** (`src/hud/index.mjs`)
+  - MCP 호출 비용을 HUD 두 번째 줄에 표시
+- **자동 전환 고도화** (SWITCH_TRIGGERS)
+  - 사용량 임계치 기반 OpenCode 자동 전환 로직
+- **OMC 상태 관리 통합**
+  - OMC 상태 파일 브릿지로 양방향 상태 동기화
+
+---
+
 ## [1.0.0] - 2026-01-28 🎉 첫 정식 릴리즈
 
 ### 추가 (Added)

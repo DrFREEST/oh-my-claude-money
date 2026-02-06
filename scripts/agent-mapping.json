@@ -1,7 +1,12 @@
 {
   "description": "OMC 에이전트 → OMO 에이전트 퓨전 매핑 (퓨전/폴백 모드 전용)",
   "version": "3.0.0",
-  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.0.6 Codex fallback chain 반영",
+  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.0.8 호환",
+  "metadata": {
+    "omc_version": "4.0.8",
+    "omcm_version": "1.2.0",
+    "last_updated": "2026-02-06"
+  },
   "models": {
     "opus": {
       "provider": "anthropic",
@@ -33,7 +38,9 @@
       "tier": "MEDIUM",
       "description": "디자인, 문서, 비전 작업",
       "fallbackChain": ["gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash"]
-    }
+    },
+    "codex_fallback_chain": ["gpt-5.3-codex", "gpt-5.3", "gpt-5.2-codex", "gpt-5.2"],
+    "gemini_fallback_chain": ["gemini-3-pro-preview", "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash"]
   },
   "mappings": {
     "architect": {

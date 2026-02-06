@@ -325,30 +325,54 @@ export function renderProviderTokens(tokenData) {
 
 /**
  * Render MCP cost summary
- * Format: MCP codex(3)$0.24 gemini(1)$0.08
+ * Format: MCP cx(3)12k↑3k↓$0.24 gm(1)8k↑1.5k↓$0.08
+ * (토큰이 있으면 표시, 없으면 기존 형식)
  *
- * @param {Object|null} mcpData - MCP cost data { codex: { calls, cost }, gemini: { calls, cost } }
+ * @param {Object|null} mcpData - MCP tracking data from mcp-tracking.json
  * @returns {string|null} - Formatted output or null if no MCP calls
  */
 export function renderMcpCostSummary(mcpData) {
-  if (!mcpData) {
+  if (!mcpData || !mcpData.byProvider) {
     return null;
   }
 
   var parts = [];
+  var bp = mcpData.byProvider;
 
-  // Codex - 호출이 있을 때만 표시
-  if (mcpData.codex && mcpData.codex.calls > 0) {
-    var codexCalls = mcpData.codex.calls;
-    var codexCost = (mcpData.codex.cost || 0).toFixed(2);
-    parts.push(GREEN + 'codex(' + codexCalls + ')$' + codexCost + RESET);
+  // OpenAI (Codex) - 호출이 있을 때만 표시
+  if (bp.openai && bp.openai.calls > 0) {
+    var calls = bp.openai.calls;
+    var inputTokens = bp.openai.inputTokens || 0;
+    var outputTokens = bp.openai.outputTokens || 0;
+    var cost = bp.openai.cost || 0;
+
+    var codexStr = GREEN + 'cx(' + calls + ')' + RESET;
+
+    // 토큰이 있으면 표시
+    if (inputTokens > 0 || outputTokens > 0) {
+      codexStr += formatTokens(inputTokens) + '\u2191' + formatTokens(outputTokens) + '\u2193';
+    }
+
+    codexStr += '$' + cost.toFixed(2);
+    parts.push(codexStr);
   }
 
-  // Gemini - 호출이 있을 때만 표시
-  if (mcpData.gemini && mcpData.gemini.calls > 0) {
-    var geminiCalls = mcpData.gemini.calls;
-    var geminiCost = (mcpData.gemini.cost || 0).toFixed(2);
-    parts.push(YELLOW + 'gemini(' + geminiCalls + ')$' + geminiCost + RESET);
+  // Google (Gemini) - 호출이 있을 때만 표시
+  if (bp.google && bp.google.calls > 0) {
+    var calls = bp.google.calls;
+    var inputTokens = bp.google.inputTokens || 0;
+    var outputTokens = bp.google.outputTokens || 0;
+    var cost = bp.google.cost || 0;
+
+    var geminiStr = YELLOW + 'gm(' + calls + ')' + RESET;
+
+    // 토큰이 있으면 표시
+    if (inputTokens > 0 || outputTokens > 0) {
+      geminiStr += formatTokens(inputTokens) + '\u2191' + formatTokens(outputTokens) + '\u2193';
+    }
+
+    geminiStr += '$' + cost.toFixed(2);
+    parts.push(geminiStr);
   }
 
   if (parts.length === 0) {

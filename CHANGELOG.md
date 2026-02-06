@@ -18,6 +18,22 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.2.1] - 2026-02-06
+
+### 추가 (Added)
+- **버전 자동매칭 스크립트** (`scripts/omc-version-sync.sh`)
+  - OMC 업데이트 시 캐시 버전 자동 복사 + gap 방지
+  - `agent-mapping.json`, `plugin.json` 버전 자동 갱신
+  - 마켓플레이스/플러그인 동기화까지 원커맨드 실행
+
+### 변경 (Changed)
+- **OMC 4.0.9 호환** (`scripts/agent-mapping.json`, `.claude-plugin/plugin.json`)
+  - `metadata.omc_version`: 4.0.8 → 4.0.9
+  - OMC 4.0.9 Codex/Gemini headless 실행 개선 대응
+  - JSON 포맷팅 정리 (fallbackChain 배열 멀티라인)
+
+---
+
 ## [1.2.0] - 2026-02-06
 
 ### 추가 (Added)

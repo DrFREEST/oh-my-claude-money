@@ -1,6 +1,6 @@
 {
   "name": "omcm",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Claude Code 사용량 관리 및 OpenCode 브릿지 플러그인",
   "author": "DrFREEST",
   "license": "MIT",

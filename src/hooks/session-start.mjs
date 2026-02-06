@@ -6,7 +6,7 @@
  * fusionDefault 활성화 시 서버 풀 자동 시작 (Cold boot 최소화)
  */
 
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -116,12 +116,64 @@ function startServerPool() {
 }
 
 // =============================================================================
+// OMC 버전 자동 동기화
+// =============================================================================
+
+/**
+ * OMC 마켓플레이스의 실제 버전을 읽어 update-check.json 자동 갱신
+ * 하드코딩 방지 — source of truth는 마켓플레이스 plugin.json
+ */
+function syncOmcVersion() {
+  try {
+    const home = homedir();
+    const omcPluginJson = join(home, '.claude', 'plugins', 'marketplaces', 'omc', '.claude-plugin', 'plugin.json');
+    const updateCheckPath = join(home, '.claude', '.omc', 'update-check.json');
+
+    if (!existsSync(omcPluginJson)) return;
+
+    const pluginData = JSON.parse(readFileSync(omcPluginJson, 'utf-8'));
+    const actualVersion = pluginData.version;
+    if (!actualVersion) return;
+
+    // 현재 update-check.json 읽기
+    let currentVersion = null;
+    if (existsSync(updateCheckPath)) {
+      try {
+        const checkData = JSON.parse(readFileSync(updateCheckPath, 'utf-8'));
+        currentVersion = checkData.currentVersion;
+      } catch (e) {
+        // 파싱 실패 시 갱신 진행
+      }
+    }
+
+    // 버전 불일치 시 자동 갱신
+    if (currentVersion !== actualVersion) {
+      const omcDir = dirname(updateCheckPath);
+      if (!existsSync(omcDir)) {
+        mkdirSync(omcDir, { recursive: true });
+      }
+      writeFileSync(updateCheckPath, JSON.stringify({
+        timestamp: Date.now(),
+        latestVersion: actualVersion,
+        currentVersion: actualVersion,
+        updateAvailable: false
+      }));
+    }
+  } catch (e) {
+    // 실패 시 무시 — 기존 기능에 영향 없음
+  }
+}
+
+// =============================================================================
 // 메인
 // =============================================================================
 
 async function main() {
   try {
     await loadUtils();
+
+    // OMC 버전 자동 동기화 (update-check.json 갱신)
+    syncOmcVersion();
 
     const config = loadConfig();
     const usage = getUsageFromCache();

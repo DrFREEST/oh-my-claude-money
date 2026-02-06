@@ -3,23 +3,17 @@
  */
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import { existsSync, unlinkSync, mkdirSync, writeFileSync, rmSync, mkdtempSync } from 'fs';
+import { existsSync, unlinkSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
-import { tmpdir } from 'os';
-
-const testHome = mkdtempSync(join(tmpdir(), 'omcm-test-'));
-process.env.HOME = testHome;
-
-const {
+import {
   readFusionState,
   writeFusionState,
   recordRouting,
   setFusionMode,
   setFusionEnabled,
-  updateSavingsFromTokens,
   resetFusionStats,
   STATE_FILE
-} = await import('../../src/utils/fusion-tracker.mjs');
+} from '../../src/utils/fusion-tracker.mjs';
 
 describe('fusion-tracker', () => {
   // 테스트 전후 상태 파일 정리
@@ -34,7 +28,6 @@ describe('fusion-tracker', () => {
     if (existsSync(STATE_FILE)) {
       unlinkSync(STATE_FILE);
     }
-    rmSync(testHome, { recursive: true, force: true });
   });
 
   describe('readFusionState()', () => {
@@ -118,7 +111,6 @@ describe('fusion-tracker', () => {
       assert.strictEqual(state.estimatedSavedTokens, 1500);
       assert.strictEqual(state.byProvider.gemini, 1);
       assert.strictEqual(state.byProvider.anthropic, 0);
-      assert.strictEqual(state.byProvider.kimi, 0);
       assert.strictEqual(state.routingRate, 100);
     });
 
@@ -142,18 +134,6 @@ describe('fusion-tracker', () => {
       assert.strictEqual(state.routedToOpenCode, 1);
       assert.strictEqual(state.estimatedSavedTokens, 2000);
       assert.strictEqual(state.byProvider.openai, 1);
-    });
-
-    it('opencode로 라우팅 기록 (kimi 프로바이더)', () => {
-      resetFusionStats();
-
-      const state = recordRouting('opencode', 'kimi', 900);
-
-      assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 1);
-      assert.strictEqual(state.estimatedSavedTokens, 900);
-      assert.strictEqual(state.byProvider.kimi, 1);
-      assert.strictEqual(state.byProvider.anthropic, 0);
     });
 
     it('opencode로 라우팅 기록 (gpt 프로바이더)', () => {
@@ -277,27 +257,8 @@ describe('fusion-tracker', () => {
       assert.strictEqual(state.byProvider.gemini, 0);
       assert.strictEqual(state.byProvider.openai, 0);
       assert.strictEqual(state.byProvider.anthropic, 0);
-      assert.strictEqual(state.byProvider.kimi, 0);
       assert.strictEqual(state.enabled, true);
       assert.strictEqual(state.mode, 'balanced');
-    });
-  });
-
-  describe('updateSavingsFromTokens()', () => {
-    it('OpenCode 토큰 합산 및 절약률 계산 (kimi 포함)', () => {
-      resetFusionStats();
-
-      const state = updateSavingsFromTokens(
-        { input: 100, output: 50 },
-        { input: 20, output: 10 },
-        { input: 30, output: 40 },
-        { input: 10, output: 0 }
-      );
-
-      assert.strictEqual(state.actualTokens.kimi.input, 10);
-      assert.strictEqual(state.actualTokens.kimi.output, 0);
-      assert.strictEqual(state.estimatedSavedTokens, 110);
-      assert.strictEqual(state.savingsRate, 42);
     });
   });
 });

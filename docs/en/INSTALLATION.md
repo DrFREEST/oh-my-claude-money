@@ -593,12 +593,10 @@ export GOOGLE_API_KEY="..."
 #### "HUD not displayed"
 
 ```bash
-# Check HUD file
+# Check HUD file (automatically configured during plugin installation)
 ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
-# Installed automatically when the plugin is installed.
-# If action is needed, run:
-# bash /opt/oh-my-claude-money/scripts/install-hud.sh
+# HUD is a plugin file, no need to modify directly
 
 # Check settings.json
 grep "statusLine" ~/.claude/settings.json
@@ -607,10 +605,14 @@ grep "statusLine" ~/.claude/settings.json
 ls ~/.claude/plugins/cache/omc/oh-my-claudecode/*/dist/hud/index.js
 ```
 
-If HUD file is missing, run:
+If HUD file is missing, reconfigure plugin:
 
 ```bash
-bash /opt/oh-my-claude-money/scripts/install-hud.sh
+# Re-run fusion setup in Claude Code
+claude
+/omcm:fusion-setup
+
+# HUD is automatically configured during plugin installation
 ```
 
 #### "OMC plugin not built"
@@ -709,7 +711,7 @@ rm -rf ~/.claude/plugins/marketplaces/omcm
 rm -rf ~/.claude/plugins/omcm
 rm -rf ~/.omcm
 
-# Removed automatically when the plugin is uninstalled.
+# HUD is automatically removed when plugin is deleted
 # No additional action needed
 
 # Clean settings.json (optional)

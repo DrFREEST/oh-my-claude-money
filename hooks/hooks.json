@@ -72,12 +72,23 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Read|Edit|Bash|Grep|Glob|Task",
+        "matcher": "Read|Edit|Bash|Grep|Glob|Task|TaskCreate|TaskUpdate|TaskList|TaskGet",
         "hooks": [
           {
             "type": "command",
             "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/tool-tracker.mjs",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__x__|mcp__g__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/mcp-tracker.mjs",
+            "timeout": 10,
+            "statusMessage": "MCP 비용 추적 중..."
           }
         ]
       }

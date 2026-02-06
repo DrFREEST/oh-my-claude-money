@@ -723,10 +723,6 @@ echo $OMCM_CONTEXT_PATH
 # 1. Check HUD file
 cat ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
-# Installed automatically when the plugin is installed.
-# If action is needed, run:
-# bash /opt/oh-my-claude-money/scripts/install-hud.sh
-
 # 2. Check settings.json
 cat ~/.claude/settings.json | grep statusLine
 
@@ -843,7 +839,7 @@ echo "6. OpenCode Authentication"
 opencode auth status | grep -q "authenticated" && echo "✅" || echo "❌"
 
 echo "7. Server Pool Status"
-curl -s http://localhost:4096/global/health > /dev/null && echo "✅ Running" || echo "❌ Not running"
+curl -s http://localhost:4096/health > /dev/null && echo "✅ Running" || echo "❌ Not running"
 
 echo "8. Context Directory"
 [ -d ~/.omcm ] && echo "✅" || echo "❌"

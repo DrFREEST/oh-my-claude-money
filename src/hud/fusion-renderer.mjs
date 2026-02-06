@@ -322,3 +322,93 @@ export function renderProviderTokens(tokenData) {
 
   return parts.join(' | ');
 }
+
+/**
+ * Render MCP cost summary
+ * Format: MCP codex(3)$0.24 gemini(1)$0.08
+ *
+ * @param {Object|null} mcpData - MCP cost data { codex: { calls, cost }, gemini: { calls, cost } }
+ * @returns {string|null} - Formatted output or null if no MCP calls
+ */
+export function renderMcpCostSummary(mcpData) {
+  if (!mcpData) {
+    return null;
+  }
+
+  var parts = [];
+
+  // Codex - 호출이 있을 때만 표시
+  if (mcpData.codex && mcpData.codex.calls > 0) {
+    var codexCalls = mcpData.codex.calls;
+    var codexCost = (mcpData.codex.cost || 0).toFixed(2);
+    parts.push(GREEN + 'codex(' + codexCalls + ')$' + codexCost + RESET);
+  }
+
+  // Gemini - 호출이 있을 때만 표시
+  if (mcpData.gemini && mcpData.gemini.calls > 0) {
+    var geminiCalls = mcpData.gemini.calls;
+    var geminiCost = (mcpData.gemini.cost || 0).toFixed(2);
+    parts.push(YELLOW + 'gemini(' + geminiCalls + ')$' + geminiCost + RESET);
+  }
+
+  if (parts.length === 0) {
+    return null;
+  }
+
+  return 'MCP ' + parts.join(' ');
+}
+
+/**
+ * Render combined cost dashboard (OMCM fusion + OMC MCP)
+ * Format: [OMCM] fusion:off | mcp:codex(3) gemini(1) | saved:12.5k | cost:$0.42
+ *
+ * @param {Object} options - Dashboard options
+ * @param {Object|null} options.fusionState - Fusion state (null if disabled)
+ * @param {Object|null} options.mcpData - MCP cost data
+ * @param {number} options.totalCost - Total cost (fusion + MCP)
+ * @returns {string} - Formatted dashboard output
+ */
+export function renderCombinedCostDashboard(options) {
+  var fusionState = options.fusionState;
+  var mcpData = options.mcpData;
+  var totalCost = options.totalCost || 0;
+
+  var parts = ['[OMCM]'];
+
+  // Fusion status
+  if (!fusionState || fusionState.enabled === false) {
+    parts.push('fusion:' + DIM + 'off' + RESET);
+  } else {
+    parts.push('fusion:' + GREEN + 'on' + RESET);
+  }
+
+  // MCP summary
+  var mcpParts = [];
+  if (mcpData) {
+    if (mcpData.codex && mcpData.codex.calls > 0) {
+      mcpParts.push(GREEN + 'codex(' + mcpData.codex.calls + ')' + RESET);
+    }
+    if (mcpData.gemini && mcpData.gemini.calls > 0) {
+      mcpParts.push(YELLOW + 'gemini(' + mcpData.gemini.calls + ')' + RESET);
+    }
+  }
+
+  if (mcpParts.length > 0) {
+    parts.push('mcp:' + mcpParts.join(' '));
+  } else {
+    parts.push('mcp:' + DIM + '-' + RESET);
+  }
+
+  // Saved tokens (if fusion is active)
+  if (fusionState && fusionState.enabled !== false) {
+    var savedTokens = fusionState.estimatedSavedTokens || 0;
+    if (savedTokens > 0) {
+      parts.push('saved:' + GREEN + formatTokens(savedTokens) + RESET);
+    }
+  }
+
+  // Total cost
+  parts.push('cost:' + CYAN + '$' + totalCost.toFixed(2) + RESET);
+
+  return parts.join(' | ');
+}

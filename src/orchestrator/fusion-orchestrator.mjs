@@ -6,14 +6,12 @@
  */
 
 import { FUSION_MAP, OPENCODE_AGENTS, getFusionInfo, getTokenSavingAgents, estimateBatchSavings } from './agent-fusion-map.mjs';
-import { executeOnPool, discoverExistingServers, ServerPoolManager } from '../pool/server-pool.mjs';
-import { logOpenCodeCall } from '../tracking/call-logger.mjs';
-import { getSessionIdFromTty } from '../utils/session-id.mjs';
-import { getUsageFromCache, getUsageLevel } from '../utils/usage.mjs';
+import { OpenCodeServerPool } from '../executor/opencode-server-pool.mjs';
+import { getUsageFromCache, getUsageLevel, checkThreshold } from '../utils/usage.mjs';
 import { loadConfig } from '../utils/config.mjs';
 import { recordRouting, setFusionMode as updateFusionMode } from '../utils/fusion-tracker.mjs';
 import { getFallbackOrchestrator } from './fallback-orchestrator.mjs';
-import { updateOpenAILimitsFromHeaders, recordGeminiRequest } from '../utils/provider-limits.mjs';
+import { updateOpenAILimitsFromHeaders, recordGeminiRequest, recordGemini429 } from '../utils/provider-limits.mjs';
 
 // =============================================================================
 // 퓨전 오케스트레이터
@@ -23,7 +21,7 @@ export class FusionOrchestrator {
   constructor(options = {}) {
     this.projectDir = options.projectDir || process.cwd();
     this.config = loadConfig();
-    this.poolAvailable = false;
+    this.opencodePool = null;
     this.fallbackOrchestrator = null;
     this.mode = 'balanced'; // 'save-tokens' | 'balanced' | 'quality-first'
     this.stats = {
@@ -51,14 +49,19 @@ export class FusionOrchestrator {
       this.mode = 'quality-first';
     }
 
-    // OpenCode 서버 풀 초기화 (REST API 기반)
+    // OpenCode 서버 풀 초기화 (Cold boot 최소화)
     try {
-      await discoverExistingServers();
-      var pool = ServerPoolManager.getInstance();
-      var status = pool.getStatus();
-      this.poolAvailable = status.total > 0;
+      var maxServers = (this.config.routing && this.config.routing.maxOpencodeWorkers) ? this.config.routing.maxOpencodeWorkers : 3;
+      this.opencodePool = new OpenCodeServerPool({
+        projectDir: this.projectDir,
+        minServers: 1,
+        maxServers: maxServers,
+        autoScale: true,
+      });
+      await this.opencodePool.initialize();
     } catch (e) {
-      this.poolAvailable = false;
+      // OpenCode 미설치
+      this.opencodePool = null;
     }
 
     // Fallback 오케스트레이터 초기화
@@ -71,7 +74,7 @@ export class FusionOrchestrator {
     return {
       initialized: true,
       mode: this.mode,
-      opencodeAvailable: this.poolAvailable,
+      opencodeAvailable: this.opencodePool !== null,
       fallbackAvailable: this.fallbackOrchestrator !== null,
       usage: usage,
       usageLevel: usageLevel,
@@ -110,7 +113,7 @@ export class FusionOrchestrator {
     }
 
     // OpenCode 미설치면 OMC 사용
-    if (!this.poolAvailable) {
+    if (!this.opencodePool) {
       return {
         target: 'omc',
         agent: task.type,
@@ -247,7 +250,7 @@ export class FusionOrchestrator {
     this.stats.totalTasks++;
     this.stats.byAgent[task.type] = (this.stats.byAgent[task.type] || 0) + 1;
 
-    if (routing.target === 'opencode' && this.poolAvailable) {
+    if (routing.target === 'opencode' && this.opencodePool) {
       this.stats.opencodeTasks++;
       if (routing.savesTokens) {
         this.stats.estimatedSavedTokens += task.estimatedTokens || 1000;
@@ -257,49 +260,16 @@ export class FusionOrchestrator {
       const provider = this._getProviderFromAgent(routing.agent);
       recordRouting('opencode', provider, task.estimatedTokens || 1000);
 
-      // OpenCode REST API를 통한 실행
-      const { providerID, modelID } = this._getOpenCodeModel(routing.agent);
+      // OpenCode 실행
       const prompt = this._buildOpenCodePrompt(task, routing);
-
-      await discoverExistingServers();
-      const result = await executeOnPool({
-        prompt: prompt,
-        providerID: providerID,
-        modelID: modelID,
-        timeout: 5 * 60 * 1000
+      const result = await this.opencodePool.submit(prompt, {
+        enableUltrawork: true,
       });
-
-      // 실제 토큰 데이터를 세션별 로깅
-      let sessionId = null;
-      try { sessionId = getSessionIdFromTty(); } catch (e) {}
-
-      if (sessionId && result.tokens) {
-        logOpenCodeCall(sessionId, {
-          provider: result.tokens.providerID || providerID,
-          model: result.tokens.modelID || modelID,
-          agent: routing.agent,
-          inputTokens: result.tokens.input || 0,
-          outputTokens: result.tokens.output || 0,
-          reasoningTokens: result.tokens.reasoning || 0,
-          cost: result.tokens.cost || 0,
-          actualModelID: result.tokens.modelID || '',
-          actualProviderID: result.tokens.providerID || '',
-          success: result.success,
-          source: 'fusion-orchestrator',
-          duration: 0,
-          serverPort: result.serverPort || 0
-        });
-      }
 
       return {
         task,
         routing,
-        result: {
-          success: result.success,
-          output: result.output,
-          tokens: result.tokens,
-          serverPort: result.serverPort
-        },
+        result,
         source: 'opencode',
       };
     } else {
@@ -378,51 +348,14 @@ export class FusionOrchestrator {
     const agent = OPENCODE_AGENTS[agentName];
     if (!agent) return 'unknown';
 
-    const model = (agent.model || '').toLowerCase();
+    const model = agent.model || '';
     if (model.includes('gemini') || model.includes('google')) {
       return 'gemini';
     }
     if (model.includes('gpt') || model.includes('openai')) {
       return 'openai';
     }
-    if (model.includes('kimi') || model.includes('moonshot')) {
-      return 'kimi';
-    }
-    if (model.includes('claude') || model.includes('anthropic')) {
-      return 'anthropic';
-    }
     return 'unknown';
-  }
-
-  /**
-   * OpenCode 모델 정보 추출 (fusion-map → server-pool providerID/modelID)
-   */
-  _getOpenCodeModel(agentName) {
-    const fusion = FUSION_MAP[agentName];
-    if (!fusion || !fusion.model) return { providerID: 'openai', modelID: 'gpt-5.2-codex' };
-
-    const provider = fusion.model.provider || 'openai';
-    const model = fusion.model.model || 'gpt-5.2-codex';
-
-    // provider → providerID 매핑
-    const providerMap = {
-      'openai': 'openai',
-      'google': 'google',
-      'anthropic': 'anthropic'
-    };
-
-    // model → OpenCode modelID 매핑 (opencode.json에 등록된 실제 모델명)
-    const modelMap = {
-      'gpt-5.2-codex': 'gpt-5.2-codex',
-      'gpt-5.2': 'gpt-5.2',
-      'gemini-3.0-flash': 'antigravity-gemini-3-flash',
-      'claude-opus-4-5-20251101': 'claude-opus-4-5-20251101'
-    };
-
-    return {
-      providerID: providerMap[provider] || 'openai',
-      modelID: modelMap[model] || model
-    };
   }
 
   /**
@@ -465,7 +398,9 @@ export class FusionOrchestrator {
    * 종료
    */
   async shutdown() {
-    // 서버풀은 글로벌 싱글톤이므로 개별 종료하지 않음
+    if (this.opencodePool) {
+      await this.opencodePool.shutdown();
+    }
 
     return {
       finalStats: this.getStats(),
@@ -559,32 +494,25 @@ export async function executeWithFallbackCheck(task, omcExecutor, orchestrator) 
  * @returns {Promise<Object>} 실행 결과
  */
 async function executeViaOpenCode(task, model, orchestrator) {
-  if (!orchestrator.poolAvailable) {
+  if (!orchestrator.opencodePool) {
     throw new Error('OpenCode not available for fallback execution');
   }
 
   const prompt = buildFallbackPrompt(task, model);
 
-  // provider → providerID/modelID 변환
-  var providerID = 'openai';
-  var modelID = 'gpt-5.2-codex';
-  if (model.provider === 'google') {
-    providerID = 'google';
-    modelID = 'antigravity-gemini-3-flash';
-  }
-
-  await discoverExistingServers();
-  const result = await executeOnPool({
-    prompt: prompt,
-    providerID: providerID,
-    modelID: modelID,
-    timeout: 5 * 60 * 1000
+  const result = await orchestrator.opencodePool.submit(prompt, {
+    enableUltrawork: true,
+    agent: model.opencodeAgent,
   });
 
   // Provider limit 추적
-  if (model.provider === 'openai' && result && result.tokens) {
-    updateOpenAILimitsFromHeaders({});
+  if (model.provider === 'openai') {
+    // OpenAI 헤더가 있으면 업데이트
+    if (result && result.headers) {
+      updateOpenAILimitsFromHeaders(result.headers);
+    }
   } else if (model.provider === 'google') {
+    // Gemini 사용량 기록
     const estimatedTokens = task.estimatedTokens || 500;
     recordGeminiRequest(estimatedTokens);
   }
@@ -597,12 +525,7 @@ async function executeViaOpenCode(task, model, orchestrator) {
       reason: 'Fallback execution via ' + model.name,
       savesTokens: true,
     },
-    result: {
-      success: result.success,
-      output: result.output,
-      tokens: result.tokens,
-      serverPort: result.serverPort
-    },
+    result,
     source: 'opencode-fallback',
     fallbackModel: model,
   };

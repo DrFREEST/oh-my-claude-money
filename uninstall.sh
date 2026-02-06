@@ -33,65 +33,9 @@ echo "========================================"
 echo ""
 
 # ============================================================================
-# 0. 실행 중인 서버 프로세스 중지
-# ============================================================================
-echo -e "${BLUE}[0/7]${NC} 실행 중인 서버 프로세스 중지..."
-
-# 1. 서버 풀 스크립트를 통한 중지 시도 (권장)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/scripts/start-server-pool.sh" ]]; then
-    bash "$SCRIPT_DIR/scripts/start-server-pool.sh" stop 2>/dev/null || true
-    echo -e "  ${GREEN}✓${NC} start-server-pool.sh를 통한 중지 완료"
-fi
-
-# 2. OpenCode 서버 스크립트를 통한 중지 시도
-if [[ -f "$SCRIPT_DIR/scripts/opencode-server.sh" ]]; then
-    bash "$SCRIPT_DIR/scripts/opencode-server.sh" stop 2>/dev/null || true
-    echo -e "  ${GREEN}✓${NC} opencode-server.sh를 통한 중지 완료"
-fi
-
-# 3. 직접적인 PID 파일 확인 및 프로세스 종료 (백업)
-# 서버 풀 PID 파일 확인
-if [[ -d "$HOME/.omcm/server-pool" ]]; then
-    for pid_file in "$HOME/.omcm/server-pool"/*.pid; do
-        if [[ -f "$pid_file" ]]; then
-            local pid=$(cat "$pid_file")
-            if kill -0 "$pid" 2>/dev/null; then
-                kill "$pid" 2>/dev/null || true
-                echo -e "  ${GREEN}✓${NC} 서버 풀 프로세스 종료됨 (PID: $pid)"
-            fi
-            rm -f "$pid_file"
-        fi
-    done
-fi
-
-# OpenCode 서버 PID 파일 확인 및 프로세스 종료
-if [[ -f "$HOME/.omcm/opencode-server.pid" ]]; then
-    local pid=$(cat "$HOME/.omcm/opencode-server.pid")
-    if kill -0 "$pid" 2>/dev/null; then
-        kill "$pid" 2>/dev/null || true
-        echo -e "  ${GREEN}✓${NC} OpenCode 서버 프로세스 종료됨 (PID: $pid)"
-    fi
-    rm -f "$HOME/.omcm/opencode-server.pid"
-fi
-
-# 포트 기반 프로세스 종료 (PID 파일이 없는 경우)
-if command -v lsof &>/dev/null; then
-    for port in 4096 4097 4098 4099; do
-        local pids=$(lsof -ti:$port 2>/dev/null || true)
-        if [[ -n "$pids" ]]; then
-            echo "$pids" | xargs kill -9 2>/dev/null || true
-            echo -e "  ${GREEN}✓${NC} 포트 $port의 프로세스 종료됨"
-        fi
-    done
-fi
-
-echo ""
-
-# ============================================================================
 # 1. 플러그인 심볼릭 링크 제거
 # ============================================================================
-echo -e "${BLUE}[1/7]${NC} 플러그인 링크 제거..."
+echo -e "${BLUE}[1/6]${NC} 플러그인 링크 제거..."
 if [[ -L "$OMCM_PLUGIN_LINK" ]]; then
     rm "$OMCM_PLUGIN_LINK"
     echo -e "  ${GREEN}✓${NC} 플러그인 심볼릭 링크 제거됨"
@@ -102,7 +46,7 @@ fi
 # ============================================================================
 # 2. Hooks 설정 제거 (settings.json에서 OMCM 관련 hook 제거)
 # ============================================================================
-echo -e "${BLUE}[2/7]${NC} Hooks 설정 제거..."
+echo -e "${BLUE}[2/6]${NC} Hooks 설정 제거..."
 if [[ -f "$SETTINGS_FILE" ]]; then
     # fusion-router 관련 hook 제거
     if grep -qE "fusion-router|omcm|read-optimizer|bash-optimizer|tool-tracker|session-start|detect-handoff|persistent-mode" "$SETTINGS_FILE" 2>/dev/null; then
@@ -160,7 +104,7 @@ fi
 # ============================================================================
 # 3. statusLine 설정 제거 (플러그인 경로 참조 방식)
 # ============================================================================
-echo -e "${BLUE}[3/7]${NC} statusLine 설정 제거..."
+echo -e "${BLUE}[3/6]${NC} statusLine 설정 제거..."
 if [[ -f "$SETTINGS_FILE" ]]; then
     # statusLine에서 omcm-hud 참조 제거
     if grep -q "omcm-hud" "$SETTINGS_FILE" 2>/dev/null; then
@@ -190,7 +134,7 @@ fi
 # ============================================================================
 # 4. 상태/데이터 파일 제거
 # ============================================================================
-echo -e "${BLUE}[4/7]${NC} 상태 및 데이터 파일 제거..."
+echo -e "${BLUE}[4/6]${NC} 상태 및 데이터 파일 제거..."
 REMOVED_FILES=0
 
 # ~/.omcm/ 디렉토리 전체
@@ -233,7 +177,7 @@ fi
 # ============================================================================
 # 5. 마켓플레이스/캐시 디렉토리 제거
 # ============================================================================
-echo -e "${BLUE}[5/7]${NC} 캐시 및 마켓플레이스 디렉토리 제거..."
+echo -e "${BLUE}[5/6]${NC} 캐시 및 마켓플레이스 디렉토리 제거..."
 CACHE_REMOVED=0
 
 if [[ -d "$OMCM_MARKETPLACE_DIR" ]]; then
@@ -256,7 +200,7 @@ fi
 # 6. 소스 코드 제거 (선택)
 # ============================================================================
 echo ""
-echo -e "${BLUE}[6/7]${NC} 소스 코드 제거 (선택사항)..."
+echo -e "${BLUE}[6/6]${NC} 소스 코드 제거 (선택사항)..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -d "$SCRIPT_DIR" ]] && [[ "$SCRIPT_DIR" != "/" ]]; then
@@ -274,19 +218,6 @@ if [[ -d "$SCRIPT_DIR" ]] && [[ "$SCRIPT_DIR" != "/" ]]; then
 else
     echo -e "  ${YELLOW}-${NC} 소스 디렉토리 확인 불가"
 fi
-
-# ============================================================================
-# 7. 최종 정리
-# ============================================================================
-echo -e "${BLUE}[7/7]${NC} 최종 정리..."
-
-# 빈 디렉토리 정리
-if [[ -d "$HOME/.omcm/server-pool" ]] && [[ -z "$(ls -A "$HOME/.omcm/server-pool" 2>/dev/null)" ]]; then
-    rmdir "$HOME/.omcm/server-pool" 2>/dev/null || true
-    echo -e "  ${GREEN}✓${NC} 빈 server-pool 디렉토리 제거됨"
-fi
-
-echo ""
 
 # ============================================================================
 # 완료

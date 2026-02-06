@@ -28,12 +28,18 @@ import { executeOnPool, discoverExistingServers } from '../src/pool/server-pool.
  */
 function toOpenCodeProvider(modelId) {
   var mapping = {
+    // v1.1.0 신규 모델 (OMC v4.0.6 호환)
+    'gpt-5.3-codex': { providerID: 'openai', modelID: 'gpt-5.3-codex' },
+    'gpt-5.3': { providerID: 'openai', modelID: 'gpt-5.3' },
+    'gemini-3-pro-preview': { providerID: 'google', modelID: 'antigravity-gemini-3-pro-high' },
+    'gemini-3-flash-preview': { providerID: 'google', modelID: 'antigravity-gemini-3-flash' },
+    // 하위 호환
     'gemini-flash': { providerID: 'google', modelID: 'antigravity-gemini-3-flash' },
     'gemini-pro': { providerID: 'google', modelID: 'antigravity-gemini-3-pro-high' },
     'gpt-5.2': { providerID: 'openai', modelID: 'gpt-5.2' },
     'gpt-5.2-codex': { providerID: 'openai', modelID: 'gpt-5.2-codex' }
   };
-  return mapping[modelId] || { providerID: 'openai', modelID: 'gpt-5.2-codex' };
+  return mapping[modelId] || { providerID: 'openai', modelID: 'gpt-5.3-codex' };
 }
 
 /**
@@ -49,7 +55,7 @@ async function executeViaOpenCode(toolInput, decision) {
   // 모델 결정
   var internalModelId = decision.targetModel && decision.targetModel.id
     ? decision.targetModel.id
-    : 'gpt-5.2-codex';
+    : 'gpt-5.3-codex';
   var provider = toOpenCodeProvider(internalModelId);
 
   // /ulw 커맨드 래핑
@@ -104,8 +110,8 @@ async function main() {
 
   try {
     var data = JSON.parse(input);
-    var toolName = data.tool_name || '';
-    var toolInput = data.tool_input || {};
+    var toolName = data.tool_name || data.toolName || '';
+    var toolInput = data.tool_input || data.toolInput || {};
 
     // 세션 ID 획득
     var sessionId = null;

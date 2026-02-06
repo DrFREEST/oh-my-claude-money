@@ -90,29 +90,9 @@ shouldRouteToOpenCode(toolInput, options)
 | security-reviewer-low | OMO build | Gemini 3.0 Flash | 빠른 검사 |
 | **HIGH 13개** (architect, planner, critic 등) | Claude (유지) | Claude Opus | 높은 품질 (fallbackToOMC) |
 
-### 1.2 서버 풀 (src/pool/server-pool.mjs)
+### 1.2 서버 풀 (src/executor/opencode-server-pool.mjs)
 
-OpenCode의 라우팅 대기 시간을 ~90% 단축하는 REST API 기반 서버 풀입니다.
-
-**실행 흐름:**
-```
-executeOnPool({ prompt, providerID, modelID, timeout })
-    ↓
-POST http://localhost:4096/session
-    ↓
-{ sessionId: "abc123" }
-    ↓
-POST http://localhost:4096/session/abc123/message
-    ↓
-Server-Sent Events 스트림:
-  data: {"type": "token_count", "input_tokens": 150}
-  data: {"type": "token_count", "output_tokens": 280}
-  data: {"type": "content", "text": "..."}
-    ↓
-토큰 파싱 → call-logger JSONL 기록 → fusion-tracker
-```
-
-**래퍼:** `src/executor/opencode-server-pool.mjs`는 하위 호환성을 위한 thin wrapper입니다.
+OpenCode의 라우팅 대기 시간을 ~90% 단축하는 플렉서블 서버 풀입니다.
 
 #### 동적 스케일링 아키텍처
 
@@ -126,7 +106,7 @@ Server-Sent Events 스트림:
 │ (maxServers 도달)│          │
 └─────────────────────────────┘
     ↓
-  [REST API 실행]
+  [실행]
     ↓
 사용률 체크
 ├─ 80% 이상 → 스케일업 (새 포트 4099 시작)

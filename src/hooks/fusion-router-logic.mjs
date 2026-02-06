@@ -70,8 +70,9 @@ export function logRouting(decision) {
 /**
  * OMC 에이전트를 OpenCode 에이전트로 매핑
  *
- * OMC 3.6.0 기준 에이전트: architect, researcher, explore, executor, designer,
- *                        writer, vision, critic, analyst, orchestrator, planner, qa-tester
+ * OMC 4.0.6 기준 에이전트: architect, researcher, explore, executor, designer,
+ *                        writer, vision, critic, analyst, orchestrator, planner, qa-tester,
+ *                        deep-executor, git-master (+ 각 tier별 low/medium/high 변형)
  *
  * OMO 3.1.0 기준 에이전트: Oracle (GPT), Flash (Gemini), Codex (GPT),
  *                        explore, librarian, frontend-ui-ux-engineer, document-writer, multimodal-looker
@@ -138,7 +139,11 @@ export function mapAgentToOpenCode(agentType) {
     'orchestrator': 'Oracle',
 
     // 계획 (Claude 유지 권장, 하지만 폴백 시 Oracle)
-    'planner': 'Oracle'
+    'planner': 'Oracle',
+
+    // v1.1.0 신규 에이전트 (OMC v4.0.0+)
+    'deep-executor': 'Codex',       // 복잡한 자율 작업
+    'git-master': 'Codex'           // Git 작업 관리
   };
   return mapping[agentType] || 'Codex';
 }
@@ -159,26 +164,26 @@ export function getModelInfoForAgent(omoAgent) {
   for (var i = 0; i < geminiAgents.length; i++) {
     if (omoAgent === geminiAgents[i]) {
       if (omoAgent === 'frontend-ui-ux-engineer') {
-        return { id: 'gemini-pro', name: 'Gemini 3 Pro' };
+        return { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro' };
       }
-      return { id: 'gemini-flash', name: 'Gemini 3 Flash' };
+      return { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash' };
     }
   }
 
   for (var j = 0; j < oracleAgents.length; j++) {
     if (omoAgent === oracleAgents[j]) {
-      return { id: 'gpt-5.2', name: 'GPT 5.2 Oracle' };
+      return { id: 'gpt-5.3', name: 'GPT 5.3 Oracle' };
     }
   }
 
   for (var k = 0; k < codexAgents.length; k++) {
     if (omoAgent === codexAgents[k]) {
-      return { id: 'gpt-5.2-codex', name: 'GPT 5.2 Codex' };
+      return { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex' };
     }
   }
 
-  // 기본값
-  return { id: 'gpt-5.2-codex', name: 'GPT 5.2 Codex' };
+  // 기본값 (OMC 4.0.6 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2)
+  return { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex' };
 }
 
 /**
@@ -386,7 +391,7 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
         return {
           route: true,
           reason: 'token-saving-agent-' + agentType,
-          targetModel: { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
+          targetModel: { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' },
           opencodeAgent: mapAgentToOpenCode(agentType)
         };
       }
@@ -409,97 +414,6 @@ export function wrapWithUlwCommand(prompt) {
   return '/ulw ' + prompt;
 }
 
-// =============================================================================
-// Provider/Token helpers
-// =============================================================================
-
-/**
- * providerId/modelId/agentName 기반으로 프로바이더 정규화
- * @param {string} providerId
- * @param {string} modelId
- * @param {string} agentName
- * @returns {string} 'openai' | 'gemini' | 'anthropic' | 'kimi'
- */
-function normalizeProvider(providerId, modelId, agentName) {
-  var provider = '';
-
-  if (providerId) {
-    var pid = String(providerId).toLowerCase();
-    if (pid === 'google' || pid === 'gemini') return 'gemini';
-    if (pid === 'openai' || pid === 'gpt') return 'openai';
-    if (pid === 'anthropic' || pid === 'claude') return 'anthropic';
-    if (pid === 'kimi' || pid === 'kimi-for-coding' || pid === 'moonshot') return 'kimi';
-    if (pid === 'opencode') {
-      var mid = String(modelId || '').toLowerCase();
-      if (mid.indexOf('gemini') !== -1 || mid.indexOf('flash') !== -1 || mid.indexOf('pro') !== -1) {
-        return 'gemini';
-      }
-      if (mid.indexOf('gpt') !== -1 || mid.indexOf('o1') !== -1 || mid.indexOf('codex') !== -1) {
-        return 'openai';
-      }
-      if (mid.indexOf('claude') !== -1 || mid.indexOf('sonnet') !== -1 || mid.indexOf('opus') !== -1 || mid.indexOf('haiku') !== -1) {
-        return 'anthropic';
-      }
-    }
-  }
-
-  if (agentName) {
-    var agentHint = String(agentName).toLowerCase();
-    if (agentHint.indexOf('flash') !== -1) return 'gemini';
-  }
-
-  if (modelId) {
-    var midFallback = String(modelId).toLowerCase();
-    if (midFallback.indexOf('gemini') !== -1 || midFallback.indexOf('flash') !== -1 || midFallback.indexOf('pro') !== -1) {
-      return 'gemini';
-    }
-    if (midFallback.indexOf('gpt') !== -1 || midFallback.indexOf('o1') !== -1 || midFallback.indexOf('codex') !== -1) {
-      return 'openai';
-    }
-    if (midFallback.indexOf('claude') !== -1 || midFallback.indexOf('sonnet') !== -1 || midFallback.indexOf('opus') !== -1 || midFallback.indexOf('haiku') !== -1) {
-      return 'anthropic';
-    }
-    if (midFallback.indexOf('kimi') !== -1 || midFallback.indexOf('moonshot') !== -1) {
-      return 'kimi';
-    }
-  }
-
-  if (agentName) {
-    var agentLower = String(agentName).toLowerCase();
-    if (agentLower.indexOf('flash') !== -1) return 'gemini';
-    if (agentLower.indexOf('oracle') !== -1 || agentLower.indexOf('codex') !== -1) return 'openai';
-  }
-
-  return 'openai';
-}
-
-/**
- * OpenCode 결과에서 실제 토큰 사용량 추출
- * @param {object|null} result
- * @returns {number} 실제 토큰 합계 (input + cache + output)
- */
-function getActualTokenTotal(result) {
-  if (!result || !result.tokens) return 0;
-
-  var inputTokens = result.tokens.input || 0;
-  var outputTokens = result.tokens.output || 0;
-  var cacheRead = 0;
-  var cacheCreate = 0;
-
-  if (result.tokens.cache) {
-    cacheRead = result.tokens.cache.read || 0;
-    cacheCreate = result.tokens.cache.create || result.tokens.cache.write || 0;
-  }
-  if (typeof result.tokens.cacheRead === 'number') {
-    cacheRead = result.tokens.cacheRead;
-  }
-  if (typeof result.tokens.cacheCreate === 'number') {
-    cacheCreate = result.tokens.cacheCreate;
-  }
-
-  return inputTokens + cacheRead + cacheCreate + outputTokens;
-}
-
 /**
  * 퓨전 상태 업데이트
  * @param {object} decision - 라우팅 결정
@@ -510,12 +424,6 @@ function getActualTokenTotal(result) {
  */
 export function updateFusionState(decision, result, sessionId = null, currentState = null) {
   ensureOmcmDir();
-
-  // 테스트 호환: sessionId 자리에 currentState 객체가 전달된 경우
-  if (sessionId && typeof sessionId === 'object' && currentState === null) {
-    currentState = sessionId;
-    sessionId = null;
-  }
 
   // 세션별 또는 글로벌 상태 파일 경로 결정
   var stateFile = FUSION_STATE_FILE;
@@ -536,89 +444,33 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
       routedToOpenCode: 0,
       routingRate: 0,
       estimatedSavedTokens: 0,
-      byProvider: { gemini: 0, openai: 0, anthropic: 0, kimi: 0 },
+      byProvider: { gemini: 0, openai: 0, anthropic: 0 },
       sessionId: sessionId
     };
   }
 
-  if (!state.byProvider) {
-    state.byProvider = { gemini: 0, openai: 0, anthropic: 0, kimi: 0 };
-  }
-  if (typeof state.byProvider.gemini !== 'number') state.byProvider.gemini = 0;
-  if (typeof state.byProvider.openai !== 'number') state.byProvider.openai = 0;
-  if (typeof state.byProvider.anthropic !== 'number') state.byProvider.anthropic = 0;
-  if (typeof state.byProvider.kimi !== 'number') state.byProvider.kimi = 0;
+  state.totalTasks++;
 
-  // 실제 OpenCode 실행 성공 여부 판단
-  var routeRequested = decision && decision.route === true;
-  var openCodeSucceeded = routeRequested;
-  if (routeRequested && result && result.success === false) {
-    openCodeSucceeded = false;
-  }
+  if (decision.route) {
+    state.routedToOpenCode++;
+    state.estimatedSavedTokens += 1000;
 
-  // 업데이트 적용 함수
-  function applyUpdate(targetState, didOpenCode, providerName, savedTokens) {
-    targetState.totalTasks++;
+    var model = decision.targetModel ? decision.targetModel.id : '';
+    var agent = decision.opencodeAgent || '';
 
-    if (didOpenCode) {
-      targetState.routedToOpenCode++;
-      targetState.estimatedSavedTokens += savedTokens;
-
-      if (providerName === 'gemini') {
-        targetState.byProvider.gemini++;
-      } else if (providerName === 'openai') {
-        targetState.byProvider.openai++;
-      } else if (providerName === 'kimi') {
-        targetState.byProvider.kimi++;
-      } else if (providerName === 'anthropic') {
-        targetState.byProvider.anthropic++;
-      } else {
-        targetState.byProvider.openai++;
-      }
-    } else {
-      targetState.byProvider.anthropic++;
+    if (model.indexOf('gemini') !== -1 || agent === 'Flash') {
+      state.byProvider.gemini++;
+    } else if (model.indexOf('gpt') !== -1 || model.indexOf('codex') !== -1) {
+      state.byProvider.openai++;
     }
-
-    targetState.routingRate = targetState.totalTasks > 0
-      ? Math.round((targetState.routedToOpenCode / targetState.totalTasks) * 100)
-      : 0;
-    targetState.lastUpdated = new Date().toISOString();
+  } else {
+    state.byProvider.anthropic++;
   }
 
-  var providerId = '';
-  var modelId = '';
-  if (result) {
-    if (result.providerID) providerId = result.providerID;
-    if (!providerId && result.actualProviderID) providerId = result.actualProviderID;
-    if (!providerId && result.tokens && result.tokens.providerID) providerId = result.tokens.providerID;
-    if (!providerId && result.result && result.result.providerID) providerId = result.result.providerID;
-    if (!providerId && result.result && result.result.model && result.result.model.providerID) {
-      providerId = result.result.model.providerID;
-    }
-
-    if (result.modelID) modelId = result.modelID;
-    if (!modelId && result.actualModelID) modelId = result.actualModelID;
-    if (!modelId && result.tokens && result.tokens.modelID) modelId = result.tokens.modelID;
-    if (!modelId && result.result && result.result.model && result.result.model.modelID) {
-      modelId = result.result.model.modelID;
-    }
-    if (!modelId && result.result && result.result.model && result.result.model.id) {
-      modelId = result.result.model.id;
-    }
-  }
-  if (!modelId && decision && decision.targetModel && decision.targetModel.id) {
-    modelId = decision.targetModel.id;
-  }
-  var agentName = decision ? decision.opencodeAgent : '';
-  var normalizedProvider = normalizeProvider(providerId, modelId, agentName);
-
-  var savedTokens = 1000;
-  var actualTokenTotal = getActualTokenTotal(result);
-  if (actualTokenTotal > 0) {
-    savedTokens = actualTokenTotal;
-  }
-
-  applyUpdate(state, openCodeSucceeded, normalizedProvider, savedTokens);
+  state.routingRate = state.totalTasks > 0
+    ? Math.round((state.routedToOpenCode / state.totalTasks) * 100)
+    : 0;
+  state.lastUpdated = new Date().toISOString();
 
   writeFileSync(stateFile, JSON.stringify(state, null, 2));
 
@@ -633,18 +485,26 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
         routedToOpenCode: 0,
         routingRate: 0,
         estimatedSavedTokens: 0,
-        byProvider: { gemini: 0, openai: 0, anthropic: 0, kimi: 0 }
+        byProvider: { gemini: 0, openai: 0, anthropic: 0 }
       };
     }
-    if (!globalState.byProvider) {
-      globalState.byProvider = { gemini: 0, openai: 0, anthropic: 0, kimi: 0 };
+    globalState.totalTasks++;
+    if (decision.route) {
+      globalState.routedToOpenCode++;
+      globalState.estimatedSavedTokens += 1000;
+      var gModel = decision.targetModel ? decision.targetModel.id : '';
+      var gAgent = decision.opencodeAgent || '';
+      if (gModel.indexOf('gemini') !== -1 || gAgent === 'Flash') {
+        globalState.byProvider.gemini++;
+      } else if (gModel.indexOf('gpt') !== -1 || gModel.indexOf('codex') !== -1) {
+        globalState.byProvider.openai++;
+      }
+    } else {
+      globalState.byProvider.anthropic++;
     }
-    if (typeof globalState.byProvider.gemini !== 'number') globalState.byProvider.gemini = 0;
-    if (typeof globalState.byProvider.openai !== 'number') globalState.byProvider.openai = 0;
-    if (typeof globalState.byProvider.anthropic !== 'number') globalState.byProvider.anthropic = 0;
-    if (typeof globalState.byProvider.kimi !== 'number') globalState.byProvider.kimi = 0;
-
-    applyUpdate(globalState, openCodeSucceeded, normalizedProvider, savedTokens);
+    globalState.routingRate = globalState.totalTasks > 0
+      ? Math.round((globalState.routedToOpenCode / globalState.totalTasks) * 100) : 0;
+    globalState.lastUpdated = new Date().toISOString();
     writeFileSync(FUSION_STATE_FILE, JSON.stringify(globalState, null, 2));
   }
 
@@ -653,7 +513,7 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
 
 /**
  * 라우팅 가능한 에이전트 목록 (OpenCode로 라우팅하여 토큰 절약)
- * OMC 3.6.0 + OMO 3.1.0 기준
+ * OMC 4.0.6 + OMO 3.1.0 기준
  * fusionDefault 모드에서는 planner 제외 모든 에이전트가 라우팅됨
  */
 export const TOKEN_SAVING_AGENTS = [
@@ -681,8 +541,9 @@ export const TOKEN_SAVING_AGENTS = [
  */
 export const CLAUDE_ONLY_AGENTS = [
   'planner', 'critic', 'executor', 'executor-low', 'executor-high',
+  'deep-executor',
   'qa-tester', 'qa-tester-high', 'build-fixer', 'build-fixer-low',
-  'tdd-guide', 'tdd-guide-low'
+  'tdd-guide', 'tdd-guide-low', 'git-master'
 ];
 
 // =============================================================================
@@ -833,9 +694,11 @@ export function getRoutingLevel(sessionInputTokens) {
         'security-reviewer', 'security-reviewer-low',
         // L3 에이전트
         'executor', 'executor-low', 'executor-high',
+        'deep-executor',
         'qa-tester', 'qa-tester-high',
         'build-fixer', 'build-fixer-low',
         'tdd-guide', 'tdd-guide-low',
+        'git-master',
         // L4 에이전트
         'critic', 'analyst'
       ]
@@ -858,9 +721,11 @@ export function getRoutingLevel(sessionInputTokens) {
         'security-reviewer', 'security-reviewer-low',
         // L3 에이전트
         'executor', 'executor-low', 'executor-high',
+        'deep-executor',
         'qa-tester', 'qa-tester-high',
         'build-fixer', 'build-fixer-low',
-        'tdd-guide', 'tdd-guide-low'
+        'tdd-guide', 'tdd-guide-low',
+        'git-master'
       ]
     };
   }
@@ -1042,19 +907,19 @@ export function getGeminiFallback(omoAgent, modelInfo) {
   var modelId = modelInfo.id;
 
   // Gemini Flash → OpenAI Codex
-  if (modelId === 'gemini-flash' || modelId.indexOf('flash') !== -1) {
+  if (modelId === 'gemini-3-flash-preview' || modelId === 'gemini-flash' || modelId.indexOf('flash') !== -1) {
     return {
       agent: 'Codex',
-      model: { id: 'gpt-5.2-codex', name: 'GPT 5.2 Codex (Gemini Fallback)' },
+      model: { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex (Gemini Fallback)' },
       reason: 'gemini-rate-limited'
     };
   }
 
   // Gemini Pro → OpenAI Oracle
-  if (modelId === 'gemini-pro' || modelId.indexOf('pro') !== -1) {
+  if (modelId === 'gemini-3-pro-preview' || modelId === 'gemini-pro' || modelId.indexOf('pro') !== -1) {
     return {
       agent: 'Oracle',
-      model: { id: 'gpt-5.2', name: 'GPT 5.2 Oracle (Gemini Fallback)' },
+      model: { id: 'gpt-5.3', name: 'GPT 5.3 Oracle (Gemini Fallback)' },
       reason: 'gemini-rate-limited'
     };
   }

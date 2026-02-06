@@ -60,7 +60,7 @@ start_server() {
     # 서버 준비 대기 (최대 30초)
     local count=0
     while [[ $count -lt 30 ]]; do
-        if curl -s "http://localhost:$PORT/global/health" >/dev/null 2>&1; then
+        if curl -s "http://localhost:$PORT/health" >/dev/null 2>&1; then
             echo -e "${GREEN}[✓]${NC} OpenCode 서버 시작됨 (PID: $pid, 포트: $PORT)"
             return 0
         fi
@@ -114,7 +114,7 @@ show_status() {
         echo "포트: $PORT"
 
         # 헬스체크
-        if curl -s "http://localhost:$PORT/global/health" >/dev/null 2>&1; then
+        if curl -s "http://localhost:$PORT/health" >/dev/null 2>&1; then
             echo -e "헬스체크: ${GREEN}정상${NC}"
         else
             echo -e "헬스체크: ${YELLOW}응답 없음${NC}"

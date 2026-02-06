@@ -552,35 +552,6 @@ LIMITS_EOF
     log_success "Handoff 디렉토리 설정 완료"
 }
 
-# 서버 풀 디렉토리 및 상태 초기화
-setup_server_pool() {
-    log_step "서버 풀 초기화 설정"
-
-    local pool_dir="$HOME/.omcm/server-pool"
-    local log_dir="$HOME/.omcm/logs"
-    local state_file="$pool_dir/pool-state.json"
-
-    mkdir -p "$pool_dir" "$log_dir"
-
-    if [[ ! -f "$state_file" ]]; then
-        cat > "$state_file" << 'POOL_EOF'
-{
-  "servers": [],
-  "config": {
-    "min_servers": 1,
-    "max_servers": 5,
-    "base_port": 4096,
-    "health_interval": 30
-  },
-  "lastUpdated": null
-}
-POOL_EOF
-        log_success "pool-state.json 초기화 완료"
-    else
-        log_info "기존 pool-state.json 유지"
-    fi
-}
-
 # CodeSyncer 설치 확인 및 안내
 check_codesyncer() {
     log_step "CodeSyncer 확인"
@@ -897,7 +868,6 @@ main() {
     install_omo
     install_omcm
     setup_handoff_directory
-    setup_server_pool
     check_codesyncer
 
     # Hooks 설정 (OMCM_SOURCE_DIR는 install_omcm에서 설정됨)

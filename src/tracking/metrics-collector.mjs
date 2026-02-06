@@ -2,7 +2,7 @@
  * metrics-collector.mjs - Metrics collection for fusion system
  * 
  * Collects and aggregates:
- * - Provider usage (claude, openai, gemini, kimi)
+ * - Provider usage (claude, openai, gemini)
  * - Agent routing counts
  * - Token savings estimation
  * - Error rate tracking
@@ -97,7 +97,7 @@ export class MetricsCollector {
 
   /**
    * Record a routing event
-   * @param {string} provider - Provider name (claude, openai, gemini, kimi)
+   * @param {string} provider - Provider name (claude, openai, gemini)
    * @param {string} agent - Agent name
    * @param {boolean} success - Whether the operation succeeded
    * @param {number} duration - Duration in milliseconds
@@ -273,8 +273,7 @@ export class MetricsCollector {
       byProvider: {
         claude: metrics.providers.claude.calls,
         openai: metrics.providers.openai.calls,
-        gemini: metrics.providers.gemini.calls,
-        kimi: metrics.providers.kimi.calls
+        gemini: metrics.providers.gemini.calls
       },
       topAgents: this._getTopAgents(5)
     };

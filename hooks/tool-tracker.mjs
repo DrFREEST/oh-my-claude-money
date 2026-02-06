@@ -42,7 +42,7 @@ async function main() {
 
     // PostToolUse hook의 stdin 구조:
     // { tool_name: "Read", tool_input: {...}, tool_output: "..." }
-    var toolName = input.tool_name || '';
+    var toolName = input.tool_name || input.toolName || '';
     if (!toolName) {
       process.exit(0);
     }

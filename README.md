@@ -35,12 +35,12 @@
 
 ### What is OMCM?
 
-OMCM fuses 32 Claude Code agents with OpenCode's multi-provider agents, enabling **62% token savings** by intelligently routing tasks to the optimal LLM (Claude, GPT, Gemini, or Kimi).
+OMCM fuses 32 Claude Code agents with OpenCode's multi-provider agents, enabling **62% token savings** by intelligently routing tasks to the optimal LLM (Claude, GPT, or Gemini).
 
 ### Key Features
 
 1. **Automatic Fallback (90% threshold)** - Seamlessly switches to OpenCode when Claude reaches rate limits
-2. **Smart Agent Routing** - Analysis agents → OpenCode (GPT/Gemini/Kimi), execution agents → Claude
+2. **Smart Agent Routing** - Analysis agents → OpenCode (GPT/Gemini), execution agents → Claude
 3. **Real-time Tracking** - HUD integration shows usage and fusion status
 4. **Hybrid Ultrawork (`hulw`)** - Instant fusion mode with maximum parallelism
 5. **Token Savings** - 18 agents offloaded to other providers automatically
@@ -65,7 +65,7 @@ Then use these commands:
 
 - **OpenCode CLI** installed
 - **oh-my-claudecode** plugin active
-- Provider API keys configured (OpenAI, Google, Anthropic, Moonshot/Kimi)
+- Provider API keys configured (OpenAI, Google Anthropic)
 
 ### How It Works
 
@@ -74,7 +74,7 @@ User Request
     ↓
 Claude Opus 4.5 (Conductor)
     ↓
-├─→ Analysis task? → Route to OpenCode (GPT/Gemini/Kimi) ✅ Save tokens
+├─→ Analysis task? → Route to OpenCode (GPT/Gemini) ✅ Save tokens
 ├─→ Execution task? → Route to Claude (high quality)
 └─→ Usage > 90%? → Automatic fallback to OpenCode
 ```
@@ -133,7 +133,7 @@ See sections below for complete setup guide, configuration, and troubleshooting.
 ## 개요
 
 Claude Code의 32개 OMC 에이전트를 OpenCode의 멀티 프로바이더 에이전트로 **퓨전**하여:
-- **Claude 토큰 62% 절약**: 18개 에이전트를 GPT/Gemini/Kimi로 오프로드
+- **Claude 토큰 62% 절약**: 18개 에이전트를 GPT/Gemini로 오프로드
 - **메인 오케스트레이터**: Opus 4.5가 지휘, 서브 에이전트는 최적 LLM으로 분배
 - **자동 라우팅**: 사용량/작업 유형 기반 지능형 분배
 
@@ -189,7 +189,7 @@ OMC 32개 에이전트 → OMO 에이전트 + 외부 모델 매핑으로 **Claud
 | security-reviewer-low, build-fixer-low | LOW | build | **gemini-3.0-flash** | ✅ |
 | tdd-guide-low, code-reviewer-low, scientist-low | LOW | build | **gemini-3.0-flash** | ✅ |
 
-**18개 에이전트 (62%)** 가 GPT/Gemini/Kimi로 대체되어 Claude 토큰 절약!
+**18개 에이전트 (62%)** 가 GPT/Gemini로 대체되어 Claude 토큰 절약!
 
 ### 2. 🔄 하이브리드 울트라워크
 
@@ -248,7 +248,7 @@ Claude 리밋에 따른 자동 전환:
 프로바이더별 실시간 토큰 사용량을 HUD에 표시합니다.
 
 ```
-C:1.2k↓ 567↑|O:25.8k↓ 9↑|G:165.3k↓ 1.4k↑|K:4.2k↓ 210↑
+C:1.2k↓ 567↑|O:25.8k↓ 9↑|G:165.3k↓ 1.4k↑
 ```
 
 | 기호 | 의미 |
@@ -256,7 +256,6 @@ C:1.2k↓ 567↑|O:25.8k↓ 9↑|G:165.3k↓ 1.4k↑|K:4.2k↓ 210↑
 | `C:` | Claude (Cyan) |
 | `O:` | OpenAI (Green) |
 | `G:` | Gemini (Yellow) |
-| `K:` | Kimi (Amber) |
 | `↓` | Input tokens |
 | `↑` | Output tokens |
 | `k` | ×1000 |
@@ -335,7 +334,7 @@ Claude Code에서 OpenCode를 MCP로 호출할 수 있습니다.
 │    └─ oh-my-claudecode 기본 설정                            │
 │                         ↓                                   │
 │  Step 3: OpenCode 프로바이더 인증                            │
-│    └─ Anthropic, OpenAI, Google, Moonshot API 키 설정        │
+│    └─ Anthropic, OpenAI, Google API 키 설정                 │
 │                         ↓                                   │
 │  Step 4: Claude Code에서 /omcm:fusion-setup   │
 │    └─ 퓨전 오케스트레이터 활성화                              │
@@ -391,7 +390,7 @@ Claude Code 프롬프트에서 다음 명령어 입력:
 
 ### Step 3: OpenCode 프로바이더 인증
 
-OpenCode에서 GPT/Gemini/Kimi를 사용하려면 프로바이더 인증이 필요합니다.
+OpenCode에서 GPT/Gemini를 사용하려면 프로바이더 인증이 필요합니다.
 
 #### 방법 A: 대화형 로그인 (권장)
 
@@ -405,7 +404,6 @@ opencode auth login
    - `OpenAI` - GPT-5.2, GPT-5.2-Codex 사용
    - `Google` - Gemini 2.5 Pro/Flash 사용
    - `Anthropic` - Claude 모델 사용
-   - `Moonshot` - Kimi 모델 사용
 3. 각 프로바이더별로 API 키 입력 또는 OAuth 로그인
 4. 여러 프로바이더를 사용하려면 각각 개별 로그인 필요
 
@@ -421,13 +419,11 @@ opencode auth status
 export ANTHROPIC_API_KEY="sk-ant-..."   # https://console.anthropic.com/settings/keys
 export OPENAI_API_KEY="sk-..."          # https://platform.openai.com/api-keys
 export GOOGLE_API_KEY="..."             # https://aistudio.google.com/apikey
-export MOONSHOT_API_KEY="..."           # https://platform.moonshot.ai/console
 
 # 영구 저장 (선택)
 echo 'export ANTHROPIC_API_KEY="your-key"' >> ~/.bashrc
 echo 'export OPENAI_API_KEY="your-key"' >> ~/.bashrc
 echo 'export GOOGLE_API_KEY="your-key"' >> ~/.bashrc
-echo 'export MOONSHOT_API_KEY="your-key"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -810,9 +806,9 @@ npm test
 ```
 
 **커버리지**:
-- 전체: **365개 테스트** (100% PASS)
+- 전체: **361개 테스트** (100% PASS)
 - v0.8.0 통합 테스트: 19개
-- v1.0.0 테스트: 346개
+- v1.0.0 테스트: 342개
   - tracking: 32개
   - context: 26개
   - balancer: 49개

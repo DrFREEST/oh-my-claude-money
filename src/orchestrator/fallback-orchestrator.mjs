@@ -11,29 +11,29 @@ import { createHandoffContext } from '../utils/handoff-context.mjs';
 // 폴백 체인 정의
 const FALLBACK_CHAIN = [
   {
-    id: 'claude-opus-4-5',
-    name: 'Claude Opus 4.5',
+    id: 'claude-opus-4-6',
+    name: 'Claude Opus 4.6',
     provider: 'anthropic',
     type: 'primary',
     checkLimit: 'claude-oauth'  // OAuth API로 체크
   },
   {
-    id: 'gpt-5.2-codex',
-    name: 'GPT-5.2 Codex',
+    id: 'gpt-5.3-codex',
+    name: 'GPT-5.3 Codex',
     provider: 'openai',
     type: 'fallback-1',
     opencodeAgent: 'Codex'
   },
   {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
+    id: 'gemini-3-flash-preview',
+    name: 'Gemini 3 Flash',
     provider: 'google',
     type: 'fallback-2',
     opencodeAgent: 'Flash'
   },
   {
-    id: 'gpt-5.2',
-    name: 'GPT-5.2',
+    id: 'gpt-5.3',
+    name: 'GPT-5.3',
     provider: 'openai',
     type: 'fallback-3',
     opencodeAgent: 'Oracle'

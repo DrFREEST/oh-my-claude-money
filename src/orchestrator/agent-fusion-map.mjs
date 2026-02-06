@@ -1,13 +1,15 @@
 /**
- * agent-fusion-map.mjs - OMC ↔ OMO 에이전트 퓨전 매핑 v2.0
+ * agent-fusion-map.mjs - OMC ↔ OMO 에이전트 퓨전 매핑 v3.0
  *
  * 퓨전/폴백 모드에서 oh-my-claudecode(OMC) 에이전트를
  * oh-my-opencode(OMO) 에이전트로 매핑하여 Claude 토큰 절약
  *
+ * OMC v4.0.6 호환 - Codex fallback chain 반영
+ *
  * 티어별 모델 분배:
- * - HIGH (Opus급): Claude Opus 유지 - 복잡한 추론 필요
- * - MEDIUM (Sonnet급): gpt-5.2-codex (thinking) - 표준 구현 작업
- * - LOW (Haiku급): gemini-3.0-flash (thinking) - 빠른 탐색/간단한 작업
+ * - HIGH (Opus급): Claude Opus 4.6 유지 - 복잡한 추론 필요
+ * - MEDIUM (Sonnet급): gpt-5.3-codex (thinking) - 표준 구현 작업
+ * - LOW (Haiku급): gemini-3-flash-preview (thinking) - 빠른 탐색/간단한 작업
  */
 
 // =============================================================================
@@ -15,31 +17,44 @@
 // =============================================================================
 
 export const MODELS = {
-  // HIGH Tier - Claude Opus (품질 최우선)
+  // HIGH Tier - Claude Opus 4.6 (품질 최우선)
   OPUS: {
     provider: 'anthropic',
-    model: 'claude-opus-4-5-20251101',
+    model: 'claude-opus-4-6-20260205',
     thinking: true,
     tier: 'HIGH',
     savesClaudeTokens: false,
   },
 
-  // MEDIUM Tier - GPT 5.2 Codex (코딩 특화, thinking 모드)
+  // MEDIUM Tier - GPT 5.3 Codex (코딩 특화, thinking 모드)
+  // OMC 4.0.6 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
   CODEX: {
     provider: 'openai',
-    model: 'gpt-5.2-codex',
+    model: 'gpt-5.3-codex',
     thinking: true,
     tier: 'MEDIUM',
     savesClaudeTokens: true,
+    fallbackChain: ['gpt-5.3', 'gpt-5.2-codex', 'gpt-5.2'],
   },
 
-  // LOW Tier - Gemini 3.0 Flash (빠른 응답, thinking 모드)
+  // MEDIUM Tier - Gemini 3 Pro (디자인/비전 특화)
+  GEMINI_PRO: {
+    provider: 'google',
+    model: 'gemini-3-pro-preview',
+    thinking: true,
+    tier: 'MEDIUM',
+    savesClaudeTokens: true,
+    fallbackChain: ['gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'],
+  },
+
+  // LOW Tier - Gemini 3 Flash Preview (빠른 응답, thinking 모드)
   FLASH: {
     provider: 'google',
-    model: 'gemini-3.0-flash',
+    model: 'gemini-3-flash-preview',
     thinking: true,
     tier: 'LOW',
     savesClaudeTokens: true,
+    fallbackChain: ['gemini-2.5-flash'],
   },
 };
 
@@ -67,12 +82,12 @@ export const OMO_AGENTS = {
 };
 
 // =============================================================================
-// OMC → OMO 에이전트 퓨전 매핑 (29개)
+// OMC → OMO 에이전트 퓨전 매핑 (33개) - OMC v4.0.6 호환
 // =============================================================================
 
 export const FUSION_MAP = {
   // =========================================================================
-  // HIGH Tier (11개) - Claude Opus 유지 (복잡한 추론)
+  // HIGH Tier (13개) - Claude Opus 4.6 유지 (복잡한 추론)
   // =========================================================================
 
   architect: {
@@ -153,81 +168,81 @@ export const FUSION_MAP = {
   },
 
   // =========================================================================
-  // MEDIUM Tier (10개) - GPT 5.2 Codex (thinking) ⭐ 토큰 절약!
+  // MEDIUM Tier (10개) - GPT 5.3 Codex (thinking) ⭐ 토큰 절약!
   // =========================================================================
 
   'architect-medium': {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - 중간 복잡도 아키텍처 분석',
+    reason: 'GPT 5.3 Codex - 중간 복잡도 아키텍처 분석',
     fallbackToOMC: false,
   },
 
   executor: {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - 표준 기능 구현',
+    reason: 'GPT 5.3 Codex - 표준 기능 구현',
     fallbackToOMC: false,
   },
 
   'explore-medium': {
     omoAgent: 'explore',
     model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - 깊은 코드베이스 탐색',
+    reason: 'GPT 5.3 Codex - 깊은 코드베이스 탐색',
     fallbackToOMC: false,
   },
 
   researcher: {
     omoAgent: 'general',
     model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - 외부 문서 리서치',
+    reason: 'GPT 5.3 Codex - 외부 문서 리서치',
     fallbackToOMC: false,
   },
 
   designer: {
     omoAgent: 'build',
-    model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - UI/UX 디자인 구현',
+    model: MODELS.GEMINI_PRO,
+    reason: 'Gemini 3 Pro - UI/UX 디자인 구현 (1M 컨텍스트)',
     fallbackToOMC: false,
   },
 
   vision: {
     omoAgent: 'general',
-    model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - 이미지/다이어그램 분석',
+    model: MODELS.GEMINI_PRO,
+    reason: 'Gemini 3 Pro - 이미지/다이어그램 분석 (멀티모달)',
     fallbackToOMC: false,
   },
 
   'qa-tester': {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - 인터랙티브 CLI 테스팅',
+    reason: 'GPT 5.3 Codex -인터랙티브 CLI 테스팅',
     fallbackToOMC: false,
   },
 
   'build-fixer': {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - 빌드/타입 오류 수정',
+    reason: 'GPT 5.3 Codex -빌드/타입 오류 수정',
     fallbackToOMC: false,
   },
 
   'tdd-guide': {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - TDD 워크플로우 가이드',
+    reason: 'GPT 5.3 Codex -TDD 워크플로우 가이드',
     fallbackToOMC: false,
   },
 
   scientist: {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.2 Codex - 데이터 분석',
+    reason: 'GPT 5.3 Codex -데이터 분석',
     fallbackToOMC: false,
   },
 
   // =========================================================================
-  // LOW Tier (8개) - Gemini 3.0 Flash (thinking) ⭐ 토큰 절약!
+  // LOW Tier (8개) - Gemini 3 Flash Preview (thinking) ⭐ 토큰 절약!
   // =========================================================================
 
   'architect-low': {
@@ -315,7 +330,7 @@ export const FUSION_MAP = {
   },
 
   // =========================================================================
-  // 추가 HIGH Tier (v0.7.0)
+  // 추가 HIGH Tier (v0.7.0 + v1.1.0)
   // =========================================================================
 
   'researcher-high': {
@@ -330,6 +345,21 @@ export const FUSION_MAP = {
     model: MODELS.OPUS,
     reason: '복잡한 빌드/컴파일 오류 해결',
     fallbackToOMC: true,
+  },
+
+  // v1.1.0 신규 에이전트 (OMC v4.0.0+)
+  'deep-executor': {
+    omoAgent: 'build',
+    model: MODELS.OPUS,
+    reason: '복잡한 자율 작업 - Opus 필수',
+    fallbackToOMC: true,
+  },
+
+  'git-master': {
+    omoAgent: 'build',
+    model: MODELS.CODEX,
+    reason: 'GPT 5.3 Codex - Git 작업 관리',
+    fallbackToOMC: false,
   },
 };
 

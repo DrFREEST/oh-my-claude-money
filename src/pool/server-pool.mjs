@@ -14,11 +14,11 @@ import { spawn } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { isPortAvailable } from '../utils/port-utils.mjs';
 
 var HOME = homedir();
 var OMCM_DIR = join(HOME, '.omcm');
-var SERVER_POOL_DIR = join(OMCM_DIR, 'server-pool');
-var POOL_STATE_FILE = join(SERVER_POOL_DIR, 'pool-state.json');
+var POOL_STATE_FILE = join(OMCM_DIR, 'server-pool.json');
 var CONFIG_FILE = join(HOME, '.claude', 'plugins', 'omcm', 'config.json');
 
 /** 기본 설정 */
@@ -37,8 +37,8 @@ var DEFAULT_CONFIG = {
  * @returns {object} - 서버 풀 상태
  */
 function loadPoolState() {
-  if (!existsSync(SERVER_POOL_DIR)) {
-    mkdirSync(SERVER_POOL_DIR, { recursive: true });
+  if (!existsSync(OMCM_DIR)) {
+    mkdirSync(OMCM_DIR, { recursive: true });
   }
   if (!existsSync(POOL_STATE_FILE)) {
     return { servers: [], lastUpdated: null };
@@ -55,8 +55,8 @@ function loadPoolState() {
  * @param {object} state - 서버 풀 상태
  */
 function savePoolState(state) {
-  if (!existsSync(SERVER_POOL_DIR)) {
-    mkdirSync(SERVER_POOL_DIR, { recursive: true });
+  if (!existsSync(OMCM_DIR)) {
+    mkdirSync(OMCM_DIR, { recursive: true });
   }
   state.lastUpdated = new Date().toISOString();
   writeFileSync(POOL_STATE_FILE, JSON.stringify(state, null, 2));
@@ -204,12 +204,14 @@ async function isPortInUse(port) {
 
 /**
  * 사용 가능한 다음 포트 찾기
+ * port-utils.mjs의 isPortAvailable()로 실제 포트 가용성까지 확인
+ *
  * @param {number} basePort - 시작 포트
  * @param {number} maxServers - 최대 서버 수
  * @param {Array} existingPorts - 이미 사용 중인 포트 목록
- * @returns {number|null} - 사용 가능한 포트
+ * @returns {Promise<number|null>} - 사용 가능한 포트
  */
-function findAvailablePort(basePort, maxServers, existingPorts) {
+async function findAvailablePort(basePort, maxServers, existingPorts) {
   for (var i = 0; i < maxServers; i++) {
     var port = basePort + i;
     var inUse = false;
@@ -219,7 +221,11 @@ function findAvailablePort(basePort, maxServers, existingPorts) {
         break;
       }
     }
-    if (!inUse) return port;
+    if (inUse) continue;
+
+    // net.createServer 기반 실제 포트 가용성 확인
+    var available = await isPortAvailable(port, '127.0.0.1');
+    if (available) return port;
   }
   return null;
 }

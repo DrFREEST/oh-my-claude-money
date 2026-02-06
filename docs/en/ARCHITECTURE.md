@@ -100,29 +100,9 @@ shouldRouteToOpenCode(toolInput, options)
 | security-reviewer-low, build-fixer-low, tdd-guide-low | build | Gemini-3.0-Flash |
 | code-reviewer-low, scientist-low | build | Gemini-3.0-Flash |
 
-### 1.2 Server Pool (src/pool/server-pool.mjs)
+### 1.2 Server Pool (src/executor/opencode-server-pool.mjs)
 
-A REST API-based Server Pool that reduces OpenCode's routing latency by ~90%.
-
-**Execution Flow:**
-```
-executeOnPool({ prompt, providerID, modelID, timeout })
-    ↓
-POST http://localhost:4096/session
-    ↓
-{ sessionId: "abc123" }
-    ↓
-POST http://localhost:4096/session/abc123/message
-    ↓
-Server-Sent Events stream:
-  data: {"type": "token_count", "input_tokens": 150}
-  data: {"type": "token_count", "output_tokens": 280}
-  data: {"type": "content", "text": "..."}
-    ↓
-Parse tokens → log to call-logger JSONL → fusion-tracker
-```
-
-**Wrapper:** `src/executor/opencode-server-pool.mjs` is a thin wrapper for backward compatibility.
+A Flexible Server Pool that reduces OpenCode's routing latency by ~90%.
 
 #### Dynamic Scaling Architecture
 
@@ -136,7 +116,7 @@ Request arrives
 │ (maxServers reached)│        │
 └─────────────────────────────┘
     ↓
-  [Execute via REST API]
+  [Execute]
     ↓
 Check utilization
 ├─ ≥80% → Scale up (start new port 4099)

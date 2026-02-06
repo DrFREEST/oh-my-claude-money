@@ -1,6 +1,6 @@
 {
   "name": "omcm",
-  "version": "1.0.0",
-  "description": "Claude Code ↔ OpenCode 퓨전 오케스트레이터",
+  "version": "1.1.0",
+  "description": "Claude Code ↔ OpenCode 퓨전 오케스트레이터 - OMC v4.0.6 호환",
   "skills": "./skills"
 }

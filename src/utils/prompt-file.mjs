@@ -1,12 +1,13 @@
 /**
- * prompt-file.mjs - OMC v4.0.8 Prompt-file 시스템 호환 유틸리티
+ * prompt-file.mjs - OMC v4.0.10 Prompt-file 시스템 호환 유틸리티
  *
  * OMCM이 OpenCode로 라우팅할 때도 prompt-file 시스템을 활용하여
  * OMC의 감사 추적과 호환되는 프롬프트 파일을 생성합니다.
  *
- * OMC 4.0.8 Breaking Changes:
+ * OMC 4.0.8+ Breaking Changes:
  * - output_file 파라미터 필수화
  * - prompt 파라미터 제거 (prompt_file만 사용)
+ * OMC 4.0.10: output_file에 항상 parsed JSONL 응답 기록 (mtime 감지 제거)
  *
  * @version 1.2.0
  */

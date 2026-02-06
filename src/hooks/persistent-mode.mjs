@@ -8,7 +8,7 @@
  * @since v0.7.0
  */
 
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
@@ -195,17 +195,7 @@ async function main() {
         console.log(
           JSON.stringify({
             continue: true,
-            hookSpecificOutput: {
-              hookEventName: "Stop",
-              additionalContext: `⚠️ **Ralph 모드 활성화 상태**
-
-작업이 아직 완료되지 않았습니다.
-
-**미완료 검증 항목**: ${verification.missing.join(', ')}
-**반복 횟수**: ${ralphMode.iterations || 0}회${blockersStr}
-
-작업을 계속하시겠습니까? 강제 종료: \`cancel --force\``
-            },
+            reason: `⚠️ Ralph 모드 활성화 상태 — 미완료 검증: ${verification.missing.join(', ')} | 반복: ${ralphMode.iterations || 0}회${blockersStr ? ' | Blockers: ' + (ralphMode.state.blockers || []).join(', ') : ''} | 강제 종료: cancel --force`,
           })
         );
         process.exit(0);
@@ -216,20 +206,10 @@ async function main() {
     const otherModes = activeModes.filter((m) => m.mode !== 'ralph');
 
     if (otherModes.length > 0) {
-      const modeList = otherModes.map((m) => `- **${m.mode}** (시작: ${m.startedAt || 'N/A'})`).join('\n');
-
       console.log(
         JSON.stringify({
           continue: true,
-          hookSpecificOutput: {
-            hookEventName: "Stop",
-            additionalContext: `ℹ️ **활성 모드 감지**
-
-다음 모드가 활성화되어 있습니다:
-${modeList}
-
-종료하려면 \`cancel\` 명령을 사용하세요.`
-          },
+          reason: `ℹ️ 활성 모드 감지: ${otherModes.map((m) => m.mode).join(', ')} | 종료하려면 cancel 명령을 사용하세요.`,
         })
       );
       process.exit(0);

@@ -165,6 +165,37 @@ function syncOmcVersion() {
 }
 
 // =============================================================================
+// 자동 최신화 (백그라운드)
+// =============================================================================
+
+/**
+ * omc, omcm, omo, 플러그인 마켓플레이스 자동 업데이트
+ * 24시간 쿨다운 내장, detached 백그라운드 실행
+ */
+function runAutoUpdate() {
+  const scriptPaths = [
+    join(homedir(), '.claude', 'plugins', 'marketplaces', 'omcm', 'scripts', 'auto-update-all.sh'),
+    join(__dirname, '..', '..', 'scripts', 'auto-update-all.sh'),
+  ];
+
+  let scriptPath = null;
+  for (const p of scriptPaths) {
+    if (existsSync(p)) {
+      scriptPath = p;
+      break;
+    }
+  }
+
+  if (scriptPath) {
+    const child = spawn('bash', [scriptPath], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+  }
+}
+
+// =============================================================================
 // 메인
 // =============================================================================
 
@@ -174,6 +205,9 @@ async function main() {
 
     // OMC 버전 자동 동기화 (update-check.json 갱신)
     syncOmcVersion();
+
+    // omc, omcm, omo, 플러그인 마켓플레이스 자동 최신화 (백그라운드)
+    runAutoUpdate();
 
     const config = loadConfig();
     const usage = getUsageFromCache();

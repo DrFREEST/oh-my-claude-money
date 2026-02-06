@@ -2,7 +2,7 @@
 /**
  * mcp-tracker.mjs - PostToolUse Hook for OMC MCP-Direct call tracking
  *
- * OMC v4.0.8의 mcp__x__ask_codex, mcp__g__ask_gemini 등
+ * OMC v4.0.10의 mcp__x__ask_codex, mcp__g__ask_gemini 등
  * MCP-Direct 호출을 감지하고 토큰/비용을 추적합니다.
  *
  * @version 1.2.0

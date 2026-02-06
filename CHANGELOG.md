@@ -25,12 +25,24 @@ All notable changes to this project will be documented in this file.
   - OMC 업데이트 시 캐시 버전 자동 복사 + gap 방지
   - `agent-mapping.json`, `plugin.json` 버전 자동 갱신
   - 마켓플레이스/플러그인 동기화까지 원커맨드 실행
+- **세션 시작 자동 최신화** (`scripts/auto-update-all.sh`, `src/hooks/session-start.mjs`)
+  - 새 세션 시작 시 omc, omcm, omo, 플러그인 마켓플레이스 자동 업데이트
+  - 24시간 쿨다운 (하루 1회), detached 백그라운드 실행
+  - `known_marketplaces.json` autoUpdate: true인 리포만 대상
+  - 로그: `~/.omcm/update.log`
+
+### 수정 (Fixed)
+- **Stop 훅 JSON validation 오류** (`src/hooks/persistent-mode.mjs`)
+  - `hookSpecificOutput`(hookEventName: "Stop") → `reason` 필드로 변경
+  - Stop 훅 스키마에 `hookSpecificOutput` 미지원으로 validation 실패하던 버그 수정
 
 ### 변경 (Changed)
 - **OMC 4.0.9 호환** (`scripts/agent-mapping.json`, `.claude-plugin/plugin.json`)
   - `metadata.omc_version`: 4.0.8 → 4.0.9
   - OMC 4.0.9 Codex/Gemini headless 실행 개선 대응
   - JSON 포맷팅 정리 (fallbackChain 배열 멀티라인)
+- **OMC 4.0.10 버전 참조 업데이트** (`src/utils/prompt-file.mjs`, `hooks/mcp-tracker.mjs`)
+  - output_file에 항상 parsed JSONL 응답 기록 변경사항 반영 (OMCM 코드 변경 불필요)
 
 ---
 

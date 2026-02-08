@@ -1,10 +1,10 @@
 {
   "description": "OMC 에이전트 → OMO 에이전트 퓨전 매핑 (퓨전/폴백 모드 전용)",
-  "version": "3.0.0",
-  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.0.9 호환",
+  "version": "4.0.0",
+  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.1.2 호환 (28 에이전트 + backward-compat aliases)",
   "metadata": {
-    "omc_version": "4.0.9",
-    "omcm_version": "1.2.0",
+    "omc_version": "4.1.2",
+    "omcm_version": "1.3.0",
     "last_updated": "2026-02-06"
   },
   "models": {
@@ -63,121 +63,147 @@
     ]
   },
   "mappings": {
+    "_comment_build_analysis": "=== Build & Analysis Lane ===",
     "architect": {
       "omo_agent": "build",
-      "tier": "HIGH",
+      "default_model": "opus",
       "model": "claude-opus-4-6-20260205",
       "thinking": true,
-      "description": "전략적 아키텍처 분석",
+      "description": "전략적 아키텍처 분석 및 디버깅 자문",
       "mcp_direct": "ask_codex"
     },
-    "architect-medium": {
+    "debugger": {
       "omo_agent": "build",
-      "tier": "MEDIUM",
+      "default_model": "sonnet",
       "model": "gpt-5.3-codex",
       "thinking": true,
-      "description": "중간 복잡도 아키텍처 분석",
+      "description": "근본 원인 분석 전문가 (architect에서 분리)",
       "mcp_direct": "ask_codex"
-    },
-    "architect-low": {
-      "omo_agent": "explore",
-      "tier": "LOW",
-      "model": "gemini-3-flash-preview",
-      "thinking": true,
-      "description": "간단한 코드 질문",
-      "mcp_direct": "ask_codex"
-    },
-    "executor-high": {
-      "omo_agent": "build",
-      "tier": "HIGH",
-      "model": "claude-opus-4-6-20260205",
-      "thinking": true,
-      "description": "복잡한 멀티파일 구현"
     },
     "executor": {
       "omo_agent": "build",
-      "tier": "MEDIUM",
+      "default_model": "sonnet",
       "model": "gpt-5.3-codex",
       "thinking": true,
-      "description": "표준 기능 구현"
-    },
-    "executor-low": {
-      "omo_agent": "build",
-      "tier": "LOW",
-      "model": "gemini-3-flash-preview",
-      "thinking": true,
-      "description": "간단한 싱글파일 작업"
+      "description": "기능 구현, 코드 수정"
     },
     "deep-executor": {
       "omo_agent": "build",
-      "tier": "HIGH",
+      "default_model": "opus",
       "model": "claude-opus-4-6-20260205",
       "thinking": true,
       "description": "복잡한 자율 작업 - Opus 필수",
       "fallbackToOMC": true
     },
-    "explore-high": {
-      "omo_agent": "explore",
-      "tier": "HIGH",
-      "model": "claude-opus-4-6-20260205",
-      "thinking": true,
-      "description": "복잡한 아키텍처 탐색"
-    },
-    "explore-medium": {
-      "omo_agent": "explore",
-      "tier": "MEDIUM",
-      "model": "gpt-5.3-codex",
-      "thinking": true,
-      "description": "깊은 코드베이스 탐색"
-    },
     "explore": {
       "omo_agent": "explore",
-      "tier": "LOW",
+      "default_model": "haiku",
       "model": "gemini-3-flash-preview",
       "thinking": true,
-      "description": "빠른 코드베이스 탐색"
+      "description": "코드베이스 탐색, 파일/패턴 검색"
     },
-    "researcher": {
-      "omo_agent": "general",
-      "tier": "MEDIUM",
+    "build-fixer": {
+      "omo_agent": "build",
+      "default_model": "sonnet",
       "model": "gpt-5.3-codex",
       "thinking": true,
-      "description": "외부 문서 리서치"
+      "description": "빌드/타입 오류 수정"
     },
-    "researcher-low": {
-      "omo_agent": "general",
-      "tier": "LOW",
+    "verifier": {
+      "omo_agent": "build",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "완료 증거 수집, 주장 검증 (architect verification 대체)",
+      "mcp_direct": "ask_codex"
+    },
+
+    "_comment_review": "=== Review Lane ===",
+    "code-reviewer": {
+      "omo_agent": "build",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "전문 코드 리뷰",
+      "mcp_direct": "ask_codex"
+    },
+    "style-reviewer": {
+      "omo_agent": "build",
+      "default_model": "haiku",
       "model": "gemini-3-flash-preview",
       "thinking": true,
-      "description": "빠른 문서 조회"
+      "description": "포맷, 네이밍, 린트 컨벤션 검사",
+      "mcp_direct": "ask_codex"
     },
-    "designer-high": {
+    "quality-reviewer": {
       "omo_agent": "build",
-      "tier": "HIGH",
-      "model": "claude-opus-4-6-20260205",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
       "thinking": true,
-      "description": "복잡한 UI 시스템 설계",
-      "mcp_direct": "ask_gemini"
+      "description": "로직 결함, 유지보수성 검사",
+      "mcp_direct": "ask_codex"
     },
+    "api-reviewer": {
+      "omo_agent": "build",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "API 계약, 하위 호환성 검사",
+      "mcp_direct": "ask_codex"
+    },
+    "performance-reviewer": {
+      "omo_agent": "build",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "핫스팟, 복잡도 최적화 검사",
+      "mcp_direct": "ask_codex"
+    },
+    "security-reviewer": {
+      "omo_agent": "build",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "보안 취약점 분석 (OWASP Top 10)",
+      "mcp_direct": "ask_codex"
+    },
+
+    "_comment_testing": "=== Testing Lane ===",
+    "test-engineer": {
+      "omo_agent": "build",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "TDD 워크플로우, 테스트 작성 (tdd-guide 대체)",
+      "mcp_direct": "ask_codex"
+    },
+    "qa-tester": {
+      "omo_agent": "build",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "인터랙티브 CLI 테스팅"
+    },
+
+    "_comment_domain": "=== Domain Specialists ===",
     "designer": {
       "omo_agent": "build",
-      "tier": "MEDIUM",
+      "default_model": "sonnet",
       "model": "gemini-3-pro-preview",
       "thinking": true,
       "description": "UI/UX 디자인 구현",
       "mcp_direct": "ask_gemini"
     },
-    "designer-low": {
-      "omo_agent": "build",
-      "tier": "LOW",
-      "model": "gemini-3-flash-preview",
+    "dependency-expert": {
+      "omo_agent": "general",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
       "thinking": true,
-      "description": "간단한 스타일링",
-      "mcp_direct": "ask_gemini"
+      "description": "의존성 관리, 문서 리서치 (researcher 대체)"
     },
     "writer": {
       "omo_agent": "general",
-      "tier": "LOW",
+      "default_model": "haiku",
       "model": "gemini-3-flash-preview",
       "thinking": true,
       "description": "기술 문서 작성",
@@ -185,7 +211,7 @@
     },
     "vision": {
       "omo_agent": "general",
-      "tier": "MEDIUM",
+      "default_model": "sonnet",
       "model": "gemini-3-pro-preview",
       "thinking": true,
       "description": "이미지/다이어그램 분석",
@@ -193,14 +219,23 @@
     },
     "git-master": {
       "omo_agent": "build",
-      "tier": "MEDIUM",
+      "default_model": "sonnet",
       "model": "gpt-5.3-codex",
       "thinking": true,
       "description": "Git 작업 관리"
     },
+    "scientist": {
+      "omo_agent": "build",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "데이터 분석, 가설 검증"
+    },
+
+    "_comment_product": "=== Product Lane ===",
     "planner": {
       "omo_agent": "plan",
-      "tier": "HIGH",
+      "default_model": "opus",
       "model": "claude-opus-4-6-20260205",
       "thinking": true,
       "description": "전략적 계획 수립",
@@ -208,7 +243,7 @@
     },
     "critic": {
       "omo_agent": "plan",
-      "tier": "HIGH",
+      "default_model": "opus",
       "model": "claude-opus-4-6-20260205",
       "thinking": true,
       "description": "플랜 검토 및 비평",
@@ -216,108 +251,70 @@
     },
     "analyst": {
       "omo_agent": "plan",
-      "tier": "HIGH",
+      "default_model": "opus",
       "model": "claude-opus-4-6-20260205",
       "thinking": true,
       "description": "요구사항 분석",
       "mcp_direct": "ask_codex"
     },
-    "qa-tester-high": {
-      "omo_agent": "build",
-      "tier": "HIGH",
-      "model": "claude-opus-4-6-20260205",
-      "thinking": true,
-      "description": "포괄적 프로덕션 QA"
-    },
-    "qa-tester": {
-      "omo_agent": "build",
-      "tier": "MEDIUM",
+    "quality-strategist": {
+      "omo_agent": "plan",
+      "default_model": "sonnet",
       "model": "gpt-5.3-codex",
       "thinking": true,
-      "description": "인터랙티브 CLI 테스팅"
-    },
-    "security-reviewer": {
-      "omo_agent": "build",
-      "tier": "HIGH",
-      "model": "claude-opus-4-6-20260205",
-      "thinking": true,
-      "description": "보안 취약점 심층 분석",
+      "description": "릴리즈 준비 상태, 리스크 평가",
       "mcp_direct": "ask_codex"
     },
-    "security-reviewer-low": {
-      "omo_agent": "build",
-      "tier": "LOW",
-      "model": "gemini-3-flash-preview",
-      "thinking": true,
-      "description": "빠른 보안 스캔",
-      "mcp_direct": "ask_codex"
-    },
-    "build-fixer": {
-      "omo_agent": "build",
-      "tier": "MEDIUM",
+    "product-manager": {
+      "omo_agent": "plan",
+      "default_model": "sonnet",
       "model": "gpt-5.3-codex",
       "thinking": true,
-      "description": "빌드/타입 오류 수정"
+      "description": "문제 프레이밍, PRD 작성",
+      "mcp_direct": "ask_codex"
     },
-    "build-fixer-low": {
-      "omo_agent": "build",
-      "tier": "LOW",
-      "model": "gemini-3-flash-preview",
+    "ux-researcher": {
+      "omo_agent": "general",
+      "default_model": "sonnet",
+      "model": "gemini-3-pro-preview",
       "thinking": true,
-      "description": "간단한 빌드 오류 수정"
+      "description": "휴리스틱 감사, 사용성 분석",
+      "mcp_direct": "ask_gemini"
+    },
+    "information-architect": {
+      "omo_agent": "plan",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "분류 체계, 내비게이션 설계",
+      "mcp_direct": "ask_codex"
+    },
+    "product-analyst": {
+      "omo_agent": "general",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "메트릭, 퍼널 분석",
+      "mcp_direct": "ask_codex"
+    },
+
+    "_comment_aliases": "=== Backward-Compat Aliases (OMC 4.0.x → 4.1.x 호환) ===",
+    "researcher": {
+      "_alias_of": "dependency-expert",
+      "omo_agent": "general",
+      "default_model": "sonnet",
+      "model": "gpt-5.3-codex",
+      "thinking": true,
+      "description": "[alias] dependency-expert로 대체됨"
     },
     "tdd-guide": {
+      "_alias_of": "test-engineer",
       "omo_agent": "build",
-      "tier": "MEDIUM",
+      "default_model": "sonnet",
       "model": "gpt-5.3-codex",
       "thinking": true,
-      "description": "TDD 워크플로우 가이드",
+      "description": "[alias] test-engineer로 대체됨",
       "mcp_direct": "ask_codex"
-    },
-    "tdd-guide-low": {
-      "omo_agent": "build",
-      "tier": "LOW",
-      "model": "gemini-3-flash-preview",
-      "thinking": true,
-      "description": "빠른 테스트 제안",
-      "mcp_direct": "ask_codex"
-    },
-    "code-reviewer": {
-      "omo_agent": "build",
-      "tier": "HIGH",
-      "model": "claude-opus-4-6-20260205",
-      "thinking": true,
-      "description": "전문 코드 리뷰",
-      "mcp_direct": "ask_codex"
-    },
-    "code-reviewer-low": {
-      "omo_agent": "build",
-      "tier": "LOW",
-      "model": "gemini-3-flash-preview",
-      "thinking": true,
-      "description": "빠른 코드 체크",
-      "mcp_direct": "ask_codex"
-    },
-    "scientist-high": {
-      "omo_agent": "build",
-      "tier": "HIGH",
-      "model": "claude-opus-4-6-20260205",
-      "thinking": true,
-      "description": "복잡한 ML/가설 검증"
-    },
-    "scientist": {
-      "omo_agent": "build",
-      "tier": "MEDIUM",
-      "model": "gpt-5.3-codex",
-      "thinking": true,
-      "description": "데이터 분석"
-    },
-    "scientist-low": {
-      "omo_agent": "build",
-      "tier": "LOW",
-      "model": "gemini-3-flash-preview",
-      "thinking": true,
-      "description": "빠른 데이터 검사"
     }
   },
   "fallback": {
@@ -330,12 +327,15 @@
     ]
   },
   "statistics": {
-    "total_agents": 34,
-    "high_tier": 12,
-    "medium_tier": 11,
-    "low_tier": 11,
-    "mcp_direct_agents": 17,
-    "claude_only_agents": 14,
-    "claude_savings_percent": 65
+    "total_agents": 28,
+    "total_with_aliases": 30,
+    "build_analysis_lane": 7,
+    "review_lane": 6,
+    "testing_lane": 2,
+    "domain_specialists": 6,
+    "product_lane": 5,
+    "backward_compat_aliases": 2,
+    "mcp_direct_agents": 19,
+    "claude_only_agents": 9
   }
 }

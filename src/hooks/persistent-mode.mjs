@@ -8,7 +8,7 @@
  * @since v0.7.0
  */
 
-import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync, readdirSync, statSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
@@ -16,14 +16,17 @@ import { join } from 'path';
 // 상태 파일 경로 정의
 // =============================================================================
 
-const STATE_DIR = join(homedir(), '.omc/state');
+// OMC 4.1.2: 프로젝트 상대 경로 사용 (homedir 아님)
+// 세션 격리: .omc/state/sessions/{sessionId}/ 우선, 레거시 .omc/state/ 폴백
+const PROJECT_DIR = process.env.PWD || process.cwd();
+const STATE_DIR = join(PROJECT_DIR, '.omc/state');
 
 const STATE_FILES = {
   ralph: 'ralph-state.json',
   autopilot: 'autopilot-state.json',
   ultrawork: 'ultrawork-state.json',
   ecomode: 'ecomode-state.json',
-  hulw: 'hulw-state.json',
+  team: 'team-state.json',
   swarm: 'swarm-summary.json',
   pipeline: 'pipeline-state.json',
   ultrapilot: 'ultrapilot-state.json',
@@ -88,23 +91,59 @@ function isContextLimitStop(input) {
 function checkActiveStates() {
   const activeModes = [];
 
-  for (const [mode, filename] of Object.entries(STATE_FILES)) {
-    const statePath = join(STATE_DIR, filename);
+  // OMC 4.1.2 세션 격리: 세션별 경로 우선 탐색
+  const sessionDirsPath = join(STATE_DIR, 'sessions');
+  const searchPaths = [STATE_DIR];
 
-    if (existsSync(statePath)) {
-      try {
-        const state = JSON.parse(readFileSync(statePath, 'utf-8'));
-
-        if (state.active) {
-          activeModes.push({
-            mode,
-            state,
-            startedAt: state.startedAt,
-            iterations: state.iterations || 0,
-          });
+  // 세션별 디렉토리가 있으면 모든 세션 경로도 탐색
+  if (existsSync(sessionDirsPath)) {
+    try {
+      const sessions = readdirSync(sessionDirsPath);
+      for (const sid of sessions) {
+        const sessionPath = join(sessionDirsPath, sid);
+        try {
+          if (statSync(sessionPath).isDirectory()) {
+            searchPaths.unshift(sessionPath); // 세션 경로 우선
+          }
+        } catch (e) {
+          // 무시
         }
-      } catch (e) {
-        // 파싱 실패 시 무시
+      }
+    } catch (e) {
+      // 무시
+    }
+  }
+
+  // homedir 레거시 경로도 폴백으로 포함
+  const legacyDir = join(homedir(), '.omc/state');
+  if (legacyDir !== STATE_DIR && existsSync(legacyDir)) {
+    searchPaths.push(legacyDir);
+  }
+
+  const seenModes = new Set();
+
+  for (const searchDir of searchPaths) {
+    for (const [mode, filename] of Object.entries(STATE_FILES)) {
+      if (seenModes.has(mode)) continue; // 이미 발견된 모드 건너뜀
+
+      const statePath = join(searchDir, filename);
+
+      if (existsSync(statePath)) {
+        try {
+          const state = JSON.parse(readFileSync(statePath, 'utf-8'));
+
+          if (state.active) {
+            activeModes.push({
+              mode,
+              state,
+              startedAt: state.startedAt || state.started_at,
+              iterations: state.iterations || 0,
+            });
+            seenModes.add(mode);
+          }
+        } catch (e) {
+          // 파싱 실패 시 무시
+        }
       }
     }
   }

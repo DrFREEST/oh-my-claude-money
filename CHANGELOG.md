@@ -18,6 +18,29 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.3.0] - 2026-02-06
+
+### 추가 (Added)
+- **OMC v4.1.2 에이전트 매핑** (`scripts/agent-mapping.json` v4.0.0)
+  - 28개 에이전트 + 2개 backward-compat alias (researcher→dependency-expert, tdd-guide→test-engineer)
+  - 13개 신규 에이전트 매핑: debugger, verifier, style-reviewer, quality-reviewer, api-reviewer, performance-reviewer, dependency-expert, test-engineer, quality-strategist, product-manager, ux-researcher, information-architect, product-analyst
+  - Lane 기반 분류: Build/Analysis(7), Review(6), Testing(2), Domain(6), Product(5)
+  - 16개 제거된 티어 에이전트 정리 (architect-low/medium, executor-low/high, designer-low/high 등)
+- **세션 격리 지원** (`src/hooks/persistent-mode.mjs`)
+  - OMC 4.1.2 세션별 상태 경로 탐색 (`.omc/state/sessions/{sessionId}/`)
+  - 프로젝트 상대 경로 + homedir 레거시 폴백
+- **team 모드 지원** (`persistent-mode.mjs`, `detect-handoff.mjs`)
+  - OMC 4.1.2의 team 모드 (swarm 대체) 상태 감지 및 cancel 지원
+
+### 변경 (Changed)
+- **상태 경로 수정** (`persistent-mode.mjs`, `detect-handoff.mjs`)
+  - `~/.omc/state/` → 프로젝트 상대 `.omc/state/` (OMC 4.1.2 호환)
+  - cancel 시 프로젝트 경로 + homedir 레거시 경로 모두 정리
+- **위임 패턴 업데이트** (`detect-handoff.mjs`)
+  - 리서치 위임: researcher → dependency-expert (OMC 4.1.2 에이전트명 변경 반영)
+
+---
+
 ## [1.2.1] - 2026-02-06
 
 ### 추가 (Added)

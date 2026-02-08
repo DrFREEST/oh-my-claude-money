@@ -151,7 +151,9 @@ function detectModeKeyword(prompt, modeKeywords) {
 // =============================================================================
 
 function saveModeState(mode, projectDir) {
-  const stateDir = join(homedir(), '.omc/state');
+  // OMC 4.1.2: 프로젝트 상대 경로 사용
+  const effectiveDir = projectDir || process.env.PWD || process.cwd();
+  const stateDir = join(effectiveDir, '.omc/state');
 
   try {
     if (!existsSync(stateDir)) {
@@ -162,23 +164,33 @@ function saveModeState(mode, projectDir) {
     const state = {
       active: mode !== 'cancel',
       startedAt: new Date().toISOString(),
-      projectDir,
+      projectDir: effectiveDir,
       iterations: 0,
     };
 
     // cancel 모드의 경우 모든 상태 파일 비활성화
     if (mode === 'cancel') {
-      const modes = ['ralph', 'autopilot', 'ultrawork', 'ecomode', 'hulw', 'swarm', 'pipeline', 'ultrapilot', 'ultraqa'];
-      for (const m of modes) {
-        const modeFile = join(stateDir, `${m}-state.json`);
-        if (existsSync(modeFile)) {
-          try {
-            const modeState = JSON.parse(readFileSync(modeFile, 'utf-8'));
-            modeState.active = false;
-            modeState.cancelledAt = new Date().toISOString();
-            writeFileSync(modeFile, JSON.stringify(modeState, null, 2));
-          } catch (e) {
-            // 무시
+      const modes = ['ralph', 'autopilot', 'ultrawork', 'ecomode', 'team', 'swarm', 'pipeline', 'ultrapilot', 'ultraqa'];
+
+      // 프로젝트 경로 + homedir 레거시 경로 모두 정리
+      const cancelDirs = [stateDir];
+      const legacyDir = join(homedir(), '.omc/state');
+      if (legacyDir !== stateDir && existsSync(legacyDir)) {
+        cancelDirs.push(legacyDir);
+      }
+
+      for (const dir of cancelDirs) {
+        for (const m of modes) {
+          const modeFile = join(dir, `${m}-state.json`);
+          if (existsSync(modeFile)) {
+            try {
+              const modeState = JSON.parse(readFileSync(modeFile, 'utf-8'));
+              modeState.active = false;
+              modeState.cancelledAt = new Date().toISOString();
+              writeFileSync(modeFile, JSON.stringify(modeState, null, 2));
+            } catch (e) {
+              // 무시
+            }
           }
         }
       }
@@ -278,11 +290,11 @@ function detectDelegationPattern(prompt) {
     }
   }
 
-  // 리서치/문서 패턴
+  // 리서치/문서 패턴 (OMC 4.1.2: researcher → dependency-expert)
   var researchPatterns = ['알려줘', '설명해', '문서', 'explain', 'document', 'research', '연구'];
   for (var l = 0; l < researchPatterns.length; l++) {
     if (lowerPrompt.indexOf(researchPatterns[l]) !== -1) {
-      return { type: 'researcher', suggestion: '리서치/문서 작업은 researcher 에이전트에 위임하면 효율적입니다.' };
+      return { type: 'dependency-expert', suggestion: '리서치/문서 작업은 dependency-expert 에이전트에 위임하면 효율적입니다.' };
     }
   }
 

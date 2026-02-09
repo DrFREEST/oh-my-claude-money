@@ -19,7 +19,7 @@ const __dirname = dirname(__filename);
 // 유틸리티 로드
 // =============================================================================
 
-let getUsageFromCache, getUsageLevel, getUsageSummary, loadConfig;
+let getUsageLevel, getUsageSummary, loadConfig;
 let generateSessionId, registerSession, cleanupOldSessions, initializeSession;
 
 async function loadUtils() {
@@ -28,7 +28,6 @@ async function loadUtils() {
     const usageModule = await import(join(utilsPath, 'usage.mjs'));
     const configModule = await import(join(utilsPath, 'config.mjs'));
 
-    getUsageFromCache = usageModule.getUsageFromCache;
     getUsageLevel = usageModule.getUsageLevel;
     getUsageSummary = usageModule.getUsageSummary;
     loadConfig = configModule.loadConfig;
@@ -48,7 +47,6 @@ async function loadUtils() {
     }
   } catch (e) {
     // 기본값
-    getUsageFromCache = () => null;
     getUsageLevel = () => 'unknown';
     getUsageSummary = () => 'N/A';
     loadConfig = () => ({ notifications: { showOnThreshold: true } });
@@ -200,17 +198,16 @@ function runAutoUpdate() {
 // =============================================================================
 
 async function main() {
+  // 안전 타임아웃: 7초 내에 완료 못하면 자동 통과
+  const safetyTimer = setTimeout(() => {
+    console.log(JSON.stringify({ continue: true }));
+    process.exit(0);
+  }, 7000);
+
   try {
     await loadUtils();
 
-    // OMC 버전 자동 동기화 (update-check.json 갱신)
-    syncOmcVersion();
-
-    // omc, omcm, omo, 플러그인 마켓플레이스 자동 최신화 (백그라운드)
-    runAutoUpdate();
-
     const config = loadConfig();
-    const usage = getUsageFromCache();
     const level = getUsageLevel();
 
     // 세션 ID 생성 및 등록
@@ -221,7 +218,6 @@ async function main() {
         if (initializeSession) {
           initializeSession(sessionId);
         }
-        // 세션 시작 시 오래된 세션 정리 (7일)
         cleanupOldSessions(7);
       }
     } catch (e) {
@@ -235,6 +231,7 @@ async function main() {
 
     // 알림 비활성화 시 통과
     if (config.notifications && !config.notifications.showOnThreshold) {
+      clearTimeout(safetyTimer);
       console.log(JSON.stringify({ continue: true }));
       process.exit(0);
     }
@@ -243,6 +240,7 @@ async function main() {
     if (level === 'critical') {
       const summary = getUsageSummary();
 
+      clearTimeout(safetyTimer);
       console.log(
         JSON.stringify({
           continue: true,
@@ -258,10 +256,17 @@ async function main() {
     }
 
     // 정상 통과
+    clearTimeout(safetyTimer);
     console.log(JSON.stringify({ continue: true }));
+
+    // 비필수 작업: 메인 출력 후 비동기 실행
+    syncOmcVersion();
+    runAutoUpdate();
+
     process.exit(0);
   } catch (e) {
     // 오류 시 정상 통과
+    clearTimeout(safetyTimer);
     console.log(JSON.stringify({ continue: true }));
     process.exit(0);
   }

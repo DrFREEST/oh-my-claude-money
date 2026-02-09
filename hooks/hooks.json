@@ -58,7 +58,7 @@
           {
             "type": "command",
             "command": "node ${CLAUDE_PLUGIN_ROOT}/src/hooks/session-start.mjs",
-            "timeout": 3,
+            "timeout": 8,
             "statusMessage": "사용량 정보 로드 중..."
           }
         ]

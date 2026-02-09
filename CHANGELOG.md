@@ -18,6 +18,20 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.4.3] - 2026-02-09
+
+### 수정 (Fixed)
+- **SessionStart 훅 중복 실행 버그 수정** — `~/.claude/plugins/omcm/` (구버전)과 `~/.claude/marketplaces/omcm/` (최신) 이중 등록으로 인한 훅 2회 실행 문제 해결
+- **SessionStart 훅 타임아웃 에러 수정** — timeout 3초 → 8초 증가, 안전 타임아웃 메커니즘 추가 (7초 안전망)
+- **session-start.mjs 최적화** — 비필수 작업(syncOmcVersion, runAutoUpdate)을 메인 출력 이후로 지연 실행
+- 미사용 변수(`getUsageFromCache`, `usage`) 제거
+
+### 호환성 (Compatibility)
+- **OMC**: v4.1.4
+- **OMO**: v3.4.0
+
+---
+
 ## [1.4.2] - 2026-02-09
 
 ### 변경 (Changed)

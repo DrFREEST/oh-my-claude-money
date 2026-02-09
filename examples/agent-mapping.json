@@ -1,54 +1,62 @@
 {
   "$schema": "https://omcm.dev/schemas/agent-mapping.json",
-  "description": "OMCM 동적 에이전트 매핑 설정 예제",
+  "description": "OMCM 동적 에이전트 매핑 설정 예제 (OMC 4.1.2 Lane-based)",
   "mappings": [
     {
-      "source": ["architect", "architect-medium", "architect-low"],
+      "source": ["architect", "debugger"],
       "target": "Oracle",
       "provider": "opencode",
       "model": "gpt-4",
-      "tier": "HIGH",
-      "reason": "아키텍처 분석은 GPT-4 Oracle에게 위임"
+      "lane": "HIGH",
+      "reason": "아키텍처 분석과 디버깅은 GPT-4 Oracle에게 위임"
     },
     {
-      "source": ["designer", "designer-high", "designer-low"],
+      "source": ["designer", "vision"],
       "target": "frontend-engineer",
       "provider": "opencode",
       "model": "gemini-pro",
-      "tier": "MEDIUM",
-      "reason": "UI/UX 작업은 Gemini Pro에게 위임"
+      "lane": "MEDIUM",
+      "reason": "UI/UX 및 비주얼 작업은 Gemini Pro에게 위임"
     },
     {
-      "source": ["researcher", "researcher-low", "researcher-high"],
+      "source": ["dependency-expert"],
       "target": "Oracle",
       "provider": "opencode",
       "model": "gpt-4",
-      "tier": "MEDIUM",
-      "reason": "리서치 작업은 GPT-4 Oracle에게 위임"
+      "lane": "MEDIUM",
+      "reason": "의존성 분석은 GPT-4 Oracle에게 위임"
     },
     {
-      "source": ["explore", "explore-medium"],
+      "source": ["explore"],
       "target": "explore",
       "provider": "opencode",
       "model": "gemini-flash",
-      "tier": "LOW",
+      "lane": "LOW",
       "reason": "빠른 탐색은 Gemini Flash에게 위임"
     },
     {
-      "source": ["writer"],
+      "source": ["writer", "style-reviewer", "ux-researcher"],
       "target": "document-writer",
       "provider": "opencode",
       "model": "gemini-flash",
-      "tier": "LOW",
-      "reason": "문서 작성은 Gemini Flash에게 위임"
+      "lane": "LOW",
+      "reason": "문서 및 스타일 작업은 Gemini Flash에게 위임"
     },
     {
-      "source": ["vision"],
-      "target": "multimodal-looker",
+      "source": ["executor", "deep-executor"],
+      "target": "Codex",
       "provider": "opencode",
-      "model": "gemini-pro",
-      "tier": "MEDIUM",
-      "reason": "비주얼 분석은 Gemini Pro에게 위임"
+      "model": "gpt-5.2-codex",
+      "lane": "MEDIUM/HIGH",
+      "reason": "코드 실행은 GPT-5.2 Codex에게 위임"
+    },
+    {
+      "source": ["scientist", "verifier"],
+      "target": "Oracle",
+      "provider": "opencode",
+      "model": "gpt-4",
+      "lane": "MEDIUM",
+      "reason": "데이터 분석 및 검증은 GPT-4 Oracle에게 위임"
     }
   ],
   "fallback": {

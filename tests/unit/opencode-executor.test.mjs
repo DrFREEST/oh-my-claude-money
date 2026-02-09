@@ -64,46 +64,96 @@ describe('opencode-executor', () => {
   });
 
   describe('mapToOpenCodeAgent()', () => {
+    // Core agents
     it('architect -> Oracle', () => {
       assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:architect'), 'Oracle');
-    });
-
-    it('architect-low -> Flash', () => {
-      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:architect-low'), 'Flash');
     });
 
     it('executor -> Codex', () => {
       assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:executor'), 'Codex');
     });
 
-    it('executor-low -> Flash', () => {
-      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:executor-low'), 'Flash');
-    });
-
-    it('executor-high -> Codex', () => {
-      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:executor-high'), 'Codex');
-    });
-
     it('explore -> Flash', () => {
       assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:explore'), 'Flash');
     });
 
-    it('explore-medium -> Oracle', () => {
-      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:explore-medium'), 'Oracle');
+    it('debugger -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:debugger'), 'Oracle');
     });
 
+    it('verifier -> Codex', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:verifier'), 'Codex');
+    });
+
+    it('deep-executor -> Codex', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:deep-executor'), 'Codex');
+    });
+
+    it('git-master -> Codex', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:git-master'), 'Codex');
+    });
+
+    // Quality agents
+    it('security-reviewer -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:security-reviewer'), 'Oracle');
+    });
+
+    it('code-reviewer -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:code-reviewer'), 'Oracle');
+    });
+
+    it('style-reviewer -> Flash', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:style-reviewer'), 'Flash');
+    });
+
+    it('quality-reviewer -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:quality-reviewer'), 'Oracle');
+    });
+
+    it('api-reviewer -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:api-reviewer'), 'Oracle');
+    });
+
+    it('performance-reviewer -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:performance-reviewer'), 'Oracle');
+    });
+
+    // Test agents
+    it('qa-tester -> Codex', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:qa-tester'), 'Codex');
+    });
+
+    it('test-engineer -> Codex', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:test-engineer'), 'Codex');
+    });
+
+    it('build-fixer -> Codex', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:build-fixer'), 'Codex');
+    });
+
+    // Research/Data agents
+    it('scientist -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:scientist'), 'Oracle');
+    });
+
+    it('dependency-expert -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:dependency-expert'), 'Oracle');
+    });
+
+    // Design/Content agents
     it('designer -> Flash', () => {
       assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:designer'), 'Flash');
-    });
-
-    it('designer-high -> Codex', () => {
-      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:designer-high'), 'Codex');
     });
 
     it('writer -> Flash', () => {
       assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:writer'), 'Flash');
     });
 
+    it('vision -> Flash', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:vision'), 'Flash');
+    });
+
+    // Strategy agents
     it('planner -> Oracle', () => {
       assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:planner'), 'Oracle');
     });
@@ -112,12 +162,38 @@ describe('opencode-executor', () => {
       assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:critic'), 'Oracle');
     });
 
-    it('qa-tester -> Codex', () => {
-      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:qa-tester'), 'Codex');
+    it('analyst -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:analyst'), 'Oracle');
     });
 
-    it('security-reviewer -> Oracle', () => {
-      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:security-reviewer'), 'Oracle');
+    it('quality-strategist -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:quality-strategist'), 'Oracle');
+    });
+
+    // Product agents
+    it('product-manager -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:product-manager'), 'Oracle');
+    });
+
+    it('ux-researcher -> Flash', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:ux-researcher'), 'Flash');
+    });
+
+    it('information-architect -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:information-architect'), 'Oracle');
+    });
+
+    it('product-analyst -> Oracle', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:product-analyst'), 'Oracle');
+    });
+
+    // Backward compatibility
+    it('researcher -> Oracle (backward-compat)', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:researcher'), 'Oracle');
+    });
+
+    it('tdd-guide -> Codex (backward-compat)', () => {
+      assert.strictEqual(mapToOpenCodeAgent('oh-my-claudecode:tdd-guide'), 'Codex');
     });
 
     it('oh-my-claudecode: 접두사 없이도 동작', () => {
@@ -156,16 +232,16 @@ describe('opencode-executor', () => {
       assert.strictEqual(getTokenSavings('oh-my-claudecode:executor'), 1500);
     });
 
-    it('executor-high는 3000 토큰 절약', () => {
-      assert.strictEqual(getTokenSavings('oh-my-claudecode:executor-high'), 3000);
+    it('debugger는 2000 토큰 절약', () => {
+      assert.strictEqual(getTokenSavings('oh-my-claudecode:debugger'), 2000);
     });
 
     it('explore는 500 토큰 절약', () => {
       assert.strictEqual(getTokenSavings('oh-my-claudecode:explore'), 500);
     });
 
-    it('researcher는 1500 토큰 절약', () => {
-      assert.strictEqual(getTokenSavings('oh-my-claudecode:researcher'), 1500);
+    it('dependency-expert는 1500 토큰 절약', () => {
+      assert.strictEqual(getTokenSavings('oh-my-claudecode:dependency-expert'), 1500);
     });
 
     it('designer는 1000 토큰 절약', () => {
@@ -182,6 +258,26 @@ describe('opencode-executor', () => {
 
     it('critic는 1500 토큰 절약', () => {
       assert.strictEqual(getTokenSavings('oh-my-claudecode:critic'), 1500);
+    });
+
+    it('researcher는 1500 토큰 절약 (backward-compat)', () => {
+      assert.strictEqual(getTokenSavings('oh-my-claudecode:researcher'), 1500);
+    });
+
+    it('test-engineer는 1000 토큰 절약', () => {
+      assert.strictEqual(getTokenSavings('oh-my-claudecode:test-engineer'), 1000);
+    });
+
+    it('verifier는 1000 토큰 절약', () => {
+      assert.strictEqual(getTokenSavings('oh-my-claudecode:verifier'), 1000);
+    });
+
+    it('code-reviewer는 1500 토큰 절약', () => {
+      assert.strictEqual(getTokenSavings('oh-my-claudecode:code-reviewer'), 1500);
+    });
+
+    it('security-reviewer는 1500 토큰 절약', () => {
+      assert.strictEqual(getTokenSavings('oh-my-claudecode:security-reviewer'), 1500);
     });
 
     it('oh-my-claudecode: 접두사 없이도 동작', () => {

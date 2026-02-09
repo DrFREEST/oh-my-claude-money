@@ -36,8 +36,8 @@ export const DEFAULT_CONFIG = {
     enabled: true, // 하이브리드 라우팅 활성화
     usageThreshold: 70, // 이 사용량 이상이면 OpenCode 분배 증가
     maxOpencodeWorkers: 3, // 동시 OpenCode 워커 수
-    preferOpencode: ['explore', 'explore-medium', 'researcher', 'researcher-low', 'writer'], // OpenCode 선호 작업
-    preferClaude: ['architect', 'executor-high', 'critic', 'planner'], // Claude 선호 작업
+    preferOpencode: ['explore', 'dependency-expert', 'researcher', 'writer', 'style-reviewer', 'ux-researcher'], // OpenCode 선호 작업
+    preferClaude: ['architect', 'deep-executor', 'critic', 'planner', 'debugger'], // Claude 선호 작업
     autoDelegate: true, // 자동 위임 활성화
   },
 

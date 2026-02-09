@@ -14,6 +14,7 @@
  * - ecomode: Token-efficient mode
  * - swarm: N coordinated agents
  * - pipeline: Sequential agent chaining
+ * - team: Team coordination system
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
@@ -90,6 +91,13 @@ const MODE_DEFINITIONS = [
     files: ['pipeline-state.json'],
     activeKey: 'active',
     color: '\x1b[36m', // Cyan
+  },
+  {
+    name: 'team',
+    abbrev: 'TEM',
+    files: ['team-state.json'],
+    activeKey: 'active',
+    color: '\x1b[33m', // Yellow
   },
 ];
 

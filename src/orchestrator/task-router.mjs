@@ -19,27 +19,32 @@ import { loadConfig } from '../utils/config.mjs';
  * 'any': 현재 사용량에 따라 결정
  */
 export const TASK_ROUTING_PREFERENCES = {
-  // Claude Code 선호 (높은 정확도 필요)
-  architect: 'claude', // 아키텍처 분석, 복잡한 디버깅
-  'executor-high': 'claude', // 복잡한 리팩토링
+  // Claude Code 선호 (높은 정확도 필요) - OMC 4.1.2
+  architect: 'claude', // 아키텍처 분석
+  debugger: 'claude', // 복잡한 디버깅
   critic: 'claude', // 플랜 검토
   planner: 'claude', // 전략적 계획
+  'deep-executor': 'claude', // 복잡한 자율 작업
+  'quality-reviewer': 'claude', // 품질 심층 리뷰
+  'product-manager': 'claude', // 제품 관리
 
   // OpenCode 선호 (비용 효율적)
   explore: 'opencode', // 코드베이스 탐색
-  'explore-medium': 'opencode',
-  researcher: 'opencode', // 문서/API 조사
-  'researcher-low': 'opencode',
+  'dependency-expert': 'opencode', // 의존성/문서 조사 (was researcher)
+  researcher: 'opencode', // backward-compat alias
   writer: 'opencode', // 문서 작성
-  'designer-low': 'opencode', // 간단한 UI 수정
+  'style-reviewer': 'opencode', // 코드 스타일 체크
+  'ux-researcher': 'opencode', // UX 리서치
 
   // 상황에 따라 결정
   executor: 'any', // 일반 구현
-  'executor-low': 'any',
   designer: 'any', // UI 작업
   'build-fixer': 'any', // 빌드 오류 수정
-  'tdd-guide': 'any', // TDD 가이드
+  'test-engineer': 'any', // TDD/테스트 작성 (was tdd-guide)
   scientist: 'any', // 데이터 분석
+  verifier: 'any', // 코드 검증
+  'code-reviewer': 'any', // 코드 리뷰
+  'security-reviewer': 'any', // 보안 리뷰
 };
 
 /**
@@ -47,15 +52,19 @@ export const TASK_ROUTING_PREFERENCES = {
  * OMC 에이전트 → OpenCode 에이전트 매핑
  */
 export const OPENCODE_AGENT_MAPPING = {
-  explore: 'Librarian', // 빠른 탐색
-  'explore-medium': 'Explore', // 중간 탐색
-  researcher: 'Oracle', // GPT 5.2 기반 조사
-  'researcher-low': 'Librarian',
+  // OMC 4.1.2 Lane 기반 매핑
+  explore: 'Librarian', // 코드베이스 탐색
+  'dependency-expert': 'Oracle', // 의존성/문서 조사
+  researcher: 'Oracle', // backward-compat alias
   writer: 'Librarian', // 문서 작성
-  designer: 'Frontend Engineer', // Gemini 3 Pro
-  'designer-low': 'Frontend Engineer',
+  designer: 'Frontend Engineer', // UI/UX 디자인
   executor: 'Sisyphus', // 메인 실행
-  'executor-low': 'Sisyphus',
+  'style-reviewer': 'Librarian', // 코드 스타일 체크
+  'ux-researcher': 'Librarian', // UX 리서치
+  'test-engineer': 'Sisyphus', // 테스트 작성
+  verifier: 'Sisyphus', // 코드 검증
+  'code-reviewer': 'Oracle', // 코드 리뷰
+  'security-reviewer': 'Oracle', // 보안 리뷰
 };
 
 // =============================================================================

@@ -81,25 +81,58 @@ Task(explore, "분석2")  // 완료 대기
    - OMC 에이전트 → OMO 에이전트 자동 매핑
    - OpenCode ULW 모드로 실행
 
-3. **자동 라우팅 매핑** (OMCM이 처리 - OMC 3.6.0 → OMO 3.1.0):
+3. **자동 라우팅 매핑** (OMCM이 처리 - OMC 4.1.2 → OMO 3.4.0):
 
    | OMC 에이전트 | → | OMO 에이전트 | 모델 |
    |-------------|---|-------------|------|
-   | explore, explore-* | → | explore | Gemini Flash |
-   | architect, architect-* | → | Oracle | GPT 5.2 |
-   | researcher | → | Oracle | GPT 5.2 |
-   | researcher-low | → | librarian | GLM |
-   | designer, designer-* | → | frontend-ui-ux-engineer | Gemini Pro |
-   | writer | → | document-writer | Gemini Flash |
-   | vision | → | multimodal-looker | Gemini Flash |
-   | executor, executor-* | → | Codex | GPT 5.2 Codex |
-   | orchestrator | → | Oracle | GPT 5.2 |
-   | analyst, critic | → | Oracle | GPT 5.2 |
+   | explore | → | explore | Gemini Flash |
+   | architect, debugger | → | oracle | GPT 5.3 |
+   | dependency-expert | → | oracle | GPT 5.3 |
+   | designer, vision | → | metis | Gemini Pro |
+   | writer, style-reviewer, ux-researcher | → | momus | Gemini Flash |
+   | executor, deep-executor | → | build | GPT 5.3 Codex |
+   | scientist, verifier | → | oracle | GPT 5.3 |
+   | analyst, critic, product-analyst | → | oracle | GPT 5.3 |
+   | product-manager, information-architect | → | oracle | GPT 5.3 |
+   | qa-tester, test-engineer | → | hephaestus | GPT 5.3 Codex |
+   | code-reviewer, quality-reviewer | → | oracle | GPT 5.3 |
 
 4. **결과 통합**: OpenCode 결과를 받아 최종 응답 제공
 
 **핵심**: Task를 호출하기만 하면 OMCM이 자동으로 OpenCode로 라우팅합니다.
 Claude 토큰을 최대한 절약하면서 OpenCode+OMO의 성능을 활용합니다!
+
+## 컨텍스트 가드 규칙 (CRITICAL)
+
+서브에이전트의 컨텍스트 한도 초과를 방지하기 위해 다음 규칙을 반드시 준수하세요:
+
+### 파티션 크기 상한
+- **에이전트당 최대 6개 파일** (절대 초과 금지)
+- 6개 초과 시 반드시 추가 에이전트로 분할
+- 예: 18개 파일 → 3개 에이전트 (6개씩)
+
+### max_turns 설정 (필수)
+Task 호출 시 반드시 `max_turns` 파라미터를 설정하세요:
+
+| 파일 수 | max_turns |
+|---------|-----------|
+| 1-3개 | 15 |
+| 4-6개 | 25 |
+| 7개+ | 분할 필수 |
+
+```
+Task(
+  subagent_type="oh-my-claudecode:executor",
+  max_turns=25,
+  prompt="..."
+)
+```
+
+### 프롬프트 최적화
+- 변경할 파일 목록과 구체적 변경 내용만 전달
+- 전체 파일 내용을 프롬프트에 포함하지 않기 (에이전트가 직접 Read)
+- 불필요한 배경 설명 최소화
+- 각 에이전트에는 해당 파티션의 작업만 설명
 
 ## 사용량 기반 자동 전환
 
@@ -120,7 +153,7 @@ hulw 모드에서 워커가 컨텍스트 리밋에 도달하면 자동 복구가
 ### 복구 흐름
 
 ```
-실패 감지 → 부분 결과 저장 (.omcm/state/context-recovery/)
+실패 감지 → 부분 결과 저장 (.omc/state/context-recovery/)
   → Phase 1: 프롬프트 축소 + 같은 에이전트로 재시도 (최대 2회)
   → Phase 2: OpenCode 폴백 (Claude에서 실패 시)
   → Phase 3: 작업 분할 + 서브태스크 개별 실행
@@ -130,7 +163,7 @@ hulw 모드에서 워커가 컨텍스트 리밋에 도달하면 자동 복구가
 ### 결과 확인
 
 - 복구 성공 시: `recovered: true`, `recoveryMethod` 필드 포함
-- 부분 결과: `.omcm/state/context-recovery/{taskId}.json`에 저장
+- 부분 결과: `.omc/state/context-recovery/{taskId}.json`에 저장
 - 통계: `getRecoveryStats()` → `{ detected, recovered, failed }`
 
 ## 주의사항

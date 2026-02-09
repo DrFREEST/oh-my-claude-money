@@ -4,7 +4,7 @@
  * Read/Bash 연속 호출 횟수 추적
  * Task 호출 시 카운터 리셋
  */
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -54,7 +54,10 @@ export function writeCounters(sessionId, counters) {
   }
 
   try {
-    writeFileSync(filepath, JSON.stringify(counters));
+    // Atomic write: 임시 파일에 쓴 후 rename (병렬 훅 레이스 컨디션 방지)
+    var tmpFile = filepath + '.tmp.' + process.pid;
+    writeFileSync(tmpFile, JSON.stringify(counters));
+    renameSync(tmpFile, filepath);
   } catch (e) {
     // 저장 실패 무시
   }
@@ -92,14 +95,14 @@ export function recordToolCall(sessionId, toolName) {
   counters.lastTool = toolName;
   writeCounters(sessionId, counters);
 
-  // 위임 제안 판단
+  // 위임 제안 판단 (5의 배수에서만 제안하여 병렬 호출 시 중복 방지)
   var shouldSuggest = false;
   var suggestion = null;
 
-  if (counters.consecutiveRead >= 5) {
+  if (counters.consecutiveRead > 0 && counters.consecutiveRead % 5 === 0) {
     shouldSuggest = true;
     suggestion = '여러 파일을 읽고 있습니다. explore 에이전트에 위임하면 컨텍스트를 절약할 수 있습니다.';
-  } else if (counters.consecutiveBash >= 3) {
+  } else if (counters.consecutiveBash > 0 && counters.consecutiveBash % 3 === 0) {
     shouldSuggest = true;
     suggestion = '여러 명령을 실행하고 있습니다. Task 에이전트에 위임하면 효율적입니다.';
   }

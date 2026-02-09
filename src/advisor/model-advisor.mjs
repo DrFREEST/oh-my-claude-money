@@ -1,10 +1,10 @@
 /**
- * model-advisor.mjs - OMC v4.0.6 모델 최적화 어드바이저
+ * model-advisor.mjs - OMC v4.1.2 모델 최적화 어드바이저
  *
  * 작업 복잡도 분석 및 모델 다운그레이드 추천을 통해
  * 비용 최적화를 지원합니다.
  *
- * OMC 4.0.6 Codex fallback chain 반영:
+ * OMC 4.1.2 Codex fallback chain 반영:
  *   gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
  *
  * @version 1.1.0
@@ -20,15 +20,15 @@ export var MODEL_COSTS = {
   'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015, tier: 'MEDIUM' },
   'claude-haiku-4-5-20251001': { input: 0.0008, output: 0.004, tier: 'LOW' },
 
-  // OpenAI - OMC 4.0.6 fallback chain
+  // OpenAI - OMC 4.1.2 fallback chain
   'gpt-5.3-codex': { input: 0.005, output: 0.02, tier: 'MEDIUM' },
   'gpt-5.3': { input: 0.005, output: 0.02, tier: 'MEDIUM' },
   'gpt-5.2-codex': { input: 0.003, output: 0.012, tier: 'MEDIUM' },
   'gpt-5.2': { input: 0.003, output: 0.012, tier: 'MEDIUM' },
 
   // Google
-  'gemini-3-pro-preview': { input: 0.002, output: 0.008, tier: 'MEDIUM' },
-  'gemini-3-flash-preview': { input: 0.0005, output: 0.002, tier: 'LOW' },
+  'gemini-3-pro': { input: 0.002, output: 0.008, tier: 'MEDIUM' },
+  'gemini-3-flash': { input: 0.0005, output: 0.002, tier: 'LOW' },
   'gemini-2.5-pro': { input: 0.002, output: 0.008, tier: 'MEDIUM' },
   'gemini-2.5-flash': { input: 0.0003, output: 0.001, tier: 'LOW' },
 };
@@ -53,12 +53,14 @@ export function analyzeTaskComplexity(task) {
   var prompt = task.prompt || '';
   var contextFiles = task.contextFiles || 0;
 
-  // 에이전트 기반 복잡도
+  // 에이전트 기반 복잡도 (OMC 4.1.2 Lane 기반)
   var highAgents = ['architect', 'planner', 'critic', 'analyst', 'deep-executor',
-    'explore-high', 'executor-high', 'qa-tester-high', 'security-reviewer',
-    'code-reviewer', 'scientist-high', 'designer-high'];
-  var mediumAgents = ['architect-medium', 'executor', 'explore-medium', 'researcher',
-    'designer', 'vision', 'qa-tester', 'build-fixer', 'tdd-guide', 'scientist', 'git-master'];
+    'security-reviewer', 'code-reviewer', 'quality-reviewer', 'api-reviewer',
+    'performance-reviewer', 'debugger', 'quality-strategist',
+    'product-manager', 'information-architect', 'product-analyst'];
+  var mediumAgents = ['executor', 'explore', 'dependency-expert', 'researcher',
+    'designer', 'vision', 'qa-tester', 'build-fixer', 'test-engineer', 'tdd-guide',
+    'scientist', 'git-master', 'verifier', 'style-reviewer', 'ux-researcher', 'writer'];
 
   var isHigh = false;
   for (var i = 0; i < highAgents.length; i++) {
@@ -139,12 +141,12 @@ export function getModelDowngradeRecommendation(currentModel, task) {
 
   // 다운그레이드 체인
   var downgradeChains = {
-    'claude-opus-4-6-20260205': ['gpt-5.3-codex', 'gemini-3-flash-preview'],
-    'gpt-5.3-codex': ['gpt-5.3', 'gpt-5.2-codex', 'gemini-3-flash-preview'],
-    'gpt-5.3': ['gpt-5.2-codex', 'gpt-5.2', 'gemini-3-flash-preview'],
-    'gpt-5.2-codex': ['gpt-5.2', 'gemini-3-flash-preview'],
-    'gemini-3-pro-preview': ['gemini-3-flash-preview', 'gemini-2.5-flash'],
-    'gemini-3-flash-preview': ['gemini-2.5-flash'],
+    'claude-opus-4-6-20260205': ['gpt-5.3-codex', 'gemini-3-flash'],
+    'gpt-5.3-codex': ['gpt-5.3', 'gpt-5.2-codex', 'gemini-3-flash'],
+    'gpt-5.3': ['gpt-5.2-codex', 'gpt-5.2', 'gemini-3-flash'],
+    'gpt-5.2-codex': ['gpt-5.2', 'gemini-3-flash'],
+    'gemini-3-pro': ['gemini-3-flash', 'gemini-2.5-flash'],
+    'gemini-3-flash': ['gemini-2.5-flash'],
   };
 
   var chain = downgradeChains[currentModel];

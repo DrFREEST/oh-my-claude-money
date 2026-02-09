@@ -177,45 +177,47 @@ export function mapToOpenCodeAgent(subagentType) {
   var type = subagentType.replace('oh-my-claudecode:', '');
 
   var mapping = {
-    // 분석 계층
+    // Build/Analysis Lane
     'architect': 'Oracle',
-    'architect-low': 'Flash',
-    'architect-medium': 'Oracle',
-
-    // 실행 계층
     'executor': 'Codex',
-    'executor-low': 'Flash',
-    'executor-high': 'Codex',
-
-    // 탐색 계층
     'explore': 'Flash',
-    'explore-medium': 'Oracle',
-    'explore-high': 'Oracle',
+    'debugger': 'Oracle',
+    'verifier': 'Codex',
+    'deep-executor': 'Codex',
+    'git-master': 'Codex',
 
-    // 연구 계층
-    'researcher': 'Oracle',
-    'researcher-low': 'Flash',
-
-    // 프론트엔드 계층
-    'designer': 'Flash',
-    'designer-low': 'Flash',
-    'designer-high': 'Codex',
-
-    // 기타
-    'writer': 'Flash',
-    'scientist': 'Oracle',
-    'scientist-low': 'Flash',
-    'scientist-high': 'Oracle',
-    'qa-tester': 'Codex',
-    'qa-tester-high': 'Codex',
+    // Review Lane
     'security-reviewer': 'Oracle',
-    'build-fixer': 'Codex',
-    'tdd-guide': 'Codex',
     'code-reviewer': 'Oracle',
+    'style-reviewer': 'Flash',
+    'quality-reviewer': 'Oracle',
+    'api-reviewer': 'Oracle',
+    'performance-reviewer': 'Oracle',
+
+    // Testing Lane
+    'qa-tester': 'Codex',
+    'test-engineer': 'Codex',
+
+    // Domain Lane
+    'scientist': 'Oracle',
+    'dependency-expert': 'Oracle',
+    'designer': 'Flash',
+    'writer': 'Flash',
+    'vision': 'Flash',
+    'quality-strategist': 'Oracle',
+
+    // Product Lane
     'planner': 'Oracle',
     'critic': 'Oracle',
     'analyst': 'Oracle',
-    'vision': 'Flash'
+    'product-manager': 'Oracle',
+    'ux-researcher': 'Flash',
+    'information-architect': 'Oracle',
+    'product-analyst': 'Oracle',
+
+    // Backward-compat aliases
+    'researcher': 'Oracle',
+    'tdd-guide': 'Codex',
   };
 
   return mapping[type] || 'Codex';
@@ -230,19 +232,25 @@ export function mapToOpenCodeAgent(subagentType) {
 export function getTokenSavings(subagentType) {
   var type = subagentType.replace('oh-my-claudecode:', '');
 
-  // 에이전트 타입별 예상 Claude 토큰 절약량
+  // 에이전트 타입별 예상 Claude 토큰 절약량 (OMC 4.1.2)
   var savings = {
     'architect': 2000,
     'executor': 1500,
-    'executor-high': 3000,
+    'deep-executor': 3000,
     'explore': 500,
+    'dependency-expert': 1500,
     'researcher': 1500,
     'designer': 1000,
     'writer': 800,
     'scientist': 1500,
     'qa-tester': 1000,
     'planner': 2500,
-    'critic': 1500
+    'critic': 1500,
+    'debugger': 2000,
+    'verifier': 1000,
+    'test-engineer': 1000,
+    'code-reviewer': 1500,
+    'security-reviewer': 1500
   };
 
   return savings[type] || 1000;

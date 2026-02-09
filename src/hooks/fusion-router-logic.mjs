@@ -70,82 +70,67 @@ export function logRouting(decision) {
 /**
  * OMC 에이전트를 OpenCode 에이전트로 매핑
  *
- * OMC 4.0.6 기준 에이전트: architect, researcher, explore, executor, designer,
- *                        writer, vision, critic, analyst, orchestrator, planner, qa-tester,
- *                        deep-executor, git-master (+ 각 tier별 low/medium/high 변형)
+ * OMC 4.1.2 기준 에이전트 (28개, Lane 기반):
+ *   Build/Analysis: architect, executor, explore, debugger, verifier, deep-executor, git-master
+ *   Review: security-reviewer, code-reviewer, style-reviewer, quality-reviewer, api-reviewer, performance-reviewer
+ *   Testing: qa-tester, test-engineer (was tdd-guide)
+ *   Domain: scientist, dependency-expert (was researcher), designer, writer, vision, quality-strategist
+ *   Product: planner, critic, analyst, product-manager, ux-researcher, information-architect, product-analyst
  *
- * OMO 3.1.0 기준 에이전트: Oracle (GPT), Flash (Gemini), Codex (GPT),
- *                        explore, librarian, frontend-ui-ux-engineer, document-writer, multimodal-looker
+ * OMO 3.4.0 기준 에이전트: oracle (GPT), explore (Gemini), build (GPT),
+ *                        sisyphus, librarian, metis, momus, prometheus, atlas, hephaestus, multimodal-looker
  *
  * @param {string} agentType - OMC 에이전트 타입
  * @returns {string} - OpenCode 에이전트
  */
 export function mapAgentToOpenCode(agentType) {
   var mapping = {
-    // 분석/아키텍처
-    'architect': 'Oracle',           // 복잡한 추론
-    'architect-low': 'Flash',        // 빠른 분석
-    'architect-medium': 'Oracle',
-    'analyst': 'Oracle',
-    'critic': 'Oracle',
+    // Build/Analysis Lane
+    'architect': 'oracle',           // 전략적 아키텍처 분석
+    'executor': 'build',             // 코드 작성/구현
+    'explore': 'explore',            // 빠른 코드베이스 탐색
+    'debugger': 'oracle',            // 복잡한 디버깅
+    'verifier': 'build',             // 코드 검증
+    'deep-executor': 'build',        // 복잡한 자율 작업
+    'git-master': 'build',           // Git 작업 관리
 
-    // 연구/문서
-    'researcher': 'Oracle',
-    'researcher-low': 'Flash',       // 빠른 조회
+    // Review Lane
+    'security-reviewer': 'oracle',   // 보안 취약점 분석
+    'code-reviewer': 'oracle',       // 코드 품질 리뷰
+    'style-reviewer': 'explore',     // 코드 스타일 체크
+    'quality-reviewer': 'oracle',    // 품질 심층 리뷰
+    'api-reviewer': 'oracle',        // API 설계 리뷰
+    'performance-reviewer': 'oracle', // 성능 분석
 
-    // 탐색
-    'explore': 'Flash',              // 빠른 탐색
-    'explore-medium': 'Oracle',      // 중간 복잡도
-    'explore-high': 'Oracle',        // 복잡한 탐색
+    // Testing Lane
+    'qa-tester': 'build',            // QA 테스팅
+    'test-engineer': 'build',        // TDD/테스트 작성 (was tdd-guide)
 
-    // 데이터 과학
-    'scientist': 'Oracle',
-    'scientist-low': 'Flash',
-    'scientist-high': 'Oracle',
+    // Domain Lane
+    'scientist': 'oracle',           // 데이터 분석
+    'dependency-expert': 'oracle',   // 의존성/문서 조사 (was researcher)
+    'designer': 'explore',           // UI/UX 디자인
+    'writer': 'explore',             // 문서 작성
+    'vision': 'explore',             // 이미지/다이어그램 분석
+    'quality-strategist': 'oracle',  // 품질 전략 수립
 
-    // 프론트엔드/디자인
-    'designer': 'Flash',             // 빠른 UI 작업
-    'designer-low': 'Flash',
-    'designer-high': 'Codex',        // 복잡한 UI 구현
+    // Product Lane
+    'planner': 'oracle',             // 전략적 계획 수립
+    'critic': 'oracle',              // 플랜 검토/비평
+    'analyst': 'oracle',             // 요구사항 분석
+    'product-manager': 'oracle',     // 제품 관리
+    'ux-researcher': 'explore',      // UX 리서치
+    'information-architect': 'oracle', // 정보 구조 설계
+    'product-analyst': 'oracle',     // 제품 분석
 
-    // 문서 작성
-    'writer': 'Flash',               // 빠른 문서 작성
+    // Hephaestus (OMO 3.4.0 신규)
+    'build-fixer': 'hephaestus',     // 빌드/타입 오류 수정 전문
 
-    // 비전/멀티모달
-    'vision': 'Flash',               // 이미지 분석
-
-    // 실행/구현
-    'executor': 'Codex',             // 코드 작성
-    'executor-low': 'Flash',         // 간단한 수정
-    'executor-high': 'Codex',        // 복잡한 구현
-
-    // 테스트/QA
-    'qa-tester': 'Codex',
-    'qa-tester-high': 'Codex',
-    'tdd-guide': 'Codex',
-    'tdd-guide-low': 'Flash',
-
-    // 빌드/에러 수정
-    'build-fixer': 'Codex',
-    'build-fixer-low': 'Flash',      // 간단한 빌드 수정
-
-    // 코드 리뷰/보안
-    'code-reviewer': 'Oracle',
-    'code-reviewer-low': 'Flash',
-    'security-reviewer': 'Oracle',
-    'security-reviewer-low': 'Flash',
-
-    // 조율
-    'orchestrator': 'Oracle',
-
-    // 계획 (Claude 유지 권장, 하지만 폴백 시 Oracle)
-    'planner': 'Oracle',
-
-    // v1.1.0 신규 에이전트 (OMC v4.0.0+)
-    'deep-executor': 'Codex',       // 복잡한 자율 작업
-    'git-master': 'Codex'           // Git 작업 관리
+    // Backward-compat aliases (OMC 4.0.x → 4.1.x)
+    'researcher': 'oracle',          // → dependency-expert
+    'tdd-guide': 'build',            // → test-engineer
   };
-  return mapping[agentType] || 'Codex';
+  return mapping[agentType] || 'build';
 }
 
 /**
@@ -155,18 +140,18 @@ export function mapAgentToOpenCode(agentType) {
  */
 export function getModelInfoForAgent(omoAgent) {
   // Gemini 기반 에이전트
-  var geminiAgents = ['explore', 'frontend-ui-ux-engineer', 'document-writer', 'multimodal-looker', 'Flash'];
+  var geminiAgents = ['explore', 'metis', 'momus', 'multimodal-looker'];
   // GPT Oracle 기반 에이전트
-  var oracleAgents = ['Oracle', 'librarian'];
+  var oracleAgents = ['oracle', 'librarian', 'sisyphus'];
   // GPT Codex 기반 에이전트
-  var codexAgents = ['Codex'];
+  var codexAgents = ['build', 'hephaestus', 'atlas', 'prometheus'];
 
   for (var i = 0; i < geminiAgents.length; i++) {
     if (omoAgent === geminiAgents[i]) {
-      if (omoAgent === 'frontend-ui-ux-engineer') {
-        return { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro' };
+      if (omoAgent === 'metis') {
+        return { id: 'gemini-3-pro', name: 'Gemini 3 Pro' };
       }
-      return { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash' };
+      return { id: 'gemini-3-flash', name: 'Gemini 3 Flash' };
     }
   }
 
@@ -182,7 +167,7 @@ export function getModelInfoForAgent(omoAgent) {
     }
   }
 
-  // 기본값 (OMC 4.0.6 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2)
+  // 기본값 (OMC 4.1.2 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2)
   return { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex' };
 }
 
@@ -214,7 +199,7 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
   // 폴백 활성화 상태 - 반드시 OpenCode로 라우팅
   if (fallback && fallback.fallbackActive) {
     var currentModel = fallback.currentModel;
-    var opencodeAgent = 'Codex';
+    var opencodeAgent = 'build';
     if (currentModel && currentModel.opencodeAgent) {
       opencodeAgent = currentModel.opencodeAgent;
     }
@@ -246,7 +231,7 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
       if (toolInput && toolInput.subagent_type) {
         agentType = toolInput.subagent_type.replace('oh-my-claudecode:', '');
       }
-      var mappedAgent = agentType ? mapAgentToOpenCode(agentType) : 'Codex';
+      var mappedAgent = agentType ? mapAgentToOpenCode(agentType) : 'build';
       var modelInfo = getModelInfoForAgent(mappedAgent);
 
       return {
@@ -360,23 +345,19 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
     }
 
     // save-tokens 모드: 특정 에이전트만 라우팅 (분석/탐색 위주)
-    // executor, critic, planner, qa-tester, build-fixer, tdd-guide는 Claude 전용
+    // executor, critic, planner, qa-tester, build-fixer는 Claude 전용
     if (!fusionDefault && fusion && fusion.mode === 'save-tokens') {
       var tokenSavingAgents = [
-        // 분석/아키텍처
-        'architect', 'architect-low', 'architect-medium',
-        // 연구
-        'researcher', 'researcher-low',
-        // 탐색
-        'explore', 'explore-medium', 'explore-high',
-        // 데이터 과학
-        'scientist', 'scientist-low', 'scientist-high',
-        // 디자인/문서/비전
-        'designer', 'designer-low', 'designer-high',
-        'writer', 'vision',
-        // 코드 리뷰/보안
-        'code-reviewer', 'code-reviewer-low',
-        'security-reviewer', 'security-reviewer-low'
+        // Build/Analysis (분석만)
+        'architect', 'explore', 'debugger',
+        // Review Lane
+        'code-reviewer', 'security-reviewer', 'style-reviewer',
+        'quality-reviewer', 'api-reviewer', 'performance-reviewer',
+        // Domain Lane (분석/문서)
+        'scientist', 'dependency-expert', 'researcher',
+        'designer', 'writer', 'vision', 'quality-strategist',
+        // Product Lane (분석)
+        'analyst', 'ux-researcher', 'information-architect', 'product-analyst'
       ];
 
       var shouldSave = false;
@@ -458,7 +439,7 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
     var model = decision.targetModel ? decision.targetModel.id : '';
     var agent = decision.opencodeAgent || '';
 
-    if (model.indexOf('gemini') !== -1 || agent === 'Flash') {
+    if (model.indexOf('gemini') !== -1 || agent === 'explore') {
       state.byProvider.gemini++;
     } else if (model.indexOf('gpt') !== -1 || model.indexOf('codex') !== -1) {
       state.byProvider.openai++;
@@ -494,7 +475,7 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
       globalState.estimatedSavedTokens += 1000;
       var gModel = decision.targetModel ? decision.targetModel.id : '';
       var gAgent = decision.opencodeAgent || '';
-      if (gModel.indexOf('gemini') !== -1 || gAgent === 'Flash') {
+      if (gModel.indexOf('gemini') !== -1 || gAgent === 'explore') {
         globalState.byProvider.gemini++;
       } else if (gModel.indexOf('gpt') !== -1 || gModel.indexOf('codex') !== -1) {
         globalState.byProvider.openai++;
@@ -513,37 +494,31 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
 
 /**
  * 라우팅 가능한 에이전트 목록 (OpenCode로 라우팅하여 토큰 절약)
- * OMC 4.0.6 + OMO 3.1.0 기준
+ * OMC 4.1.2 + OMO 3.4.0 기준
  * fusionDefault 모드에서는 planner 제외 모든 에이전트가 라우팅됨
  */
 export const TOKEN_SAVING_AGENTS = [
-  // 분석/아키텍처 (→ Oracle)
-  'architect', 'architect-low', 'architect-medium',
-  // 연구 (→ Oracle/librarian)
-  'researcher', 'researcher-low',
-  // 프론트엔드/디자인 (→ frontend-ui-ux-engineer)
-  'designer', 'designer-low', 'designer-high',
-  // 탐색 (→ explore)
-  'explore', 'explore-medium', 'explore-high',
-  // 데이터 과학 (→ Oracle)
-  'scientist', 'scientist-low', 'scientist-high',
-  // 문서/비전 (→ document-writer/multimodal-looker)
-  'writer', 'vision',
-  // 코드 리뷰/보안 (→ Oracle/explore)
-  'code-reviewer', 'code-reviewer-low',
-  'security-reviewer', 'security-reviewer-low'
+  // Build/Analysis (분석만, → Oracle/Flash)
+  'architect', 'explore', 'debugger',
+  // Review Lane (→ Oracle/Flash)
+  'code-reviewer', 'security-reviewer', 'style-reviewer',
+  'quality-reviewer', 'api-reviewer', 'performance-reviewer',
+  // Domain Lane (→ Oracle/Flash)
+  'scientist', 'dependency-expert', 'researcher',
+  'designer', 'writer', 'vision', 'quality-strategist',
+  // Product Lane (분석, → Oracle/Flash)
+  'analyst', 'ux-researcher', 'information-architect', 'product-analyst'
 ];
 
 /**
  * 라우팅 불가능한 에이전트 목록 (Claude 전용)
  * 실행, 테스트, 빌드 등 정확도가 중요한 작업은 Claude에서만 실행
- * planner, critic, executor*, qa-tester*, build-fixer*, tdd-guide*
+ * planner, critic, executor, qa-tester, build-fixer, test-engineer, deep-executor
  */
 export const CLAUDE_ONLY_AGENTS = [
-  'planner', 'critic', 'executor', 'executor-low', 'executor-high',
-  'deep-executor',
-  'qa-tester', 'qa-tester-high', 'build-fixer', 'build-fixer-low',
-  'tdd-guide', 'tdd-guide-low', 'git-master'
+  'planner', 'critic', 'executor', 'deep-executor',
+  'qa-tester', 'build-fixer', 'test-engineer', 'tdd-guide',
+  'verifier', 'git-master', 'product-manager'
 ];
 
 // =============================================================================
@@ -683,24 +658,19 @@ export function getRoutingLevel(sessionInputTokens) {
       level: 4,
       name: 'L4',
       agents: [
-        // L2 에이전트
-        'architect', 'architect-low', 'architect-medium',
-        'researcher', 'researcher-low',
-        'explore', 'explore-medium', 'explore-high',
-        'scientist', 'scientist-low', 'scientist-high',
-        'designer', 'designer-low', 'designer-high',
-        'writer', 'vision',
-        'code-reviewer', 'code-reviewer-low',
-        'security-reviewer', 'security-reviewer-low',
-        // L3 에이전트
-        'executor', 'executor-low', 'executor-high',
-        'deep-executor',
-        'qa-tester', 'qa-tester-high',
-        'build-fixer', 'build-fixer-low',
-        'tdd-guide', 'tdd-guide-low',
+        // L2 에이전트 (분석/탐색/리뷰)
+        'architect', 'explore', 'debugger',
+        'dependency-expert', 'researcher',
+        'scientist', 'designer', 'writer', 'vision',
+        'code-reviewer', 'security-reviewer', 'style-reviewer',
+        'quality-reviewer', 'api-reviewer', 'performance-reviewer',
+        'quality-strategist', 'ux-researcher', 'information-architect', 'product-analyst',
+        // L3 에이전트 (실행/테스트/빌드)
+        'executor', 'deep-executor', 'verifier',
+        'qa-tester', 'build-fixer', 'test-engineer', 'tdd-guide',
         'git-master',
-        // L4 에이전트
-        'critic', 'analyst'
+        // L4 에이전트 (전략/계획)
+        'critic', 'analyst', 'product-manager'
       ]
     };
   }
@@ -711,20 +681,15 @@ export function getRoutingLevel(sessionInputTokens) {
       name: 'L3',
       agents: [
         // L2 에이전트
-        'architect', 'architect-low', 'architect-medium',
-        'researcher', 'researcher-low',
-        'explore', 'explore-medium', 'explore-high',
-        'scientist', 'scientist-low', 'scientist-high',
-        'designer', 'designer-low', 'designer-high',
-        'writer', 'vision',
-        'code-reviewer', 'code-reviewer-low',
-        'security-reviewer', 'security-reviewer-low',
+        'architect', 'explore', 'debugger',
+        'dependency-expert', 'researcher',
+        'scientist', 'designer', 'writer', 'vision',
+        'code-reviewer', 'security-reviewer', 'style-reviewer',
+        'quality-reviewer', 'api-reviewer', 'performance-reviewer',
+        'quality-strategist', 'ux-researcher', 'information-architect', 'product-analyst',
         // L3 에이전트
-        'executor', 'executor-low', 'executor-high',
-        'deep-executor',
-        'qa-tester', 'qa-tester-high',
-        'build-fixer', 'build-fixer-low',
-        'tdd-guide', 'tdd-guide-low',
+        'executor', 'deep-executor', 'verifier',
+        'qa-tester', 'build-fixer', 'test-engineer', 'tdd-guide',
         'git-master'
       ]
     };
@@ -735,14 +700,12 @@ export function getRoutingLevel(sessionInputTokens) {
       level: 2,
       name: 'L2',
       agents: [
-        'architect', 'architect-low', 'architect-medium',
-        'researcher', 'researcher-low',
-        'explore', 'explore-medium', 'explore-high',
-        'scientist', 'scientist-low', 'scientist-high',
-        'designer', 'designer-low', 'designer-high',
-        'writer', 'vision',
-        'code-reviewer', 'code-reviewer-low',
-        'security-reviewer', 'security-reviewer-low'
+        'architect', 'explore', 'debugger',
+        'dependency-expert', 'researcher',
+        'scientist', 'designer', 'writer', 'vision',
+        'code-reviewer', 'security-reviewer', 'style-reviewer',
+        'quality-reviewer', 'api-reviewer', 'performance-reviewer',
+        'quality-strategist', 'ux-researcher', 'information-architect', 'product-analyst'
       ]
     };
   }
@@ -827,7 +790,7 @@ export function checkGeminiRateLimit() {
 
       // Gemini Flash의 rate limit reset time 확인
       // 키 패턴: "gemini-antigravity:antigravity-gemini-3-flash" (Antigravity 프록시)
-      // 주의: "gemini-cli:gemini-3-flash-preview" (CLI 직접 접속)와 구분 필요
+      // 주의: "gemini-cli:gemini-3-flash" (CLI 직접 접속)와 구분 필요
       // OpenCode 서버풀은 Antigravity 프록시를 사용하므로 antigravity 키만 확인
       var isAccountLimited = false;
       var keys = Object.keys(resetTimes);
@@ -907,18 +870,18 @@ export function getGeminiFallback(omoAgent, modelInfo) {
   var modelId = modelInfo.id;
 
   // Gemini Flash → OpenAI Codex
-  if (modelId === 'gemini-3-flash-preview' || modelId === 'gemini-flash' || modelId.indexOf('flash') !== -1) {
+  if (modelId === 'gemini-3-flash' || modelId === 'gemini-flash' || modelId.indexOf('flash') !== -1) {
     return {
-      agent: 'Codex',
+      agent: 'build',
       model: { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex (Gemini Fallback)' },
       reason: 'gemini-rate-limited'
     };
   }
 
   // Gemini Pro → OpenAI Oracle
-  if (modelId === 'gemini-3-pro-preview' || modelId === 'gemini-pro' || modelId.indexOf('pro') !== -1) {
+  if (modelId === 'gemini-3-pro' || modelId === 'gemini-pro' || modelId.indexOf('pro') !== -1) {
     return {
-      agent: 'Oracle',
+      agent: 'oracle',
       model: { id: 'gpt-5.3', name: 'GPT 5.3 Oracle (Gemini Fallback)' },
       reason: 'gemini-rate-limited'
     };

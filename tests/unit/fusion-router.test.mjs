@@ -35,8 +35,8 @@ describe('fusion-router-logic', () => {
 
     it('fusionDefault가 false이고 fusion disabled면 라우팅 안함', () => {
       const toolInput = {
-        subagent_type: 'oh-my-claudecode:architect',
-        prompt: 'Analyze this code'
+        subagent_type: 'oh-my-claudecode:debugger',
+        prompt: 'Debug this issue'
       };
       const options = {
         fusion: { enabled: false },
@@ -77,8 +77,8 @@ describe('fusion-router-logic', () => {
 
     it('Claude 주간 사용량 90% 이상일 때 라우팅', () => {
       const toolInput = {
-        subagent_type: 'oh-my-claudecode:architect-low',
-        prompt: 'Quick analysis'
+        subagent_type: 'oh-my-claudecode:style-reviewer',
+        prompt: 'Quick style review'
       };
       const options = {
         fusion: { enabled: true },
@@ -187,8 +187,8 @@ describe('fusion-router-logic', () => {
 
     it('balanced 모드에서 라우팅 안됨 (Claude 90% 미만)', () => {
       const toolInput = {
-        subagent_type: 'oh-my-claudecode:architect',
-        prompt: 'Analyze this'
+        subagent_type: 'oh-my-claudecode:quality-reviewer',
+        prompt: 'Review code quality'
       };
       const options = {
         fusion: { enabled: true, mode: 'balanced' },
@@ -226,10 +226,10 @@ describe('fusion-router-logic', () => {
       assert.strictEqual(decision.reason, 'no-routing-needed');
     });
 
-    it('critic은 save-tokens 모드에서도 라우팅 안됨', () => {
+    it('product-manager는 save-tokens 모드에서도 라우팅 안됨', () => {
       const toolInput = {
-        subagent_type: 'oh-my-claudecode:critic',
-        prompt: 'Review this plan'
+        subagent_type: 'oh-my-claudecode:product-manager',
+        prompt: 'Manage product requirements'
       };
       const options = {
         fusion: { enabled: true, mode: 'save-tokens' },
@@ -246,60 +246,94 @@ describe('fusion-router-logic', () => {
   });
 
   describe('mapAgentToOpenCode()', () => {
+    // Core agents
     it('architect → Oracle', () => {
       assert.strictEqual(mapAgentToOpenCode('architect'), 'Oracle');
-    });
-
-    it('architect-low → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('architect-low'), 'Flash');
-    });
-
-    it('architect-medium → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('architect-medium'), 'Oracle');
-    });
-
-    it('explore → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('explore'), 'Flash');
-    });
-
-    it('explore-medium → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('explore-medium'), 'Oracle');
-    });
-
-    it('explore-high → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('explore-high'), 'Oracle');
     });
 
     it('executor → Codex', () => {
       assert.strictEqual(mapAgentToOpenCode('executor'), 'Codex');
     });
 
-    it('executor-low → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('executor-low'), 'Flash');
+    it('explore → Flash', () => {
+      assert.strictEqual(mapAgentToOpenCode('explore'), 'Flash');
     });
 
-    it('executor-high → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('executor-high'), 'Codex');
+    it('debugger → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('debugger'), 'Oracle');
     });
 
+    it('verifier → Codex', () => {
+      assert.strictEqual(mapAgentToOpenCode('verifier'), 'Codex');
+    });
+
+    it('deep-executor → Codex', () => {
+      assert.strictEqual(mapAgentToOpenCode('deep-executor'), 'Codex');
+    });
+
+    it('git-master → Codex', () => {
+      assert.strictEqual(mapAgentToOpenCode('git-master'), 'Codex');
+    });
+
+    // Quality agents
+    it('security-reviewer → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('security-reviewer'), 'Oracle');
+    });
+
+    it('code-reviewer → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('code-reviewer'), 'Oracle');
+    });
+
+    it('style-reviewer → Flash', () => {
+      assert.strictEqual(mapAgentToOpenCode('style-reviewer'), 'Flash');
+    });
+
+    it('quality-reviewer → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('quality-reviewer'), 'Oracle');
+    });
+
+    it('api-reviewer → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('api-reviewer'), 'Oracle');
+    });
+
+    it('performance-reviewer → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('performance-reviewer'), 'Oracle');
+    });
+
+    // Test agents
+    it('qa-tester → Codex', () => {
+      assert.strictEqual(mapAgentToOpenCode('qa-tester'), 'Codex');
+    });
+
+    it('test-engineer → Codex', () => {
+      assert.strictEqual(mapAgentToOpenCode('test-engineer'), 'Codex');
+    });
+
+    // Research/Data agents
+    it('scientist → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('scientist'), 'Oracle');
+    });
+
+    it('dependency-expert → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('dependency-expert'), 'Oracle');
+    });
+
+    // Design/Content agents
     it('designer → Flash', () => {
       assert.strictEqual(mapAgentToOpenCode('designer'), 'Flash');
     });
 
-    it('designer-high → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('designer-high'), 'Codex');
-    });
-
-    it('researcher → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('researcher'), 'Oracle');
-    });
-
-    it('researcher-low → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('researcher-low'), 'Flash');
-    });
-
     it('writer → Flash', () => {
       assert.strictEqual(mapAgentToOpenCode('writer'), 'Flash');
+    });
+
+    it('vision → Flash', () => {
+      assert.strictEqual(mapAgentToOpenCode('vision'), 'Flash');
+    });
+
+    // Strategy agents
+    it('quality-strategist → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('quality-strategist'), 'Oracle');
     });
 
     it('planner → Oracle', () => {
@@ -314,44 +348,34 @@ describe('fusion-router-logic', () => {
       assert.strictEqual(mapAgentToOpenCode('analyst'), 'Oracle');
     });
 
-    it('vision → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('vision'), 'Flash');
+    // Product agents
+    it('product-manager → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('product-manager'), 'Oracle');
     });
 
-    it('qa-tester → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('qa-tester'), 'Codex');
+    it('ux-researcher → Flash', () => {
+      assert.strictEqual(mapAgentToOpenCode('ux-researcher'), 'Flash');
     });
 
-    it('security-reviewer → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('security-reviewer'), 'Oracle');
+    it('information-architect → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('information-architect'), 'Oracle');
     });
 
-    it('security-reviewer-low → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('security-reviewer-low'), 'Flash');
+    it('product-analyst → Oracle', () => {
+      assert.strictEqual(mapAgentToOpenCode('product-analyst'), 'Oracle');
+    });
+
+    // Backward compatibility
+    it('researcher → Oracle (backward-compat)', () => {
+      assert.strictEqual(mapAgentToOpenCode('researcher'), 'Oracle');
+    });
+
+    it('tdd-guide → Codex (backward-compat)', () => {
+      assert.strictEqual(mapAgentToOpenCode('tdd-guide'), 'Codex');
     });
 
     it('build-fixer → Codex', () => {
       assert.strictEqual(mapAgentToOpenCode('build-fixer'), 'Codex');
-    });
-
-    it('build-fixer-low → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('build-fixer-low'), 'Flash');
-    });
-
-    it('tdd-guide → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('tdd-guide'), 'Codex');
-    });
-
-    it('code-reviewer → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('code-reviewer'), 'Oracle');
-    });
-
-    it('scientist → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('scientist'), 'Oracle');
-    });
-
-    it('scientist-high → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('scientist-high'), 'Oracle');
     });
 
     it('알 수 없는 에이전트 → Codex (기본값)', () => {
@@ -583,14 +607,12 @@ describe('fusion-router-logic', () => {
   describe('TOKEN_SAVING_AGENTS constant', () => {
     it('토큰 절약 가능한 에이전트 목록 포함', () => {
       const expectedAgents = [
-        'architect', 'architect-low', 'architect-medium',
-        'researcher', 'researcher-low',
-        'designer', 'designer-low', 'designer-high',
-        'explore', 'explore-medium', 'explore-high',
-        'scientist', 'scientist-low', 'scientist-high',
-        'writer', 'vision',
-        'code-reviewer', 'code-reviewer-low',
-        'security-reviewer', 'security-reviewer-low'
+        'architect', 'explore', 'debugger', 'code-reviewer',
+        'security-reviewer', 'style-reviewer', 'quality-reviewer',
+        'api-reviewer', 'performance-reviewer', 'scientist',
+        'dependency-expert', 'researcher', 'designer', 'writer',
+        'vision', 'quality-strategist', 'analyst', 'ux-researcher',
+        'information-architect', 'product-analyst'
       ];
 
       assert.deepStrictEqual(TOKEN_SAVING_AGENTS, expectedAgents);
@@ -600,21 +622,25 @@ describe('fusion-router-logic', () => {
       assert.strictEqual(TOKEN_SAVING_AGENTS.includes('executor'), false);
     });
 
+    it('verifier 포함 안됨', () => {
+      assert.strictEqual(TOKEN_SAVING_AGENTS.includes('verifier'), false);
+    });
+
     it('planner 포함 안됨', () => {
       assert.strictEqual(TOKEN_SAVING_AGENTS.includes('planner'), false);
     });
 
-    it('critic 포함 안됨', () => {
-      assert.strictEqual(TOKEN_SAVING_AGENTS.includes('critic'), false);
+    it('product-manager 포함 안됨', () => {
+      assert.strictEqual(TOKEN_SAVING_AGENTS.includes('product-manager'), false);
     });
   });
 
   describe('CLAUDE_ONLY_AGENTS constant', () => {
     it('Claude 전용 에이전트 목록 포함', () => {
       const expectedAgents = [
-        'planner', 'critic', 'executor', 'executor-low', 'executor-high',
-        'qa-tester', 'qa-tester-high', 'build-fixer', 'build-fixer-low',
-        'tdd-guide', 'tdd-guide-low'
+        'planner', 'critic', 'executor', 'deep-executor', 'qa-tester',
+        'build-fixer', 'test-engineer', 'tdd-guide', 'verifier',
+        'git-master', 'product-manager'
       ];
 
       assert.deepStrictEqual(CLAUDE_ONLY_AGENTS, expectedAgents);
@@ -622,6 +648,10 @@ describe('fusion-router-logic', () => {
 
     it('architect 포함 안됨', () => {
       assert.strictEqual(CLAUDE_ONLY_AGENTS.includes('architect'), false);
+    });
+
+    it('debugger 포함 안됨', () => {
+      assert.strictEqual(CLAUDE_ONLY_AGENTS.includes('debugger'), false);
     });
 
     it('explore 포함 안됨', () => {

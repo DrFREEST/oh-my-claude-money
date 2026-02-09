@@ -18,20 +18,20 @@ triggers:
 
 | 모드 | 상태 파일 | 취소 동작 |
 |------|----------|----------|
-| autopilot | `~/.omcm/state/autopilot.json` | 세션 종료, 상태 초기화 |
-| ralph | `~/.omcm/state/ralph.json` | 루프 중단, 상태 초기화 |
-| ultrawork | `~/.omcm/state/ultrawork.json` | 병렬 작업 중단 |
-| ecomode | `~/.omcm/state/ecomode.json` | 토큰 절약 모드 해제 |
-| hulw | `~/.omcm/state/hulw.json` | 하이브리드 모드 해제 |
-| swarm | `~/.omcm/state/swarm.json` | 에이전트 풀 해제 |
-| pipeline | `~/.omcm/state/pipeline.json` | 파이프라인 중단 |
+| autopilot | `.omc/state/autopilot-state.json` | 세션 종료, 상태 초기화 |
+| ralph | `.omc/state/ralph-state.json` | 루프 중단, 상태 초기화 |
+| ultrawork | `.omc/state/ultrawork-state.json` | 병렬 작업 중단 |
+| ecomode | `.omc/state/ecomode-state.json` | 토큰 절약 모드 해제 |
+| hulw | `.omc/state/hulw-state.json` | 하이브리드 모드 해제 |
+| swarm | `.omc/state/swarm-state.json` | 에이전트 풀 해제 |
+| pipeline | `.omc/state/pipeline-state.json` | 파이프라인 중단 |
 
 ## 취소 프로세스
 
 1. **활성 모드 감지**
    ```javascript
    const activeStates = await detectActiveStates();
-   // ~/.omcm/state/ 디렉토리의 모든 상태 파일 확인
+    // .omc/state/ 디렉토리의 모든 상태 파일 확인
    ```
 
 2. **모드별 취소 실행**

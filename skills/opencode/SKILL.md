@@ -27,7 +27,7 @@ triggers:
 ## 전환 프로세스
 
 1. **컨텍스트 수집**: 현재 작업 상태, TODO, 최근 수정 파일, 결정 사항
-2. **컨텍스트 저장**: `~/.omcm/handoff/context.md`에 마크다운 형식으로 저장
+2. **컨텍스트 저장**: `.omc/handoff/context.md`에 마크다운 형식으로 저장
 3. **프로세스 교체**: `exec`로 Claude Code → OpenCode 자연스럽게 전환
 
 ## 수동 실행 (터미널)
@@ -46,4 +46,4 @@ triggers:
 
 - 전환 후 Claude Code 프로세스는 종료됩니다 (exec 방식)
 - 다시 Claude Code로 돌아가려면 터미널에서 `claude` 명령 실행
-- 컨텍스트는 `~/.omcm/handoff/context.md`에 저장됨
+- 컨텍스트는 `.omc/handoff/context.md`에 저장됨

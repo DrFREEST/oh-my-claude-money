@@ -7,6 +7,12 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/context-guard.mjs",
+            "timeout": 5,
+            "statusMessage": "컨텍스트 가드 검사 중..."
+          },
+          {
+            "type": "command",
             "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/fusion-router.mjs",
             "timeout": 120,
             "statusMessage": "퓨전 라우팅 확인 중..."

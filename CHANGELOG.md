@@ -18,6 +18,34 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.4.0] - 2026-02-09
+
+### 추가 (Added)
+- **OMO v3.4.0 에이전트 정규화** — 소문자 에이전트명 전면 적용
+  - Oracle→oracle, Codex→build, Flash→explore 매핑 업데이트
+  - hephaestus 신규 에이전트 매핑 (build-fixer→hephaestus)
+  - metis (frontend-ui-ux-engineer 대체), momus (document-writer 대체) 반영
+- **Gemini 모델 ID 정규화** — `-preview` 접미사 제거
+  - `gemini-3-pro-preview` → `gemini-3-pro`, `gemini-3-flash-preview` → `gemini-3-flash`
+  - model-advisor 비용 테이블 및 다운그레이드 체인 업데이트
+  - fusion-router 하위 호환 엔트리 유지 (OMO < 3.4.0 지원)
+- **OMC v4.1.2 team 모드 HUD 지원** — mode-detector에 team 모드 추가
+- **GPT 모델 버전 업데이트** — GPT 5.2 → 5.3 전체 반영
+
+### 변경 (Changed)
+- fallback-orchestrator opencodeAgent 값 소문자 정규화 (Codex→build, Flash→explore, Oracle→oracle)
+- agent-fusion-map 전체 모델 ID 및 에이전트 참조 업데이트
+- 스킬 8개 파일 버전 참조 OMC 4.1.2 / OMO 3.4.0으로 통일
+- 상태 경로 `.omcm/state/` → `.omc/state/` 전체 정리 (ecomode, ralph, opencode 등)
+- plugin.json 호환 표기 업데이트
+
+### 호환성 (Compatibility)
+- **OMC**: v4.1.2
+- **OMO**: v3.4.0
+- **하위 호환**: OMO < 3.4.0 gemini-3-*-preview 키 유지
+
+---
+
 ## [1.3.0] - 2026-02-06
 
 ### 추가 (Added)

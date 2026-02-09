@@ -4,12 +4,12 @@
  * 퓨전/폴백 모드에서 oh-my-claudecode(OMC) 에이전트를
  * oh-my-opencode(OMO) 에이전트로 매핑하여 Claude 토큰 절약
  *
- * OMC v4.0.6 호환 - Codex fallback chain 반영
+ * OMC v4.1.2 호환 - Codex fallback chain 반영
  *
  * 티어별 모델 분배:
  * - HIGH (Opus급): Claude Opus 4.6 유지 - 복잡한 추론 필요
  * - MEDIUM (Sonnet급): gpt-5.3-codex (thinking) - 표준 구현 작업
- * - LOW (Haiku급): gemini-3-flash-preview (thinking) - 빠른 탐색/간단한 작업
+ * - LOW (Haiku급): gemini-3-flash (thinking) - 빠른 탐색/간단한 작업
  */
 
 // =============================================================================
@@ -27,7 +27,7 @@ export const MODELS = {
   },
 
   // MEDIUM Tier - GPT 5.3 Codex (코딩 특화, thinking 모드)
-  // OMC 4.0.6 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
+  // OMC 4.1.2 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
   CODEX: {
     provider: 'openai',
     model: 'gpt-5.3-codex',
@@ -40,17 +40,17 @@ export const MODELS = {
   // MEDIUM Tier - Gemini 3 Pro (디자인/비전 특화)
   GEMINI_PRO: {
     provider: 'google',
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-pro',
     thinking: true,
     tier: 'MEDIUM',
     savesClaudeTokens: true,
-    fallbackChain: ['gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'],
+    fallbackChain: ['gemini-3-flash', 'gemini-2.5-pro', 'gemini-2.5-flash'],
   },
 
   // LOW Tier - Gemini 3 Flash Preview (빠른 응답, thinking 모드)
   FLASH: {
     provider: 'google',
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3-flash',
     thinking: true,
     tier: 'LOW',
     savesClaudeTokens: true,
@@ -82,12 +82,12 @@ export const OMO_AGENTS = {
 };
 
 // =============================================================================
-// OMC → OMO 에이전트 퓨전 매핑 (33개) - OMC v4.0.6 호환
+// OMC → OMO 에이전트 퓨전 매핑 (28개 + 2 alias) - OMC v4.1.2 호환
 // =============================================================================
 
 export const FUSION_MAP = {
   // =========================================================================
-  // HIGH Tier (13개) - Claude Opus 4.6 유지 (복잡한 추론)
+  // HIGH Tier (11개) - Claude Opus 4.6 유지 (복잡한 추론)
   // =========================================================================
 
   architect: {
@@ -97,17 +97,17 @@ export const FUSION_MAP = {
     fallbackToOMC: true,
   },
 
-  'executor-high': {
+  'deep-executor': {
     omoAgent: 'build',
     model: MODELS.OPUS,
-    reason: '복잡한 멀티파일 구현',
+    reason: '복잡한 자율 작업 - Opus 필수',
     fallbackToOMC: true,
   },
 
-  'explore-high': {
-    omoAgent: 'explore',
+  debugger: {
+    omoAgent: 'build',
     model: MODELS.OPUS,
-    reason: '복잡한 아키텍처 탐색',
+    reason: '복잡한 디버깅 분석',
     fallbackToOMC: true,
   },
 
@@ -132,13 +132,6 @@ export const FUSION_MAP = {
     fallbackToOMC: true,
   },
 
-  'qa-tester-high': {
-    omoAgent: 'build',
-    model: MODELS.OPUS,
-    reason: '포괄적 프로덕션 QA',
-    fallbackToOMC: true,
-  },
-
   'security-reviewer': {
     omoAgent: 'build',
     model: MODELS.OPUS,
@@ -153,30 +146,30 @@ export const FUSION_MAP = {
     fallbackToOMC: true,
   },
 
-  'scientist-high': {
+  'quality-reviewer': {
     omoAgent: 'build',
     model: MODELS.OPUS,
-    reason: '복잡한 ML/가설 검증',
+    reason: '품질 심층 리뷰',
     fallbackToOMC: true,
   },
 
-  'designer-high': {
-    omoAgent: 'build',
+  'product-manager': {
+    omoAgent: 'plan',
     model: MODELS.OPUS,
-    reason: '복잡한 UI 시스템 설계',
+    reason: '제품 전략 및 관리',
+    fallbackToOMC: true,
+  },
+
+  'information-architect': {
+    omoAgent: 'plan',
+    model: MODELS.OPUS,
+    reason: '정보 구조 설계',
     fallbackToOMC: true,
   },
 
   // =========================================================================
-  // MEDIUM Tier (10개) - GPT 5.3 Codex (thinking) ⭐ 토큰 절약!
+  // MEDIUM Tier (13개) - GPT 5.3 Codex / Gemini Pro ⭐ 토큰 절약!
   // =========================================================================
-
-  'architect-medium': {
-    omoAgent: 'build',
-    model: MODELS.CODEX,
-    reason: 'GPT 5.3 Codex - 중간 복잡도 아키텍처 분석',
-    fallbackToOMC: false,
-  },
 
   executor: {
     omoAgent: 'build',
@@ -185,17 +178,10 @@ export const FUSION_MAP = {
     fallbackToOMC: false,
   },
 
-  'explore-medium': {
-    omoAgent: 'explore',
-    model: MODELS.CODEX,
-    reason: 'GPT 5.3 Codex - 깊은 코드베이스 탐색',
-    fallbackToOMC: false,
-  },
-
-  researcher: {
+  'dependency-expert': {
     omoAgent: 'general',
     model: MODELS.CODEX,
-    reason: 'GPT 5.3 Codex - 외부 문서 리서치',
+    reason: 'GPT 5.3 Codex - 의존성/문서 조사',
     fallbackToOMC: false,
   },
 
@@ -216,67 +202,81 @@ export const FUSION_MAP = {
   'qa-tester': {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.3 Codex -인터랙티브 CLI 테스팅',
+    reason: 'GPT 5.3 Codex - 인터랙티브 CLI 테스팅',
     fallbackToOMC: false,
   },
 
   'build-fixer': {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.3 Codex -빌드/타입 오류 수정',
+    reason: 'GPT 5.3 Codex - 빌드/타입 오류 수정',
     fallbackToOMC: false,
   },
 
-  'tdd-guide': {
+  'test-engineer': {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.3 Codex -TDD 워크플로우 가이드',
+    reason: 'GPT 5.3 Codex - TDD/테스트 작성 (was tdd-guide)',
     fallbackToOMC: false,
   },
 
   scientist: {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.3 Codex -데이터 분석',
+    reason: 'GPT 5.3 Codex - 데이터 분석',
     fallbackToOMC: false,
   },
 
-  // =========================================================================
-  // LOW Tier (8개) - Gemini 3 Flash Preview (thinking) ⭐ 토큰 절약!
-  // =========================================================================
-
-  'architect-low': {
-    omoAgent: 'explore',
-    model: MODELS.FLASH,
-    reason: 'Gemini Flash - 간단한 코드 질문',
-    fallbackToOMC: false,
-  },
-
-  'executor-low': {
+  'git-master': {
     omoAgent: 'build',
-    model: MODELS.FLASH,
-    reason: 'Gemini Flash - 간단한 싱글파일 작업',
+    model: MODELS.CODEX,
+    reason: 'GPT 5.3 Codex - Git 작업 관리',
     fallbackToOMC: false,
   },
+
+  verifier: {
+    omoAgent: 'build',
+    model: MODELS.CODEX,
+    reason: 'GPT 5.3 Codex - 코드 검증',
+    fallbackToOMC: false,
+  },
+
+  'api-reviewer': {
+    omoAgent: 'build',
+    model: MODELS.CODEX,
+    reason: 'GPT 5.3 Codex - API 설계 리뷰',
+    fallbackToOMC: false,
+  },
+
+  'performance-reviewer': {
+    omoAgent: 'build',
+    model: MODELS.CODEX,
+    reason: 'GPT 5.3 Codex - 성능 분석 리뷰',
+    fallbackToOMC: false,
+  },
+
+  'quality-strategist': {
+    omoAgent: 'plan',
+    model: MODELS.CODEX,
+    reason: 'GPT 5.3 Codex - 품질 전략 수립',
+    fallbackToOMC: false,
+  },
+
+  'product-analyst': {
+    omoAgent: 'plan',
+    model: MODELS.CODEX,
+    reason: 'GPT 5.3 Codex - 제품 분석',
+    fallbackToOMC: false,
+  },
+
+  // =========================================================================
+  // LOW Tier (4개) - Gemini 3 Flash Preview (thinking) ⭐ 토큰 절약!
+  // =========================================================================
 
   explore: {
     omoAgent: 'explore',
     model: MODELS.FLASH,
     reason: 'Gemini Flash - 빠른 코드베이스 탐색',
-    fallbackToOMC: false,
-  },
-
-  'researcher-low': {
-    omoAgent: 'general',
-    model: MODELS.FLASH,
-    reason: 'Gemini Flash - 빠른 문서 조회',
-    fallbackToOMC: false,
-  },
-
-  'designer-low': {
-    omoAgent: 'build',
-    model: MODELS.FLASH,
-    reason: 'Gemini Flash - 간단한 스타일링',
     fallbackToOMC: false,
   },
 
@@ -287,78 +287,35 @@ export const FUSION_MAP = {
     fallbackToOMC: false,
   },
 
-  'security-reviewer-low': {
+  'style-reviewer': {
     omoAgent: 'build',
     model: MODELS.FLASH,
-    reason: 'Gemini Flash - 빠른 보안 스캔',
+    reason: 'Gemini Flash - 코드 스타일 체크',
     fallbackToOMC: false,
   },
 
-  'build-fixer-low': {
-    omoAgent: 'build',
-    model: MODELS.FLASH,
-    reason: 'Gemini Flash - 간단한 빌드 오류 수정',
-    fallbackToOMC: false,
-  },
-
-  'tdd-guide-low': {
-    omoAgent: 'build',
-    model: MODELS.FLASH,
-    reason: 'Gemini Flash - 빠른 테스트 제안',
-    fallbackToOMC: false,
-  },
-
-  'code-reviewer-low': {
-    omoAgent: 'build',
-    model: MODELS.FLASH,
-    reason: 'Gemini Flash - 빠른 코드 체크',
-    fallbackToOMC: false,
-  },
-
-  'scientist-low': {
-    omoAgent: 'build',
-    model: MODELS.FLASH,
-    reason: 'Gemini Flash - 빠른 데이터 검사',
-    fallbackToOMC: false,
-  },
-
-  'qa-tester-low': {
-    omoAgent: 'build',
-    model: MODELS.FLASH,
-    reason: 'Gemini Flash - 빠른 QA 테스트',
-    fallbackToOMC: false,
-  },
-
-  // =========================================================================
-  // 추가 HIGH Tier (v0.7.0 + v1.1.0)
-  // =========================================================================
-
-  'researcher-high': {
+  'ux-researcher': {
     omoAgent: 'general',
-    model: MODELS.OPUS,
-    reason: '심층 연구 및 복잡한 문서 분석',
-    fallbackToOMC: true,
+    model: MODELS.FLASH,
+    reason: 'Gemini Flash - UX 리서치',
+    fallbackToOMC: false,
   },
 
-  'build-fixer-high': {
-    omoAgent: 'build',
-    model: MODELS.OPUS,
-    reason: '복잡한 빌드/컴파일 오류 해결',
-    fallbackToOMC: true,
+  // =========================================================================
+  // Backward-compat aliases (OMC 4.0.x → 4.1.x)
+  // =========================================================================
+
+  researcher: {
+    omoAgent: 'general',
+    model: MODELS.CODEX,
+    reason: 'GPT 5.3 Codex - backward-compat → dependency-expert',
+    fallbackToOMC: false,
   },
 
-  // v1.1.0 신규 에이전트 (OMC v4.0.0+)
-  'deep-executor': {
-    omoAgent: 'build',
-    model: MODELS.OPUS,
-    reason: '복잡한 자율 작업 - Opus 필수',
-    fallbackToOMC: true,
-  },
-
-  'git-master': {
+  'tdd-guide': {
     omoAgent: 'build',
     model: MODELS.CODEX,
-    reason: 'GPT 5.3 Codex - Git 작업 관리',
+    reason: 'GPT 5.3 Codex - backward-compat → test-engineer',
     fallbackToOMC: false,
   },
 };
@@ -494,8 +451,8 @@ export function shouldUseFusionMapping(fusionState) {
     return true;
   }
 
-  // hulw 모드가 활성화된 경우
-  if (fusionState.hulwMode) {
+  // team 모드가 활성화된 경우 (OMC 4.1.2, was hulw)
+  if (fusionState.teamMode || fusionState.hulwMode) {
     return true;
   }
 

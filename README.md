@@ -173,21 +173,21 @@ OMC 32개 에이전트 → OMO 에이전트 + 외부 모델 매핑으로 **Claud
 | **MEDIUM** | Claude Sonnet | **gpt-5.2-codex** | ✅ |
 | **LOW** | Claude Haiku | **gemini-3.0-flash** | ✅ |
 
-**에이전트별 매핑 (29개):**
+**에이전트별 매핑 (28개):**
 
-| OMC 에이전트 | 티어 | OMO 에이전트 | 퓨전 모델 | 절약 |
+| OMC 에이전트 | Lane | OMO 에이전트 | 퓨전 모델 | 절약 |
 |-------------|------|-------------|----------|------|
-| architect, executor-high, explore-high | HIGH | build/explore | Claude Opus | - |
+| architect, deep-executor, debugger | HIGH | build | Claude Opus | - |
 | planner, critic, analyst | HIGH | plan | Claude Opus | - |
-| qa-tester-high, security-reviewer, code-reviewer | HIGH | build | Claude Opus | - |
-| scientist-high, designer-high | HIGH | build | Claude Opus | - |
-| architect-medium, executor, explore-medium | MEDIUM | build/explore | **gpt-5.2-codex** | ✅ |
-| researcher, designer, vision | MEDIUM | general/build | **gpt-5.2-codex** | ✅ |
-| qa-tester, build-fixer, tdd-guide, scientist | MEDIUM | build | **gpt-5.2-codex** | ✅ |
-| architect-low, executor-low, explore | LOW | explore/build | **gemini-3.0-flash** | ✅ |
-| researcher-low, designer-low, writer | LOW | general/build | **gemini-3.0-flash** | ✅ |
-| security-reviewer-low, build-fixer-low | LOW | build | **gemini-3.0-flash** | ✅ |
-| tdd-guide-low, code-reviewer-low, scientist-low | LOW | build | **gemini-3.0-flash** | ✅ |
+| security-reviewer, code-reviewer, quality-reviewer | HIGH | build | Claude Opus | - |
+| product-manager, information-architect | HIGH | plan/build | Claude Opus | - |
+| executor, dependency-expert | MEDIUM | build | **gpt-5.2-codex** | ✅ |
+| designer, vision | MEDIUM | general/build | **gemini-3.0-pro** | ✅ |
+| qa-tester, build-fixer, test-engineer | MEDIUM | build | **gpt-5.2-codex** | ✅ |
+| scientist, git-master, verifier | MEDIUM | build | **gpt-5.2-codex** | ✅ |
+| api-reviewer, performance-reviewer, quality-strategist | MEDIUM | build | **gpt-5.2-codex** | ✅ |
+| product-analyst | MEDIUM | general | **gpt-5.2-codex** | ✅ |
+| explore, writer, style-reviewer, ux-researcher | LOW | explore/general | **gemini-3.0-flash** | ✅ |
 
 **18개 에이전트 (62%)** 가 GPT/Gemini로 대체되어 Claude 토큰 절약!
 
@@ -657,8 +657,8 @@ OMCM은 **플렉서블 서버 풀**을 사용하여 CLI 모드 대비 **라우�
     "enabled": true,
     "usageThreshold": 70,
     "maxOpencodeWorkers": 3,
-    "preferOpencode": ["explore", "explore-medium", "researcher", "researcher-low", "writer"],
-    "preferClaude": ["architect", "executor-high", "critic", "planner"],
+    "preferOpencode": ["explore", "dependency-expert", "writer", "style-reviewer", "ux-researcher"],
+    "preferClaude": ["architect", "deep-executor", "critic", "planner", "debugger"],
     "autoDelegate": true
   },
 

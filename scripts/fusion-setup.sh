@@ -219,18 +219,19 @@ setup_claude_md() {
 
 Claude 토큰 절약을 위해 다음 에이전트들은 OpenCode로 라우팅됩니다:
 
-| OMC 에이전트 | OpenCode 에이전트 | 모델 |
-|-------------|------------------|------|
-| architect, architect-medium, architect-low | Oracle | GPT |
-| designer, designer-high, designer-low | Frontend Engineer | Gemini |
-| researcher, researcher-low | Oracle | GPT |
+| OMC 에이전트 (4.1.2) | OpenCode 에이전트 | 모델 |
+|----------------------|------------------|------|
+| architect, debugger | Oracle | GPT |
+| designer | Frontend Engineer | Gemini |
+| dependency-expert (was researcher) | Oracle | GPT |
 | vision | Multimodal Looker | Gemini |
-| explore, explore-medium | explore | Gemini Flash |
-| writer | document-writer | Gemini Flash |
+| explore | explore | Gemini Flash |
+| writer, style-reviewer, ux-researcher | document-writer | Gemini Flash |
+| code-reviewer, security-reviewer | Oracle | GPT |
 
 ## 퓨전 모드 키워드
 
-- `hulw: <작업>` - 하이브리드 울트라워크 (항상 퓨전)
+- `team: <작업>` - 팀 모드 (OMC 4.1.2, was hulw)
 - `fusion: <작업>` - 명시적 퓨전 모드
 
 ## 자동 전환 조건

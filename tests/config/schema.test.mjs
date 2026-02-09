@@ -17,7 +17,7 @@ describe('validateAgentMapping', () => {
     const config = {
       mappings: [
         {
-          source: ['architect', 'architect-low'],
+          source: ['architect', 'debugger', 'quality-reviewer'],
           target: 'Oracle',
           provider: 'opencode',
           model: 'gpt-4',

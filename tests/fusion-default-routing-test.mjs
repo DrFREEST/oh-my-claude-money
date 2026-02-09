@@ -21,37 +21,36 @@ function readJsonFile(filepath) {
 function mapAgentToOpenCode(agentType) {
   var mapping = {
     'architect': 'Oracle',
-    'architect-low': 'Flash',
-    'architect-medium': 'Oracle',
-    'researcher': 'Oracle',
-    'researcher-low': 'Flash',
-    'designer': 'Flash',
-    'designer-low': 'Flash',
-    'designer-high': 'Codex',
-    'explore': 'Flash',
-    'explore-medium': 'Oracle',
-    'explore-high': 'Oracle',
-    'scientist': 'Oracle',
-    'scientist-low': 'Flash',
-    'scientist-high': 'Oracle',
     'executor': 'Codex',
-    'executor-low': 'Flash',
-    'executor-high': 'Codex',
+    'explore': 'Flash',
+    'debugger': 'Oracle',
+    'verifier': 'Codex',
+    'deep-executor': 'Codex',
+    'git-master': 'Codex',
+    'security-reviewer': 'Oracle',
+    'code-reviewer': 'Oracle',
+    'style-reviewer': 'Flash',
+    'quality-reviewer': 'Oracle',
+    'api-reviewer': 'Oracle',
+    'performance-reviewer': 'Oracle',
+    'qa-tester': 'Codex',
+    'test-engineer': 'Codex',
+    'scientist': 'Oracle',
+    'dependency-expert': 'Oracle',
+    'designer': 'Flash',
     'writer': 'Flash',
+    'vision': 'Flash',
+    'quality-strategist': 'Oracle',
     'planner': 'Oracle',
     'critic': 'Oracle',
     'analyst': 'Oracle',
-    'vision': 'Flash',
-    'qa-tester': 'Codex',
-    'qa-tester-high': 'Codex',
-    'security-reviewer': 'Oracle',
-    'security-reviewer-low': 'Flash',
-    'build-fixer': 'Codex',
-    'build-fixer-low': 'Flash',
-    'tdd-guide': 'Codex',
-    'tdd-guide-low': 'Flash',
-    'code-reviewer': 'Oracle',
-    'code-reviewer-low': 'Flash'
+    'product-manager': 'Oracle',
+    'ux-researcher': 'Flash',
+    'information-architect': 'Oracle',
+    'product-analyst': 'Oracle',
+    // Backward compatibility aliases
+    'researcher': 'Oracle',
+    'tdd-guide': 'Codex'
   };
   return mapping[agentType] || 'Codex';
 }
@@ -79,14 +78,12 @@ function shouldRouteToOpenCode(toolInput) {
 
   if (toolInput && toolInput.subagent_type && shouldRouteByMode) {
     var agentType = toolInput.subagent_type.replace('oh-my-claudecode:', '');
-    var tokenSavingAgents = ['architect', 'architect-low', 'architect-medium',
-                            'researcher', 'researcher-low',
-                            'designer', 'designer-low', 'designer-high',
-                            'explore', 'explore-medium', 'explore-high',
-                            'scientist', 'scientist-low', 'scientist-high',
-                            'writer', 'vision',
-                            'code-reviewer', 'code-reviewer-low',
-                            'security-reviewer', 'security-reviewer-low'];
+    var tokenSavingAgents = ['architect', 'explore', 'debugger', 'code-reviewer',
+                            'security-reviewer', 'style-reviewer', 'quality-reviewer',
+                            'api-reviewer', 'performance-reviewer', 'scientist',
+                            'dependency-expert', 'researcher', 'designer', 'writer',
+                            'vision', 'quality-strategist', 'analyst', 'ux-researcher',
+                            'information-architect', 'product-analyst'];
 
     var shouldSave = tokenSavingAgents.indexOf(agentType) !== -1;
 
@@ -120,16 +117,24 @@ console.log('');
 var testCases = [
   { subagent_type: 'oh-my-claudecode:architect', expected: 'route', desc: 'architect (분석)' },
   { subagent_type: 'oh-my-claudecode:explore', expected: 'route', desc: 'explore (탐색)' },
-  { subagent_type: 'oh-my-claudecode:researcher', expected: 'route', desc: 'researcher (연구)' },
+  { subagent_type: 'oh-my-claudecode:debugger', expected: 'route', desc: 'debugger (디버깅)' },
+  { subagent_type: 'oh-my-claudecode:dependency-expert', expected: 'route', desc: 'dependency-expert (의존성)' },
   { subagent_type: 'oh-my-claudecode:designer', expected: 'route', desc: 'designer (디자인)' },
   { subagent_type: 'oh-my-claudecode:writer', expected: 'route', desc: 'writer (문서)' },
   { subagent_type: 'oh-my-claudecode:vision', expected: 'route', desc: 'vision (시각)' },
   { subagent_type: 'oh-my-claudecode:code-reviewer', expected: 'route', desc: 'code-reviewer (리뷰)' },
+  { subagent_type: 'oh-my-claudecode:security-reviewer', expected: 'route', desc: 'security-reviewer (보안)' },
+  { subagent_type: 'oh-my-claudecode:style-reviewer', expected: 'route', desc: 'style-reviewer (스타일)' },
+  { subagent_type: 'oh-my-claudecode:scientist', expected: 'route', desc: 'scientist (데이터)' },
+  { subagent_type: 'oh-my-claudecode:researcher', expected: 'route', desc: 'researcher (backward-compat)' },
   { subagent_type: 'oh-my-claudecode:executor', expected: 'no-route', desc: 'executor (실행)' },
-  { subagent_type: 'oh-my-claudecode:executor-high', expected: 'no-route', desc: 'executor-high (고급 실행)' },
+  { subagent_type: 'oh-my-claudecode:verifier', expected: 'no-route', desc: 'verifier (검증)' },
   { subagent_type: 'oh-my-claudecode:build-fixer', expected: 'no-route', desc: 'build-fixer (빌드 수정)' },
   { subagent_type: 'oh-my-claudecode:qa-tester', expected: 'no-route', desc: 'qa-tester (QA 테스트)' },
-  { subagent_type: 'oh-my-claudecode:tdd-guide', expected: 'no-route', desc: 'tdd-guide (TDD)' },
+  { subagent_type: 'oh-my-claudecode:test-engineer', expected: 'no-route', desc: 'test-engineer (테스트)' },
+  { subagent_type: 'oh-my-claudecode:tdd-guide', expected: 'no-route', desc: 'tdd-guide (backward-compat)' },
+  { subagent_type: 'oh-my-claudecode:planner', expected: 'no-route', desc: 'planner (계획)' },
+  { subagent_type: 'oh-my-claudecode:product-manager', expected: 'no-route', desc: 'product-manager (PM)' },
 ];
 
 console.log('--- 라우팅 테스트 ---');

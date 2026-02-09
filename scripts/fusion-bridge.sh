@@ -67,16 +67,15 @@ OMC 에이전트 호출을 OpenCode로 라우팅합니다.
   prompt       작업 프롬프트
   project-dir  프로젝트 디렉토리 (기본값: 현재 디렉토리)
 
-지원 에이전트:
-  architect, architect-medium, architect-low
-  researcher, researcher-low
-  designer, designer-high, designer-low
-  vision
-  analyst
-  scientist, scientist-low, scientist-high
-  code-reviewer, code-reviewer-low
-  security-reviewer, security-reviewer-low
-  explore, explore-medium
+지원 에이전트 (OMC 4.1.2):
+  architect, debugger, explore, deep-executor
+  dependency-expert (was researcher)
+  designer, writer, vision
+  analyst, planner, critic
+  scientist, quality-strategist
+  code-reviewer, security-reviewer, quality-reviewer
+  style-reviewer, api-reviewer, performance-reviewer
+  qa-tester, test-engineer (was tdd-guide), verifier
 
 예시:
   fusion-bridge.sh architect "이 코드의 구조를 분석해줘"

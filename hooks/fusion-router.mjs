@@ -57,6 +57,9 @@ function toOpenCodeProvider(modelId) {
     // v1.1.0 신규 모델 (OMC v4.0.6 호환)
     'gpt-5.3-codex': { providerID: 'openai', modelID: 'gpt-5.3-codex' },
     'gpt-5.3': { providerID: 'openai', modelID: 'gpt-5.3' },
+    'gemini-3-pro': { providerID: 'google', modelID: 'antigravity-gemini-3-pro-high' },
+    'gemini-3-flash': { providerID: 'google', modelID: 'antigravity-gemini-3-flash' },
+    // 하위 호환 (OMO < 3.4.0)
     'gemini-3-pro-preview': { providerID: 'google', modelID: 'antigravity-gemini-3-pro-high' },
     'gemini-3-flash-preview': { providerID: 'google', modelID: 'antigravity-gemini-3-flash' },
     // 하위 호환

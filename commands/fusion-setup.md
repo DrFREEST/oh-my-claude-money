@@ -426,14 +426,14 @@ Claude 토큰 절약을 위해 다음 에이전트들은 OpenCode로 라우팅�
 
 | OMC 에이전트 | OpenCode 에이전트 | 모델 |
 |-------------|------------------|------|
-| architect, architect-medium, architect-low | Oracle | GPT |
-| designer, designer-high, designer-low | Frontend Engineer | Gemini |
-| researcher, researcher-low | Oracle | GPT |
-| vision | Multimodal Looker | Gemini |
-| analyst | Oracle | GPT |
-| scientist, scientist-low, scientist-high | Oracle | GPT |
-| code-reviewer, code-reviewer-low | Oracle | GPT |
-| security-reviewer, security-reviewer-low | Oracle | GPT |
+| architect, debugger | Oracle | GPT |
+| designer, vision | Frontend Engineer | Gemini |
+| dependency-expert | Oracle | GPT |
+| analyst, product-analyst | Oracle | GPT |
+| scientist, verifier | Oracle | GPT |
+| code-reviewer, quality-reviewer, api-reviewer | Oracle | GPT |
+| security-reviewer | Oracle | GPT |
+| writer, style-reviewer, ux-researcher | General | Gemini Flash |
 
 ## 퓨전 모드 활성화
 

@@ -22,21 +22,21 @@ const FALLBACK_CHAIN = [
     name: 'GPT-5.3 Codex',
     provider: 'openai',
     type: 'fallback-1',
-    opencodeAgent: 'Codex'
+    opencodeAgent: 'build'
   },
   {
-    id: 'gemini-3-flash-preview',
+    id: 'gemini-3-flash',
     name: 'Gemini 3 Flash',
     provider: 'google',
     type: 'fallback-2',
-    opencodeAgent: 'Flash'
+    opencodeAgent: 'explore'
   },
   {
     id: 'gpt-5.3',
     name: 'GPT-5.3',
     provider: 'openai',
     type: 'fallback-3',
-    opencodeAgent: 'Oracle'
+    opencodeAgent: 'oracle'
   }
 ];
 

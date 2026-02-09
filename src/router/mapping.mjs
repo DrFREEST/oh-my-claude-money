@@ -129,7 +129,7 @@ export function getDynamicMapping() {
 /**
  * 소스 에이전트에 대한 타겟 매핑 조회
  *
- * @param {string} sourceAgent - OMC 에이전트명 (예: 'architect', 'designer-low')
+ * @param {string} sourceAgent - OMC 에이전트명 (예: 'architect', 'designer')
  * @returns {object|null} 매핑 정보 또는 null (기본 매핑 사용)
  */
 export function getAgentMapping(sourceAgent) {

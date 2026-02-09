@@ -10,7 +10,7 @@
     {
       "name": "omcm",
       "description": "Claude Code 사용량 관리 및 OpenCode 브릿지 - 하이브리드 울트라워크, 자동 위임, 토큰 최적화",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": {
         "name": "DrFREEST",
         "email": "dalkong@dalkong.kr"

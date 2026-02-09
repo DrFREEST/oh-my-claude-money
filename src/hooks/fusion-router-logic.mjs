@@ -70,7 +70,7 @@ export function logRouting(decision) {
 /**
  * OMC 에이전트를 OpenCode 에이전트로 매핑
  *
- * OMC 4.1.3 기준 에이전트 (28개, Lane 기반):
+ * OMC 4.1.4 기준 에이전트 (28개, Lane 기반):
  *   Build/Analysis: architect, executor, explore, debugger, verifier, deep-executor, git-master
  *   Review: security-reviewer, code-reviewer, style-reviewer, quality-reviewer, api-reviewer, performance-reviewer
  *   Testing: qa-tester, test-engineer (was tdd-guide)
@@ -80,7 +80,7 @@ export function logRouting(decision) {
  * OMO 3.4.0 기준 에이전트: oracle (GPT), explore (Gemini), build (GPT),
  *                        sisyphus, librarian, metis, momus, prometheus, atlas, hephaestus, multimodal-looker
  *
- * OMC v4.1.3 delegationRouting 인식: OMCM은 delegationRouting이 활성화되면 자동으로 양보함
+ * OMC v4.1.4 delegationRouting 인식: OMCM은 delegationRouting이 활성화되면 자동으로 양보함
  *
  * @param {string} agentType - OMC 에이전트 타입
  * @returns {string} - OpenCode 에이전트
@@ -169,7 +169,7 @@ export function getModelInfoForAgent(omoAgent) {
     }
   }
 
-  // 기본값 (OMC 4.1.3 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2)
+  // 기본값 (OMC 4.1.4 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2)
   return { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex' };
 }
 
@@ -190,7 +190,7 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
   var limits = options.limits !== undefined ? options.limits : readJsonFile(PROVIDER_LIMITS_FILE);
   var config = options.config !== undefined ? options.config : readJsonFile(CONFIG_FILE);
 
-  // OMC v4.1.3+ delegationRouting 활성화 시: OMC가 직접 라우팅하므로 OMCM 퓨전 비활성화
+  // OMC v4.1.4+ delegationRouting 활성화 시: OMC가 직접 라우팅하므로 OMCM 퓨전 비활성화
   // 단, fusionMode가 명시적으로 'always'인 경우는 OMCM이 우선
   try {
     var omcConfigPath = join(HOME, '.omc-config.json');
@@ -513,7 +513,7 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
 
 /**
  * 라우팅 가능한 에이전트 목록 (OpenCode로 라우팅하여 토큰 절약)
- * OMC 4.1.3 + OMO 3.4.0 기준
+ * OMC 4.1.4 + OMO 3.4.0 기준
  * fusionDefault 모드에서는 planner 제외 모든 에이전트가 라우팅됨
  */
 export const TOKEN_SAVING_AGENTS = [

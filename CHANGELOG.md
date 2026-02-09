@@ -18,6 +18,17 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.4.2] - 2026-02-09
+
+### 변경 (Changed)
+- OMC 호환 버전 v4.1.3 → v4.1.4 업데이트 (MCP 서버 크래시 수정 패치, OMCM 기능 변경 없음)
+
+### 호환성 (Compatibility)
+- **OMC**: v4.1.4
+- **OMO**: v3.4.0
+
+---
+
 ## [1.4.1] - 2026-02-09
 
 ### 추가 (Added)

@@ -18,6 +18,24 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.4.4] - 2026-02-10
+
+### 변경 (Changed)
+- **OMC v4.1.7 호환** — v4.1.5~v4.1.7 전체 대응
+  - Team-first 오케스트레이션: `ultrapilot`/`swarm` → `team` 모드 통합 인식
+  - `team-state.json` 상태 관리 추가 (`state-manager.mjs`, `mode-detector.mjs`)
+  - 에이전트 매핑 코멘트 v4.1.7 기준으로 업데이트
+  - 취소 스킬에 `team` 모드 추가 (레거시 `ultrapilot`/`swarm` 호환 유지)
+- **퓨전 라우터 CONFIG_FILE 경로 수정** — `CLAUDE_PLUGIN_ROOT` → `marketplaces` → `plugins` 순 폴백 체인으로 변경 (plugins/omcm 삭제 후에도 설정 읽기 가능)
+- **HUD 레이아웃 3줄 변경** — 첫 줄을 CC 시스템 메시지 전용 빈 공간으로 배정하여 스크롤 깜빡임 감소
+- 17개 파일의 OMC 버전 참조 v4.1.4 → v4.1.7 일괄 업데이트
+
+### 호환성 (Compatibility)
+- **OMC**: v4.1.7
+- **OMO**: v3.4.0
+
+---
+
 ## [1.4.3] - 2026-02-09
 
 ### 수정 (Fixed)

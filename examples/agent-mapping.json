@@ -1,6 +1,6 @@
 {
   "$schema": "https://omcm.dev/schemas/agent-mapping.json",
-  "description": "OMCM 동적 에이전트 매핑 설정 예제 (OMC 4.1.4 Lane-based)",
+  "description": "OMCM 동적 에이전트 매핑 설정 예제 (OMC 4.1.7 Lane-based)",
   "mappings": [
     {
       "source": ["architect", "debugger"],

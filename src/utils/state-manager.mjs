@@ -25,6 +25,7 @@ export const STATE_FILES = {
   AUTOPILOT: 'autopilot-state.json',
   ECOMODE: 'ecomode-state.json',
   SWARM: 'swarm-state.json',
+  TEAM: 'team-state.json', // OMC v4.1.7: ultrapilot + swarm 통합
   PIPELINE: 'pipeline-state.json',
   ULTRAQA: 'ultraqa-state.json',
 
@@ -177,7 +178,7 @@ export function stateExists(stateType, options = {}) {
 export function getActiveModes(options = {}) {
   const modeTypes = [
     'ULTRAWORK', 'ULTRAPILOT', 'RALPH', 'AUTOPILOT',
-    'ECOMODE', 'SWARM', 'PIPELINE', 'ULTRAQA'
+    'ECOMODE', 'SWARM', 'TEAM', 'PIPELINE', 'ULTRAQA'
   ];
 
   const activeModes = [];
@@ -201,7 +202,7 @@ export function getActiveModes(options = {}) {
 export function deactivateAllModes(options = {}) {
   const modeTypes = [
     'ULTRAWORK', 'ULTRAPILOT', 'RALPH', 'AUTOPILOT',
-    'ECOMODE', 'SWARM', 'PIPELINE', 'ULTRAQA'
+    'ECOMODE', 'SWARM', 'TEAM', 'PIPELINE', 'ULTRAQA'
   ];
 
   const deactivated = [];

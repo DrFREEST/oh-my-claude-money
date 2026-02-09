@@ -4,7 +4,7 @@
  * 퓨전/폴백 모드에서 oh-my-claudecode(OMC) 에이전트를
  * oh-my-opencode(OMO) 에이전트로 매핑하여 Claude 토큰 절약
  *
- * OMC v4.1.4 호환 - Codex fallback chain 반영
+ * OMC v4.1.7 호환 - Codex fallback chain 반영
  *
  * 티어별 모델 분배:
  * - HIGH (Opus급): Claude Opus 4.6 유지 - 복잡한 추론 필요
@@ -27,7 +27,7 @@ export const MODELS = {
   },
 
   // MEDIUM Tier - GPT 5.3 Codex (코딩 특화, thinking 모드)
-  // OMC 4.1.4 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
+  // OMC 4.1.7 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
   CODEX: {
     provider: 'openai',
     model: 'gpt-5.3-codex',
@@ -82,7 +82,7 @@ export const OMO_AGENTS = {
 };
 
 // =============================================================================
-// OMC → OMO 에이전트 퓨전 매핑 (28개 + 2 alias) - OMC v4.1.4 호환
+// OMC → OMO 에이전트 퓨전 매핑 (28개 + 2 alias) - OMC v4.1.7 호환
 // =============================================================================
 
 export const FUSION_MAP = {
@@ -451,7 +451,7 @@ export function shouldUseFusionMapping(fusionState) {
     return true;
   }
 
-  // team 모드가 활성화된 경우 (OMC 4.1.4, was hulw)
+  // team 모드가 활성화된 경우 (OMC 4.1.7, was hulw)
   if (fusionState.teamMode || fusionState.hulwMode) {
     return true;
   }

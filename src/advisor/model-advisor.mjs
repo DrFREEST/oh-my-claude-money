@@ -1,10 +1,10 @@
 /**
- * model-advisor.mjs - OMC v4.1.4 모델 최적화 어드바이저
+ * model-advisor.mjs - OMC v4.1.7 모델 최적화 어드바이저
  *
  * 작업 복잡도 분석 및 모델 다운그레이드 추천을 통해
  * 비용 최적화를 지원합니다.
  *
- * OMC 4.1.4 Codex fallback chain 반영:
+ * OMC 4.1.7 Codex fallback chain 반영:
  *   gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
  *
  * @version 1.1.0
@@ -20,7 +20,7 @@ export var MODEL_COSTS = {
   'claude-sonnet-4-5-20250929': { input: 0.003, output: 0.015, tier: 'MEDIUM' },
   'claude-haiku-4-5-20251001': { input: 0.0008, output: 0.004, tier: 'LOW' },
 
-  // OpenAI - OMC 4.1.4 fallback chain
+  // OpenAI - OMC 4.1.7 fallback chain
   'gpt-5.3-codex': { input: 0.005, output: 0.02, tier: 'MEDIUM' },
   'gpt-5.3': { input: 0.005, output: 0.02, tier: 'MEDIUM' },
   'gpt-5.2-codex': { input: 0.003, output: 0.012, tier: 'MEDIUM' },
@@ -53,7 +53,7 @@ export function analyzeTaskComplexity(task) {
   var prompt = task.prompt || '';
   var contextFiles = task.contextFiles || 0;
 
-  // 에이전트 기반 복잡도 (OMC 4.1.4 Lane 기반)
+  // 에이전트 기반 복잡도 (OMC 4.1.7 Lane 기반)
   var highAgents = ['architect', 'planner', 'critic', 'analyst', 'deep-executor',
     'security-reviewer', 'code-reviewer', 'quality-reviewer', 'api-reviewer',
     'performance-reviewer', 'debugger', 'quality-strategist',

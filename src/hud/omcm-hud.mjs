@@ -865,7 +865,7 @@ async function buildIndependentHud(stdinData) {
     }
   }
 
-  // 2줄 출력: Line1=상태, Line2=메트릭 (화면 깜빡임 방지)
+  // 3줄 출력: Line1=CC전용(빈줄), Line2=상태, Line3=메트릭
   const statusParts = [];  // 사용량, 모드, 퓨전, 폴백, 분할경고
   const metricParts = [];  // 토큰, 카운트, 도구통계
 
@@ -884,11 +884,12 @@ async function buildIndependentHud(stdinData) {
     return '[OMCM] run /fusion-setup to configure';
   }
 
-  const line1 = '[OMCM] ' + (statusParts.length > 0 ? statusParts.join(' | ') : 'ready');
+  const line2 = '[OMCM] ' + (statusParts.length > 0 ? statusParts.join(' | ') : 'ready');
+  // Line 1: CC 시스템 메시지 전용 (빈 공간)
   if (metricParts.length > 0) {
-    return line1 + '\n' + '       ' + metricParts.join(' | ');
+    return ' \n' + line2 + '\n' + metricParts.join(' | ');
   }
-  return line1;
+  return ' \n' + line2;
 }
 
 /**
@@ -966,7 +967,7 @@ async function main() {
         var mcpData = readMcpTracking();
         var mcpOutput = renderMcpCostSummary(mcpData);
 
-        // 2줄 출력: Line1=OMC+상태, Line2=메트릭 (화면 깜빡임 방지)
+        // 3줄 출력: Line1=CC전용(빈줄), Line2=OMC+상태, Line3=메트릭
         const statusExtras = [];
         if (fusionOutput) statusExtras.push(fusionOutput);
         if (fallbackOutput) statusExtras.push(fallbackOutput);
@@ -978,16 +979,18 @@ async function main() {
         if (mcpOutput) metricExtras.push(mcpOutput);
         if (toolStatsOutput) metricExtras.push(toolStatsOutput);
 
-        let finalOutput = omcOutput;
+        let statusLine = omcOutput;
         if (statusExtras.length > 0) {
-          finalOutput = omcOutput.replace(
+          statusLine = omcOutput.replace(
             /(\[OMC\])(\s*\|)?/,
             '$1 | ' + statusExtras.join(' | ') + '$2'
           );
         }
 
+        // Line 1: CC 시스템 메시지 전용 (빈 공간)
+        let finalOutput = ' \n' + statusLine;
         if (metricExtras.length > 0) {
-          finalOutput += '\n       ' + metricExtras.join(' | ');
+          finalOutput += '\n' + metricExtras.join(' | ');
         }
 
         console.log(finalOutput);

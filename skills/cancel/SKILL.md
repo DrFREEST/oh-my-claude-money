@@ -23,8 +23,12 @@ triggers:
 | ultrawork | `.omc/state/ultrawork-state.json` | 병렬 작업 중단 |
 | ecomode | `.omc/state/ecomode-state.json` | 토큰 절약 모드 해제 |
 | hulw | `.omc/state/hulw-state.json` | 하이브리드 모드 해제 |
-| swarm | `.omc/state/swarm-state.json` | 에이전트 풀 해제 |
+| team | `.omc/state/team-state.json` | 팀 협업 모드 해제 (v4.1.7+) |
+| swarm | `.omc/state/swarm-state.json` | 에이전트 풀 해제 (레거시) |
+| ultrapilot | `.omc/state/ultrapilot-state.json` | 병렬 자동조종 해제 (레거시) |
 | pipeline | `.omc/state/pipeline-state.json` | 파이프라인 중단 |
+
+> **참고**: OMC v4.1.7부터 `ultrapilot`과 `swarm`은 `team` 모드로 통합되었습니다. 레거시 호환을 위해 기존 상태 파일도 함께 취소합니다.
 
 ## 취소 프로세스
 

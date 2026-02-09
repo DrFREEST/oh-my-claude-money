@@ -1,0 +1,12 @@
+{
+  "timestamp": 1770357906017,
+  "data": {
+    "fiveHourPercent": 22,
+    "weeklyPercent": 11,
+    "fiveHourResetsAt": "2026-02-06T08:59:59.880Z",
+    "weeklyResetsAt": "2026-02-09T21:59:59.880Z",
+    "sonnetWeeklyPercent": 3,
+    "sonnetWeeklyResetsAt": "2026-02-10T00:59:59.880Z"
+  },
+  "error": false
+}

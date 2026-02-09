@@ -18,6 +18,25 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.4.1] - 2026-02-09
+
+### 추가 (Added)
+- **OMC v4.1.3 delegationRouting 감지** — `shouldRouteToOpenCode()`에 OMC delegation routing 활성화 여부 확인 로직 추가
+  - delegationRouting 활성 시 OMCM 퓨전 자동 비활성화 (충돌 방지)
+  - `fusionMode: 'always'` 설정 시 OMCM 우선 라우팅 유지
+  - 4개 테스트 케이스 통과 확인
+
+### 변경 (Changed)
+- 전체 코드베이스 OMC 버전 참조 v4.1.2 → v4.1.3 업데이트 (코멘트, 메타데이터, 스킬 문서)
+- plugin.json 호환 표기 `OMC v4.1.3 + OMO v3.4.0`
+
+### 호환성 (Compatibility)
+- **OMC**: v4.1.3
+- **OMO**: v3.4.0
+- **하위 호환**: delegationRouting 미활성 시 기존 동작 유지
+
+---
+
 ## [1.4.0] - 2026-02-09
 
 ### 추가 (Added)

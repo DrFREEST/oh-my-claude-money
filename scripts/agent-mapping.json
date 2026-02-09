@@ -1,9 +1,9 @@
 {
   "description": "OMC 에이전트 → OMO 에이전트 퓨전 매핑 (퓨전/폴백 모드 전용)",
   "version": "4.0.0",
-  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.1.2 + OMO v3.4.0 호환 (28 에이전트 + backward-compat aliases)",
+  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.1.3 + OMO v3.4.0 호환 (28 에이전트 + backward-compat aliases)",
   "metadata": {
-    "omc_version": "4.1.2",
+    "omc_version": "4.1.3",
     "omcm_version": "1.3.0",
     "last_updated": "2026-02-06"
   },

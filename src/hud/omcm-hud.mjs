@@ -865,31 +865,33 @@ async function buildIndependentHud(stdinData) {
     }
   }
 
-  // 3줄 출력: Line1=CC전용(빈줄), Line2=상태, Line3=메트릭
-  const statusParts = [];  // 사용량, 모드, 퓨전, 폴백, 분할경고
-  const metricParts = [];  // 토큰, 카운트, 도구통계
+  // 다줄 출력: 줄당 ~4 세그먼트로 재포맷
+  var INDIE_SEGS_PER_LINE = 4;
 
-  if (usageOutput) statusParts.push(usageOutput);
-  if (modeOutput) statusParts.push(modeOutput);
-  if (fusionOutput) statusParts.push(fusionOutput);
-  if (fallbackOutput) statusParts.push(fallbackOutput);
-  if (splitWarning) statusParts.push(splitWarning);
+  var allSegments = ['[OMCM]'];
+  if (usageOutput) allSegments.push(usageOutput);
+  if (modeOutput) allSegments.push(modeOutput);
+  if (fusionOutput) allSegments.push(fusionOutput);
+  if (fallbackOutput) allSegments.push(fallbackOutput);
+  if (splitWarning) allSegments.push(splitWarning);
+  if (tokenOutput) allSegments.push(tokenOutput);
+  if (countsOutput) allSegments.push(countsOutput);
+  if (mcpOutput) allSegments.push(mcpOutput);
+  if (toolStatsOutput) allSegments.push(toolStatsOutput);
 
-  if (tokenOutput) metricParts.push(tokenOutput);
-  if (countsOutput) metricParts.push(countsOutput);
-  if (mcpOutput) metricParts.push(mcpOutput);
-  if (toolStatsOutput) metricParts.push(toolStatsOutput);
-
-  if (statusParts.length === 0 && metricParts.length === 0) {
+  if (allSegments.length <= 1) {
     return '[OMCM] run /fusion-setup to configure';
   }
 
-  const line2 = '[OMCM] ' + (statusParts.length > 0 ? statusParts.join(' | ') : 'ready');
-  // Line 1: CC 시스템 메시지 전용 (빈 공간)
-  if (metricParts.length > 0) {
-    return ' \n' + line2 + '\n' + metricParts.join(' | ');
+  // 세그먼트를 줄 단위로 그룹화
+  var indieLines = [];
+  for (var ii = 0; ii < allSegments.length; ii += INDIE_SEGS_PER_LINE) {
+    var seg = allSegments.slice(ii, ii + INDIE_SEGS_PER_LINE);
+    indieLines.push(seg.join(' | '));
   }
-  return ' \n' + line2;
+
+  // Line 1: CC 시스템 메시지 전용 (빈 공간)
+  return ' \n' + indieLines.join('\n');
 }
 
 /**
@@ -967,33 +969,42 @@ async function main() {
         var mcpData = readMcpTracking();
         var mcpOutput = renderMcpCostSummary(mcpData);
 
-        // 3줄 출력: Line1=CC전용(빈줄), Line2=OMC+상태, Line3=메트릭
-        const statusExtras = [];
-        if (fusionOutput) statusExtras.push(fusionOutput);
-        if (fallbackOutput) statusExtras.push(fallbackOutput);
-        if (splitWarning) statusExtras.push(splitWarning);
+        // 다줄 출력: OMC 긴 출력을 줄당 ~4 세그먼트로 재포맷
+        var SEGMENTS_PER_LINE = 4;
 
-        const metricExtras = [];
+        // OMC 출력을 | 기준으로 세그먼트 분리
+        var omcSegments = omcOutput.split('|')
+          .map(function(s) { return s.trim(); })
+          .filter(function(s) { return s; });
+
+        // OMCM 상태 정보를 OMC 세그먼트에 추가 (자연스럽게 흘러감)
+        if (fusionOutput) omcSegments.push(fusionOutput);
+        if (fallbackOutput) omcSegments.push(fallbackOutput);
+        if (splitWarning) omcSegments.push(splitWarning);
+
+        // 세그먼트를 줄 단위로 그룹화
+        var omcLines = [];
+        for (var si = 0; si < omcSegments.length; si += SEGMENTS_PER_LINE) {
+          var group = omcSegments.slice(si, si + SEGMENTS_PER_LINE);
+          omcLines.push(group.join(' | '));
+        }
+
+        // OMCM 메트릭 줄 (토큰/카운트/MCP/도구통계)
+        var metricExtras = [];
         if (tokenOutput) metricExtras.push(tokenOutput);
         if (countsOutput) metricExtras.push(countsOutput);
         if (mcpOutput) metricExtras.push(mcpOutput);
         if (toolStatsOutput) metricExtras.push(toolStatsOutput);
 
-        let statusLine = omcOutput;
-        if (statusExtras.length > 0) {
-          statusLine = omcOutput.replace(
-            /(\[OMC\])(\s*\|)?/,
-            '$1 | ' + statusExtras.join(' | ') + '$2'
-          );
-        }
-
         // Line 1: CC 시스템 메시지 전용 (빈 공간)
-        let finalOutput = ' \n' + statusLine;
+        // Line 2~N: OMC 세그먼트 (줄당 4개)
+        // Line N+1: OMCM 메트릭
+        var allLines = [' '].concat(omcLines);
         if (metricExtras.length > 0) {
-          finalOutput += '\n' + metricExtras.join(' | ');
+          allLines.push(metricExtras.join(' | '));
         }
 
-        console.log(finalOutput);
+        console.log(allLines.join('\n'));
         return;
       }
     }

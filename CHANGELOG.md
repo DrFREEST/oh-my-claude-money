@@ -18,6 +18,83 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.1.0] - 2026-02-10
+
+### 변경 (Changed)
+- **오케스트레이터 3종 CLI 마이그레이션: 서버 풀 → CLI 직접 실행**
+  - `hybrid-ultrawork.mjs`: `OpenCodeServerPool` → `executeViaCLI()` 전환
+  - `fusion-orchestrator.mjs`: `pool.submit()` → `executeViaCLI()` 전환
+  - `parallel-executor.mjs`: `getDefaultPool()/shutdownDefaultPool()` → `executeViaCLI()` 전환
+  - 서버 풀 생명주기 관리(initialize/shutdown) 제거 — CLI는 stateless
+  - `_resolveProvider()` 메서드 추가: 에이전트명 기반 provider 자동 결정
+
+### 삭제 (Removed)
+- `src/executor/opencode-server-pool.mjs` (~720줄) — OpenCodeServerPool 클래스
+- `src/executor/opencode-server-pool.mjs.deprecated` — deprecated 버전
+- `src/pool/server-pool.mjs` (~850줄) — 서버 풀 매니저
+- `scripts/start-server-pool.sh` — 서버 풀 시작 스크립트
+- `session-start.mjs`에서 서버 풀 자동 시작 로직 제거 (`isServerPoolRunning`, `startServerPool`)
+
+### 수정 (Fixed)
+- Optional chaining(`?.`) 사용 → `&&` 패턴으로 교체 (프로젝트 규칙 준수)
+
+---
+
+## [2.0.0] - 2026-02-10
+
+### 변경 (Changed)
+- **퓨전 라우터: OpenCode 서버 풀 → Codex/Gemini CLI 직접 spawn 전환**
+  - `executeOnPool()` (HTTP API) → `executeViaCLI()` (child_process.spawn) 교체
+  - OpenCode 서버 풀(`opencode serve`) 상시 실행 불필요
+  - Codex CLI: `codex exec -m MODEL --json --full-auto` → JSONL stdout 파싱
+  - Gemini CLI: `gemini -p=. --yolo` → raw text 수집
+  - CLI 내장 모델 폴백 체인 활용 (수동 gpt-5.3→5.2 매핑 불필요)
+
+### 추가 (Added)
+- **`src/executor/cli-executor.mjs`** — Codex/Gemini CLI 직접 실행 엔진
+  - `executeViaCLI()`: provider 기반 CLI 자동 분기 (openai→Codex, google→Gemini)
+  - `detectCLI()`: CLI 설치 여부 확인 (`which` 기반)
+  - `parseCodexText()`: Codex JSONL에서 agent_message 텍스트 추출
+  - `parseCodexTokens()`: `turn.completed` 이벤트에서 실제 토큰 사용량 추출
+  - Gemini CLI 미설치 시 자동 Codex 폴백
+- **`resolveProvider()`** — 내부 모델 ID에서 CLI provider 결정 (gemini/flash→google, 나머지→openai)
+
+### 제거 (Removed)
+- `toOpenCodeProvider()` — OpenCode antigravity-* 프록시 모델 매핑 (불필요)
+- `executeViaOpenCode()` — 서버 풀 HTTP API 호출 (CLI로 대체)
+- `wrapWithUlwCommand()` import — CLI에서 불필요
+- `discoverExistingServers()` 호출 — 서버 풀 자동 감지 (불필요)
+- `server-pool.mjs` import — fusion-router에서 제거
+
+### 토큰 추적 (Token Tracking)
+- call-logger `source` 필드: `'fusion-router'` → `'fusion-cli'`
+- Codex: JSONL `turn.completed.usage`에서 실제 `input_tokens`/`output_tokens`/`cached_input_tokens` 추출
+- Gemini: 프롬프트/출력 길이 기반 추정 (`length / 4`)
+
+### 호환성 (Compatibility)
+- **OMC**: v4.1.7
+- **Codex CLI**: v0.98.0+
+- **Gemini CLI**: 선택적 (미설치 시 Codex 폴백)
+- 서버 풀 코드는 오케스트레이터(`hybrid-ultrawork`, `fusion-orchestrator`)용으로 유지 (향후 v2.1에서 마이그레이션 예정)
+
+### 마이그레이션 (Migration)
+- `opencode serve` 프로세스 상시 실행 불필요 (자동으로 CLI 사용)
+- 기존 설정 파일(`config.json`) 변경 없음
+- 오케스트레이터 스킬(`hulw`, `autopilot`)은 서버 풀 계속 사용 (호환 유지)
+
+---
+
+## [1.4.5] - 2026-02-10
+
+### 수정 (Fixed)
+- **퓨전 라우터 stdin 소비 버그 수정** — ESM static import 체인이 stdin을 소비하여 모든 Task 라우팅이 실패하던 치명적 버그 해결
+  - `fusion-router.mjs`를 thin shim으로 분리: built-in 모듈(`fs`, `url`, `path`)만 static import
+  - 메인 로직을 `fusion-router-main.mjs`로 이동하여 dynamic `import()`로 로드
+  - stdin을 `readFileSync(0)`으로 동기 읽기 후 `__OMCM_FUSION_STDIN` 환경변수로 전달
+  - HUD wrapper(`omcm-hud-wrapper.mjs`)와 동일한 검증된 패턴 적용
+
+---
+
 ## [1.4.4] - 2026-02-10
 
 ### 변경 (Changed)

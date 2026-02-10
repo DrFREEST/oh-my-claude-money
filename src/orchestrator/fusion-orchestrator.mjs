@@ -1,12 +1,14 @@
 /**
  * fusion-orchestrator.mjs - OMC ↔ OpenCode 퓨전 오케스트레이터
  *
- * 메인 오케스트레이터(Opus 4.5)가 OMC와 OpenCode 에이전트를 통합 관리하여
+ * 메인 오케스트레이터가 OMC와 Codex/Gemini CLI를 통합 관리하여
  * Claude 토큰 사용량을 최적화하면서 작업 품질 유지
+ *
+ * v2.1.0: OpenCode 서버 풀 → CLI 직접 실행 전환
  */
 
-import { FUSION_MAP, OPENCODE_AGENTS, getFusionInfo, getTokenSavingAgents, estimateBatchSavings } from './agent-fusion-map.mjs';
-import { OpenCodeServerPool } from '../executor/opencode-server-pool.mjs';
+import { FUSION_MAP, getFusionInfo, getTokenSavingAgents, estimateBatchSavings } from './agent-fusion-map.mjs';
+import { executeViaCLI, detectCLI } from '../executor/cli-executor.mjs';
 import { getUsageFromCache, getUsageLevel, checkThreshold } from '../utils/usage.mjs';
 import { loadConfig } from '../utils/config.mjs';
 import { recordRouting, setFusionMode as updateFusionMode } from '../utils/fusion-tracker.mjs';
@@ -21,7 +23,7 @@ export class FusionOrchestrator {
   constructor(options = {}) {
     this.projectDir = options.projectDir || process.cwd();
     this.config = loadConfig();
-    this.opencodePool = null;
+    this.cliAvailable = false;
     this.fallbackOrchestrator = null;
     this.mode = 'balanced'; // 'save-tokens' | 'balanced' | 'quality-first'
     this.stats = {
@@ -49,20 +51,8 @@ export class FusionOrchestrator {
       this.mode = 'quality-first';
     }
 
-    // OpenCode 서버 풀 초기화 (Cold boot 최소화)
-    try {
-      var maxServers = (this.config.routing && this.config.routing.maxOpencodeWorkers) ? this.config.routing.maxOpencodeWorkers : 3;
-      this.opencodePool = new OpenCodeServerPool({
-        projectDir: this.projectDir,
-        minServers: 1,
-        maxServers: maxServers,
-        autoScale: true,
-      });
-      await this.opencodePool.initialize();
-    } catch (e) {
-      // OpenCode 미설치
-      this.opencodePool = null;
-    }
+    // CLI 사용 가능 여부 확인
+    this.cliAvailable = detectCLI('codex') || detectCLI('gemini');
 
     // Fallback 오케스트레이터 초기화
     try {
@@ -74,7 +64,7 @@ export class FusionOrchestrator {
     return {
       initialized: true,
       mode: this.mode,
-      opencodeAvailable: this.opencodePool !== null,
+      opencodeAvailable: this.cliAvailable,
       fallbackAvailable: this.fallbackOrchestrator !== null,
       usage: usage,
       usageLevel: usageLevel,
@@ -113,11 +103,11 @@ export class FusionOrchestrator {
     }
 
     // OpenCode 미설치면 OMC 사용
-    if (!this.opencodePool) {
+    if (!this.cliAvailable) {
       return {
         target: 'omc',
         agent: task.type,
-        reason: 'OpenCode 미설치',
+        reason: 'CLI 미설치',
         savesTokens: false,
       };
     }
@@ -250,20 +240,24 @@ export class FusionOrchestrator {
     this.stats.totalTasks++;
     this.stats.byAgent[task.type] = (this.stats.byAgent[task.type] || 0) + 1;
 
-    if (routing.target === 'opencode' && this.opencodePool) {
+    if (routing.target === 'opencode' && this.cliAvailable) {
       this.stats.opencodeTasks++;
       if (routing.savesTokens) {
         this.stats.estimatedSavedTokens += task.estimatedTokens || 1000;
       }
 
       // Record to fusion state file for HUD
-      const provider = this._getProviderFromAgent(routing.agent);
+      var provider = this._getProviderFromAgent(routing.agent);
       recordRouting('opencode', provider, task.estimatedTokens || 1000);
 
-      // OpenCode 실행
-      const prompt = this._buildOpenCodePrompt(task, routing);
-      const result = await this.opencodePool.submit(prompt, {
-        enableUltrawork: true,
+      // CLI 실행
+      var prompt = this._buildOpenCodePrompt(task, routing);
+      var cliProvider = (provider === 'gemini') ? 'google' : 'openai';
+      var result = await executeViaCLI({
+        prompt: prompt,
+        provider: cliProvider,
+        agent: routing.agent,
+        cwd: this.projectDir,
       });
 
       return {
@@ -345,14 +339,14 @@ export class FusionOrchestrator {
    * Get provider name from OpenCode agent
    */
   _getProviderFromAgent(agentName) {
-    const agent = OPENCODE_AGENTS[agentName];
-    if (!agent) return 'unknown';
+    var fusion = FUSION_MAP[agentName];
+    if (!fusion) return 'unknown';
 
-    const model = agent.model || '';
-    if (model.includes('gemini') || model.includes('google')) {
+    var model = fusion.model || '';
+    if (model.indexOf('gemini') >= 0 || model.indexOf('google') >= 0) {
       return 'gemini';
     }
-    if (model.includes('gpt') || model.includes('openai')) {
+    if (model.indexOf('gpt') >= 0 || model.indexOf('openai') >= 0) {
       return 'openai';
     }
     return 'unknown';
@@ -362,19 +356,19 @@ export class FusionOrchestrator {
    * OpenCode 프롬프트 빌드
    */
   _buildOpenCodePrompt(task, routing) {
-    const opencodeAgent = OPENCODE_AGENTS[routing.agent];
+    var fusion = FUSION_MAP[routing.agent];
 
-    let prompt = `## Task for ${routing.agent}\n\n`;
+    var prompt = '## Task for ' + routing.agent + '\n\n';
 
     if (task.context) {
-      prompt += `### Context\n${task.context}\n\n`;
+      prompt += '### Context\n' + task.context + '\n\n';
     }
 
-    prompt += `### Instruction\n${task.prompt}\n`;
+    prompt += '### Instruction\n' + task.prompt + '\n';
 
     // 에이전트 힌트
-    if (opencodeAgent) {
-      prompt += `\n### Agent Hint\nPrefer using ${routing.agent} (${opencodeAgent.role})`;
+    if (fusion) {
+      prompt += '\n### Agent Hint\nPrefer using ' + routing.agent + ' (' + (fusion.omoAgent || 'general') + ')';
     }
 
     return prompt;
@@ -398,13 +392,9 @@ export class FusionOrchestrator {
    * 종료
    */
   async shutdown() {
-    if (this.opencodePool) {
-      await this.opencodePool.shutdown();
-    }
-
     return {
       finalStats: this.getStats(),
-      message: `퓨전 오케스트레이터 종료: OMC ${this.stats.omcTasks}개, OpenCode ${this.stats.opencodeTasks}개, 절약 ~${this.stats.estimatedSavedTokens} 토큰`,
+      message: `퓨전 오케스트레이터 종료: OMC ${this.stats.omcTasks}개, CLI ${this.stats.opencodeTasks}개, 절약 ~${this.stats.estimatedSavedTokens} 토큰`,
     };
   }
 }
@@ -494,26 +484,29 @@ export async function executeWithFallbackCheck(task, omcExecutor, orchestrator) 
  * @returns {Promise<Object>} 실행 결과
  */
 async function executeViaOpenCode(task, model, orchestrator) {
-  if (!orchestrator.opencodePool) {
-    throw new Error('OpenCode not available for fallback execution');
+  if (!orchestrator.cliAvailable) {
+    throw new Error('CLI not available for fallback execution');
   }
 
-  const prompt = buildFallbackPrompt(task, model);
+  var prompt = buildFallbackPrompt(task, model);
+  var cliProvider = (model.provider === 'google') ? 'google' : 'openai';
 
-  const result = await orchestrator.opencodePool.submit(prompt, {
-    enableUltrawork: true,
+  var result = await executeViaCLI({
+    prompt: prompt,
+    provider: cliProvider,
     agent: model.opencodeAgent,
+    cwd: orchestrator.projectDir,
   });
 
   // Provider limit 추적
   if (model.provider === 'openai') {
-    // OpenAI 헤더가 있으면 업데이트
-    if (result && result.headers) {
-      updateOpenAILimitsFromHeaders(result.headers);
+    // CLI 결과의 토큰으로 추적
+    if (result && result.tokens) {
+      var estimatedInput = result.tokens.input || 0;
+      // OpenAI limit은 토큰 기반으로 추적 (헤더 없음)
     }
   } else if (model.provider === 'google') {
-    // Gemini 사용량 기록
-    const estimatedTokens = task.estimatedTokens || 500;
+    var estimatedTokens = (result && result.tokens && result.tokens.input) || task.estimatedTokens || 500;
     recordGeminiRequest(estimatedTokens);
   }
 

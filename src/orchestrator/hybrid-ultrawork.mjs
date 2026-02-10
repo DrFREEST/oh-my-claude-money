@@ -1,12 +1,14 @@
 /**
  * hybrid-ultrawork.mjs - 하이브리드 울트라워크 오케스트레이터
  *
- * OMC의 ultrawork 모드에서 Claude Code와 OpenCode를 함께 활용하여
+ * OMC의 ultrawork 모드에서 Claude Code와 Codex/Gemini CLI를 함께 활용하여
  * 토큰 사용량을 최적화하면서 병렬 처리 수행
+ *
+ * v2.1.0: OpenCode 서버 풀 → CLI 직접 실행 전환
  */
 
 import { planParallelDistribution, getRoutingSummary, isOpenCodeAvailable } from './task-router.mjs';
-import { OpenCodeServerPool } from '../executor/opencode-server-pool.mjs';
+import { executeViaCLI, detectCLI } from '../executor/cli-executor.mjs';
 import { getUsageFromCache, getUsageLevel } from '../utils/usage.mjs';
 import { loadConfig } from '../utils/config.mjs';
 import {
@@ -24,7 +26,7 @@ export class HybridUltrawork {
   constructor(options = {}) {
     this.projectDir = options.projectDir || process.cwd();
     this.config = loadConfig();
-    this.opencodePool = null;
+    this.cliAvailable = false;
     this.stats = {
       claudeTasks: 0,
       opencodeTasks: 0,
@@ -37,25 +39,16 @@ export class HybridUltrawork {
    * 하이브리드 울트라워크 세션 시작
    */
   async start() {
-    if (isOpenCodeAvailable()) {
-      var maxServers = 3;
-      if (this.config.routing && this.config.routing.maxOpencodeWorkers) {
-        maxServers = this.config.routing.maxOpencodeWorkers;
-      }
-      this.opencodePool = new OpenCodeServerPool({
-        projectDir: this.projectDir,
-        minServers: 1,
-        maxServers: maxServers,
-        autoScale: true,
-      });
-      await this.opencodePool.initialize();
-    }
+    var codexAvailable = detectCLI('codex');
+    var geminiAvailable = detectCLI('gemini');
+    this.cliAvailable = codexAvailable || geminiAvailable;
 
     return {
       started: true,
-      opencodeAvailable: isOpenCodeAvailable(),
+      cliAvailable: this.cliAvailable,
+      codex: codexAvailable,
+      gemini: geminiAvailable,
       usage: getUsageFromCache(),
-      serverPoolStatus: this.opencodePool ? this.opencodePool.getStatus() : null,
     };
   }
 
@@ -113,11 +106,16 @@ export class HybridUltrawork {
                 errorMsg: error.message,
               });
 
-              // OpenCode 폴백
-              if (this.opencodePool) {
+              // CLI 폴백
+              if (this.cliAvailable) {
                 try {
-                  const compressed = compressPrompt(this._buildOpenCodePrompt(task), { maxLength: 6000 });
-                  const fallbackResult = await this.opencodePool.execute(compressed, { enableUltrawork: true });
+                  var compressed = compressPrompt(this._buildOpenCodePrompt(task), { maxLength: 6000 });
+                  var fallbackResult = await executeViaCLI({
+                    prompt: compressed,
+                    provider: this._resolveProvider(task),
+                    agent: task.opencodeAgent || 'oracle',
+                    cwd: this.projectDir,
+                  });
                   this.stats.opencodeTasks++;
                   _updateStats('recovered');
                   return {
@@ -125,7 +123,7 @@ export class HybridUltrawork {
                     task,
                     result: fallbackResult,
                     recovered: true,
-                    recoveryMethod: 'opencode-fallback',
+                    recoveryMethod: 'cli-fallback',
                   };
                 } catch (fallbackErr) {
                   _updateStats('failed');
@@ -144,28 +142,38 @@ export class HybridUltrawork {
       );
     }
 
-    // OpenCode 작업 실행
-    if (this.opencodePool && distribution.opencodeTasks.length > 0) {
-      const opencodeTasks = distribution.opencodeTasks.map((task) => ({
-        prompt: this._buildOpenCodePrompt(task),
-        options: { enableUltrawork: true },
-      }));
-
+    // CLI 작업 실행
+    if (this.cliAvailable && distribution.opencodeTasks.length > 0) {
+      var self = this;
       opencodePromises.push(
         (async () => {
           try {
-            const results = await this.opencodePool.submitBatch(opencodeTasks);
-            this.stats.opencodeTasks += results.length;
-            return results.map((result, index) => ({
-              task: distribution.opencodeTasks[index],
-              ...result,
-            }));
+            var cliPromises = distribution.opencodeTasks.map(function(task) {
+              return executeViaCLI({
+                prompt: self._buildOpenCodePrompt(task),
+                provider: self._resolveProvider(task),
+                agent: task.opencodeAgent || 'oracle',
+                cwd: self.projectDir,
+              });
+            });
+            var cliResults = await Promise.all(cliPromises);
+            self.stats.opencodeTasks += cliResults.length;
+            return cliResults.map(function(result, index) {
+              return {
+                task: distribution.opencodeTasks[index],
+                success: result.success,
+                output: result.output,
+                tokens: result.tokens,
+              };
+            });
           } catch (error) {
-            return distribution.opencodeTasks.map((task) => ({
-              success: false,
-              task,
-              error: error.message,
-            }));
+            return distribution.opencodeTasks.map(function(task) {
+              return {
+                success: false,
+                task: task,
+                error: error.message,
+              };
+            });
           }
         })()
       );
@@ -182,7 +190,7 @@ export class HybridUltrawork {
       if (result.status === 'fulfilled') {
         results.claude.push(result.value);
       } else {
-        results.errors.push({ error: result.reason?.message });
+        results.errors.push({ error: (result.reason && result.reason.message) });
       }
     }
 
@@ -190,7 +198,7 @@ export class HybridUltrawork {
       if (result.status === 'fulfilled') {
         results.opencode.push(...(Array.isArray(result.value) ? result.value : [result.value]));
       } else {
-        results.errors.push({ error: result.reason?.message });
+        results.errors.push({ error: (result.reason && result.reason.message) });
       }
     }
 
@@ -214,6 +222,17 @@ export class HybridUltrawork {
   async routeAndExecute(task, claudeExecutor) {
     const plan = this.planExecution([task]);
     return this.executeplan(plan, claudeExecutor);
+  }
+
+  /**
+   * 에이전트 기반 provider 결정
+   */
+  _resolveProvider(task) {
+    var agent = (task.opencodeAgent || '').toLowerCase();
+    if (agent.indexOf('gemini') >= 0 || agent.indexOf('flash') >= 0 || agent === 'frontend-engineer') {
+      return 'google';
+    }
+    return 'openai';
   }
 
   /**
@@ -257,13 +276,9 @@ export class HybridUltrawork {
    * 세션 종료
    */
   async shutdown() {
-    if (this.opencodePool) {
-      await this.opencodePool.shutdown();
-    }
-
     return {
       stats: this.stats,
-      message: `하이브리드 울트라워크 종료: Claude ${this.stats.claudeTasks}개, OpenCode ${this.stats.opencodeTasks}개 작업 완료`,
+      message: `하이브리드 울트라워크 종료: Claude ${this.stats.claudeTasks}개, CLI ${this.stats.opencodeTasks}개 작업 완료`,
     };
   }
 }

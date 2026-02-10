@@ -3,7 +3,6 @@
  * session-start.mjs - 세션 시작 훅
  *
  * 세션 시작 시 사용량 정보를 로드하고 경고 메시지 표시
- * fusionDefault 활성화 시 서버 풀 자동 시작 (Cold boot 최소화)
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
@@ -54,63 +53,6 @@ async function loadUtils() {
     registerSession = () => {};
     cleanupOldSessions = () => {};
   }
-}
-
-// =============================================================================
-// 서버 풀 관리
-// =============================================================================
-
-/**
- * 서버 풀이 실행 중인지 확인
- */
-function isServerPoolRunning() {
-  const pidDir = join(homedir(), '.omcm', 'server-pool');
-  const pidFile = join(pidDir, 'server-4096.pid');
-
-  if (!existsSync(pidFile)) {
-    return false;
-  }
-
-  try {
-    const pid = readFileSync(pidFile, 'utf-8').trim();
-    // 프로세스 존재 확인
-    process.kill(Number(pid), 0);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-/**
- * 서버 풀 시작 (비동기, 백그라운드)
- */
-function startServerPool() {
-  // 스크립트 경로 찾기
-  const scriptPaths = [
-    join(homedir(), '.claude', 'plugins', 'marketplaces', 'omcm', 'scripts', 'start-server-pool.sh'),
-    join(homedir(), '.local', 'share', 'omcm', 'scripts', 'start-server-pool.sh'),
-    join(__dirname, '..', '..', 'scripts', 'start-server-pool.sh'),
-  ];
-
-  let scriptPath = null;
-  for (const path of scriptPaths) {
-    if (existsSync(path)) {
-      scriptPath = path;
-      break;
-    }
-  }
-
-  if (scriptPath) {
-    // 조용히 백그라운드로 시작
-    const child = spawn(scriptPath, ['quiet'], {
-      detached: true,
-      stdio: 'ignore',
-    });
-    child.unref();
-    return true;
-  }
-
-  return false;
 }
 
 // =============================================================================
@@ -222,11 +164,6 @@ async function main() {
       }
     } catch (e) {
       // 세션 초기화 실패 시 무시 (기존 기능에 영향 없음)
-    }
-
-    // fusionDefault 활성화 시 서버 풀 자동 시작
-    if (config.fusionDefault && !isServerPoolRunning()) {
-      startServerPool();
     }
 
     // 알림 비활성화 시 통과

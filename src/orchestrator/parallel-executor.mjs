@@ -2,13 +2,13 @@
  * parallel-executor.mjs - 병렬 작업 실행기
  *
  * 여러 작업을 병렬 또는 순차적으로 실행하는 오케스트레이터입니다.
- * OpenCode와 Claude 간 작업 분배 및 실행 전략 선택을 담당합니다.
+ * Codex/Gemini CLI와 Claude 간 작업 분배 및 실행을 담당합니다.
+ *
+ * v2.1.0: OpenCode 서버 풀 → CLI 직접 실행 전환
  */
 
 import { routeTask, planParallelDistribution } from './task-router.mjs';
-import { selectStrategy, buildExecutionOptions, analyzeTask } from './execution-strategy.mjs';
-import { executeOpenCode } from '../executor/opencode-executor.mjs';
-import { OpenCodeServerPool, getDefaultPool, shutdownDefaultPool } from '../executor/opencode-server-pool.mjs';
+import { executeViaCLI, detectCLI } from '../executor/cli-executor.mjs';
 import {
   isContextLimitError,
   attemptContextLimitRecovery,
@@ -161,8 +161,8 @@ export class ParallelExecutor {
     this.contextLimitRecovery = options.contextLimitRecovery !== false;
     this.recoveryStats = { detected: 0, recovered: 0, failed: 0 };
 
-    // 서버 풀 (Cold boot 최소화)
-    this.serverPool = null;
+    // CLI 사용 가능 여부
+    this.cliAvailable = false;
   }
 
   /**
@@ -193,15 +193,9 @@ export class ParallelExecutor {
     this.errors = [];
     this.cancelled = false;
 
-    // OpenCode 서버 풀 초기화 (필요 시)
+    // CLI 사용 가능 여부 확인
     if (this.enableServer) {
-      try {
-        this.serverPool = getDefaultPool();
-        await this.serverPool.initialize();
-      } catch (err) {
-        // 서버 풀 초기화 실패는 무시 (run 모드로 폴백)
-        this.serverPool = null;
-      }
+      this.cliAvailable = detectCLI('codex') || detectCLI('gemini');
     }
 
     // 작업 라우팅
@@ -252,14 +246,9 @@ export class ParallelExecutor {
     this.errors = [];
     this.cancelled = false;
 
-    // OpenCode 서버 풀 초기화 (필요 시)
+    // CLI 사용 가능 여부 확인
     if (this.enableServer) {
-      try {
-        this.serverPool = getDefaultPool();
-        await this.serverPool.initialize();
-      } catch (err) {
-        this.serverPool = null;
-      }
+      this.cliAvailable = detectCLI('codex') || detectCLI('gemini');
     }
 
     // 순차 실행
@@ -328,14 +317,9 @@ export class ParallelExecutor {
     this.errors = [];
     this.cancelled = false;
 
-    // OpenCode 서버 풀 초기화 (필요 시)
+    // CLI 사용 가능 여부 확인
     if (this.enableServer) {
-      try {
-        this.serverPool = getDefaultPool();
-        await this.serverPool.initialize();
-      } catch (err) {
-        this.serverPool = null;
-      }
+      this.cliAvailable = detectCLI('codex') || detectCLI('gemini');
     }
 
     // 그룹별 실행 (순차)
@@ -503,42 +487,27 @@ export class ParallelExecutor {
    * @private
    */
   async _executeOpenCodeTask(task, routing) {
-    // 전략 선택
-    var context = {
-      serverRunning: this.serverPool !== null && this.serverPool.isInitialized(),
-      acpAvailable: false // 현재 미지원
-    };
-
-    var strategy = selectStrategy(task, context);
-    var options = buildExecutionOptions(strategy, task);
-
-    // 전략별 실행
-    var result;
-    switch (strategy) {
-      case 'serve':
-        if (this.serverPool && this.serverPool.isInitialized()) {
-          // 서버 풀을 통해 실행
-          result = await this.serverPool.execute(task.prompt, options);
-        } else {
-          // 서버 풀 없으면 run 모드로 폴백
-          result = await executeOpenCode(options);
-        }
-        break;
-
-      case 'run':
-      default:
-        result = await executeOpenCode(options);
-        break;
+    var agent = (routing.agent || '').toLowerCase();
+    var provider = 'openai';
+    if (agent.indexOf('gemini') >= 0 || agent.indexOf('flash') >= 0 || agent === 'frontend-engineer') {
+      provider = 'google';
     }
+
+    var result = await executeViaCLI({
+      prompt: task.prompt,
+      provider: provider,
+      agent: routing.agent,
+      cwd: task.cwd || process.cwd(),
+    });
 
     return {
       success: result.success || false,
-      output: result.stdout || result.result || '',
-      error: result.stderr || result.error,
+      output: result.output || '',
+      error: result.error,
       duration: result.duration || 0,
       route: 'opencode',
       agent: routing.agent,
-      strategy: strategy
+      strategy: 'cli'
     };
   }
 
@@ -727,11 +696,8 @@ export class ParallelExecutor {
    * 정리 (서버 풀 종료)
    */
   async cleanup() {
-    if (this.enableServer && this.serverPool) {
-      // 기본 풀은 shutdownDefaultPool로 종료
-      await shutdownDefaultPool();
-      this.serverPool = null;
-    }
+    // CLI는 stateless — 별도 종료 불필요
+    this.cliAvailable = false;
   }
 }
 

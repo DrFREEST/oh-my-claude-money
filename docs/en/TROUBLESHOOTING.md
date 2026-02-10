@@ -10,7 +10,7 @@ Comprehensive guide providing all common issues and solutions for **oh-my-claude
 2. [OpenCode Connection Issues](#2-opencode-connection-issues)
 3. [Fusion Routing Issues](#3-fusion-routing-issues)
 4. [HUD Display Issues](#4-hud-display-issues)
-5. [Server Pool Issues](#5-server-pool-issues)
+5. [CLI Execution Issues](#5-cli-execution-issues)
 6. [Configuration & Hooks Issues](#6-configuration--hooks-issues)
 7. [Performance Optimization](#7-performance-optimization)
 8. [Diagnostic Tools](#8-diagnostic-tools)
@@ -264,27 +264,31 @@ EOF
 
 ---
 
-### 2.4 OpenCode Server Connection Failed
+### 2.4 CLI Authentication Failed
 
-**Symptoms**: `Failed to connect to OpenCode server` or timeout
+**Symptoms**: `Authentication failed` during CLI execution
 
 **Solution Steps**:
 
 ```bash
-# Step 1: Check OpenCode server status
-ps aux | grep opencode
+# Step 1: Check CLI installation
+which codex
+which gemini
 
-# Step 2: Check port
-lsof -i :4096  # or configured port
+# Step 2: Re-authenticate
+codex auth login
+# or
+opencode auth login openai
+opencode auth login google
 
-# Step 3: Start server manually
-opencode serve --port 4096
+# Step 3: Verify authentication
+codex auth status
+# or
+opencode auth status
 
-# Step 4: Start OMCM server pool
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
-
-# Step 5: Check status
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh status
+# Step 4: Test CLI execution
+codex exec "test prompt" --json --full-auto
+gemini -p=. "test prompt"
 ```
 
 ---
@@ -486,102 +490,132 @@ ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
 ---
 
-## 5. Server Pool Issues
+## 5. CLI Execution Issues
 
-### 5.1 Server Pool Start Failed
+### 5.1 CLI Installation Check
 
-**Symptoms**: `Failed to start server pool` or port conflict error
-
-**Check Ports**:
+**Check if CLIs are installed:**
 
 ```bash
-# Check ports in use
-lsof -i :4096
-lsof -i :4097
-netstat -tuln | grep LISTEN
+# Check Codex CLI
+which codex
+codex --version
 
-# Kill conflicting process
-kill -9 <PID>
+# Check Gemini CLI
+which gemini
+gemini --version
+
+# Install if missing
+npm install -g @openai/codex-cli
+npm install -g @google/gemini-cli
 ```
 
-**Change Port**:
+### 5.2 CLI Not Found
+
+**Symptoms**: `codex: command not found` or `gemini: command not found`
+
+**Check Installation**:
 
 ```bash
-# Change port via environment variable
-export OMCM_BASE_PORT=9000
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# Check if CLIs are installed
+which codex
+which gemini
 
-# Or in config file
+# Check versions
+codex --version
+gemini --version
+```
+
+**Install Missing CLI**:
+
+```bash
+# Install Codex CLI
+npm install -g @openai/codex-cli
+
+# Install Gemini CLI
+npm install -g @google/gemini-cli
+
+# Or via OpenCode
+opencode --version  # Includes both CLIs
+```
+
+**PATH Issues**:
+
+```bash
+# Refresh PATH
+hash -r
+
+# Add to PATH if needed
+export PATH="$PATH:$HOME/.npm/bin"
+
+# Or use full path in config
+{
+  "opencode": {
+    "command": "/full/path/to/codex"
+  }
+}
+```
+
+---
+
+### 5.3 CLI Execution Timeout
+
+**Symptoms**: `CLI execution timeout after 300000ms`
+
+**Increase Timeout**:
+
+```bash
+# Edit config file
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "maxOpencodeWorkers": 5,
-    "basePort": 9000
+    "timeout": 600000  # Increase to 10 minutes
   }
 }
 EOF
 ```
 
-**Permission Denied**:
+**Check CLI Logs**:
 
 ```bash
-# sudo required for port < 1024
-sudo ~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# Check execution logs
+tail -f ~/.omcm/logs/cli-executor.log
 
-# Or use port >= 1024
-export OMCM_BASE_PORT=4096
+# Test CLI directly
+codex exec "test prompt" --json --full-auto
+gemini -p=. "test prompt"
 ```
 
 ---
 
-### 5.2 Check Server Pool Status
+### 5.4 High Memory Usage with Parallel Calls
 
-**Commands**:
-
-```bash
-# Check status
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh status
-
-# Check logs
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh logs
-
-# Real-time logs
-tail -f ~/.omcm/logs/opencode-server.log
-
-# Check all server processes
-ps aux | grep opencode
-```
-
----
-
-### 5.3 High Memory Usage
-
-**Symptoms**: Server pool uses a lot of memory (~300MB per server)
+**Symptoms**: Memory usage spikes during parallel CLI executions
 
 **Check**:
 
 ```bash
-# Check memory usage
-ps aux | grep opencode | grep -v grep
+# Monitor active CLI processes
+ps aux | grep -E "codex|gemini" | grep -v grep
 
-# Or
-top -p <PID>
+# Check memory usage
+top -o MEM
 ```
 
 **Optimization**:
 
 ```bash
-# Reduce max servers
+# Reduce parallel limit
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "maxOpencodeWorkers": 2  # Default 3 → Reduce to 2
+    "maxOpencodeWorkers": 2  # Limit concurrent CLI calls
   }
 }
 EOF
 
-# Or stop servers completely
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh stop
+# Note: CLI execution is stateless
+# Memory is freed after each call completes
 ```
 
 ---
@@ -669,25 +703,31 @@ chmod +x ~/.claude/plugins/omcm/src/hooks/*.mjs
 
 ### 7.1 Improve Response Speed
 
-**Problem**: OpenCode calls are slow
+**Problem**: CLI execution is slow
 
 **Optimization**:
 
 ```bash
-# Step 1: Use server pool (recommended)
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# Step 1: Ensure CLIs are installed
+codex --version
+gemini --version
 
-# Step 2: Adjust max workers
+# Step 2: Adjust max parallel calls
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "maxOpencodeWorkers": 5  # Increase parallel processing
+    "maxOpencodeWorkers": 5  # Increase parallel CLI calls
   }
 }
 EOF
 
-# Step 3: Check timeout (don't make too short)
-# Recommended to keep default 300000ms (5 minutes)
+# Step 3: Check network latency
+# CLI calls require API access
+ping -c 3 api.openai.com
+ping -c 3 generativelanguage.googleapis.com
+
+# Step 4: Use appropriate timeout
+# Default 300000ms (5 minutes) is recommended
 ```
 
 ---
@@ -713,9 +753,7 @@ cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 }
 EOF
 
-# Also set environment variables
-export OMCM_MAX_SERVERS=4
-export OMCM_BASE_PORT=4096
+# CLI-based execution (no server pool needed)
 ```
 
 ---
@@ -736,8 +774,8 @@ cat ~/.claude/plugins/omcm/config.json | jq '.threshold'
 ### 8.2 Check Logs
 
 ```bash
-# Server pool logs
-cat ~/.omcm/logs/opencode-server.log
+# CLI execution logs
+cat ~/.omcm/logs/cli-executor.log
 
 # Routing logs
 cat ~/.omcm/routing-log.jsonl | tail -20
@@ -916,24 +954,28 @@ cat ~/.omcm/provider-limits.json | jq '.providers'
 
 ---
 
-### Q9: When OpenCode Not Responding?
+### Q9: When CLI Execution Not Responding?
 
 **A**: Step-by-step check:
 
 ```bash
-# Step 1: Check server status
-ps aux | grep opencode
+# Step 1: Check CLI installation
+which codex
+which gemini
 
 # Step 2: Check logs
-tail -50 ~/.omcm/logs/opencode-server.log
+tail -50 ~/.omcm/logs/cli-executor.log
 
-# Step 3: Restart server
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh restart
+# Step 3: Test CLI directly
+codex exec "test" --json --full-auto
+gemini -p=. "test"
 
 # Step 4: Check internet connection
 ping -c 3 8.8.8.8
 
-# Step 5: Check provider status
+# Step 5: Check provider authentication
+codex auth status
+# or
 opencode auth status
 ```
 
@@ -986,13 +1028,13 @@ rm -rf ~/.omcm
 | `Task timeout` | Task time exceeded | Increase `opencode.timeout` |
 | `Context too long` | Context exceeded | Decrease `maxContextLength` |
 
-### Server Errors
+### CLI Errors
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `Failed to start server` | Port conflict/permission denied | Change port or use `sudo` |
-| `Connection refused` | Server not started | `opencode-server.sh start` |
-| `Address already in use` | Port in use | `export OMCM_BASE_PORT=9000` |
+| `CLI not found` | CLI not installed | Install via npm or OpenCode |
+| `Execution timeout` | Task too complex or network slow | Increase timeout in config |
+| `Authentication failed` | Invalid API key | Re-authenticate with `codex auth login` |
 
 ### HUD Errors
 

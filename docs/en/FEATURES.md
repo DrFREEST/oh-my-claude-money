@@ -5,7 +5,7 @@ Complete technical reference for all OMCM (oh-my-claude-money) v1.0.0 features w
 ## Table of Contents
 
 1. [Fusion Mode](#fusion-mode)
-2. [Server Pool Management](#server-pool-management)
+2. [CLI Execution](#cli-execution)
 3. [Realtime Tracking System](#realtime-tracking-system)
 4. [Context Transfer System](#context-transfer-system)
 5. [Multi-Provider Balancing](#multi-provider-balancing)
@@ -92,7 +92,7 @@ Let's implement a new dashboard hulw
 1. Detects `hulw` keyword
 2. Enables `fusionRouter` with mode='always'
 3. Dispatches tasks to parallel executor
-4. Starts OpenCode server pool (1-4 servers)
+4. Verifies Codex/Gemini CLI availability
 5. Distributes work: Claude handles architecture, OpenCode handles exploration
 
 #### 2. Auto Fusion Ultrawork (ulw)
@@ -183,57 +183,58 @@ autopilot hulw Create a dashboard with real-time data
 |---------|------|---------|---|
 | `fusionDefault` | boolean | false | Enable fusion for all operations |
 | `usageThreshold` | number | 70 | % at which hybrid mode activates (ulw only) |
-| `maxOpencodeWorkers` | number | 3 | Max parallel OpenCode servers (1-25) |
+| `maxOpencodeWorkers` | number | 3 | Max parallel CLI calls (1-10 recommended) |
 | `preferOpencode` | array | [...] | Agents always route to OpenCode |
 | `preferClaude` | array | [...] | Agents always route to Claude |
 | `autoDelegate` | boolean | true | Auto-route based on task type |
 
 ---
 
-## Server Pool Management
+## CLI Direct Execution
 
 ### Overview
 
-OpenCode Server Pool eliminates cold boot delays by maintaining persistent server instances.
+CLI Direct Execution eliminates server pool overhead by executing Codex and Gemini CLIs directly.
 
-**Performance Comparison:**
+**Performance:**
 
-| Mode | First Call | Subsequent Calls |
-|------|---|---|
-| CLI Mode (no server) | ~10-15s | ~10-15s |
-| **Server Pool Mode** | ~5s (pool start) | **~1s** |
+| Mode | Execution Time |
+|------|---|
+| **CLI Direct Execution** | ~2-5s (stateless) |
 
 **Architecture:**
 ```
-Request Queue
+Request arrives
     ↓
-Load Balancer (Round-Robin + Min Busy)
+CLI Executor (executeViaCLI)
     ↓
-Server Pool (1-5 instances)
-│
-├─ Server 1 (idle)
-├─ Server 2 (busy: 2 requests)
-├─ Server 3 (starting)
-└─ Server 4 (error → recovering)
+Detect available CLI
+    ├─ Codex CLI → codex exec --json --full-auto
+    └─ Gemini CLI → gemini -p=. --yolo
+    ↓
+Parse output (JSONL or text)
+    ↓
+Extract tokens and return
 ```
 
 ### API Reference
 
-#### OpenCodeServerPool Class
+#### executeViaCLI Function
 
-**Location:** `src/executor/opencode-server-pool.mjs`
+**Location:** `src/executor/cli-executor.mjs`
 
-##### Constructor
+##### Function Signature
 
 ```javascript
-import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
-const pool = new OpenCodeServerPool({
-  minServers: 1,
-  maxServers: 4,
-  basePort: 4096,
-  autoScale: true,
-  projectDir: process.cwd()
+var result = await executeViaCLI({
+  prompt: 'task instructions',
+  provider: 'openai',     // or 'google'
+  model: 'gpt-5.2-codex', // optional
+  agent: 'oracle',        // for logging
+  timeout: 300000,        // 5min default
+  cwd: '/path/to/project'
 });
 ```
 
@@ -241,136 +242,89 @@ const pool = new OpenCodeServerPool({
 
 | Option | Type | Default | Description |
 |--------|------|---------|---|
-| `minServers` | number | 1 | Minimum servers to maintain |
-| `maxServers` | number | 4 | Maximum servers to start |
-| `basePort` | number | 4096 | Base port number |
-| `autoScale` | boolean | true | Enable auto-scaling |
-| `projectDir` | string | cwd | Project directory |
+| `prompt` | string | required | Task instructions |
+| `provider` | string | 'openai' | 'openai' or 'google' |
+| `model` | string | auto | Model name (optional) |
+| `agent` | string | 'default' | Agent name for logging |
+| `timeout` | number | 300000 | Timeout in milliseconds |
+| `cwd` | string | process.cwd() | Working directory |
 
-##### Key Methods
+##### Return Value
 
-**initialize()**
 ```javascript
-// Start minimum servers (async)
-await pool.initialize();
-// Returns: { activeServers: 1, idleServers: 1, busyServers: 0 }
+// Returns:
+{
+  success: boolean,
+  output: string,
+  tokens: {
+    input: number,
+    output: number,
+    reasoning: number,  // Codex only
+    cacheRead: number   // Codex only
+  },
+  error: string,        // if failed
+  duration: number,     // milliseconds
+  provider: string      // 'openai' or 'google'
+}
 ```
 
-**execute(prompt, options)**
+##### CLI Detection
+
 ```javascript
-// Submit task to pool
-const result = await pool.execute('analyze code', {
-  agent: 'explorer',
-  model: 'gemini-flash',
-  timeout: 30000
-});
-// Returns: { stdout, stderr, exitCode, executionTime }
+import { detectCLI } from 'src/executor/cli-executor.mjs';
+
+// Check if CLI is available
+var hasCodex = detectCLI('codex');   // boolean
+var hasGemini = detectCLI('gemini'); // boolean
+
+// Auto-fallback: If Gemini CLI not installed, uses Codex
 ```
 
-**getAvailableServer()**
+### CLI Execution Flow
+
+**Codex CLI (OpenAI):**
 ```javascript
-// Get next available server (round-robin + min busy)
-const server = pool.getAvailableServer();
-// Returns: { port, status, busyCount }
+// Command: codex exec -m gpt-5.2-codex --json --full-auto
+// Output: JSONL format with token counts
+// Parsing: Extract tokens from JSON lines
 ```
 
-**getStatus()**
+**Gemini CLI (Google):**
 ```javascript
-// Get pool status
-const status = pool.getStatus();
-// Returns: { activeServers: 1, idleServers: 0, busyServers: 1, totalRequests: 42 }
-```
-
-**shutdown()**
-```javascript
-// Gracefully stop all servers
-await pool.shutdown();
-```
-
-### Dynamic Scaling
-
-The pool automatically scales based on load:
-
-**Scale-up Trigger:**
-- Current load > 80% of capacity
-- Action: Start additional server (up to maxServers)
-
-**Scale-down Trigger:**
-- Current load < 30% for > 60 seconds
-- Action: Remove excess server
-
-**Example Scaling Scenario:**
-```
-Time 0s:    Pool starts with 1 server
-            Load: 10% (1/10 busy slots)
-
-Time 5s:    10 concurrent requests arrive
-            Load: 100% (10/10 busy slots)
-            Trigger: Scale up → Start server 2
-
-Time 10s:   Requests complete
-            Load: 20% (2/10 busy slots)
-            Timer: Start scale-down delay
-
-Time 70s:   Scale-down timer expires
-            Load still < 30%
-            Action: Stop server 2
-            Pool: Back to 1 server
-```
-
-### Health Check & Recovery
-
-**Automated Health Monitoring:**
-- Check interval: 30 seconds
-- Detects: Crashed servers, hung connections
-- Recovery: Auto-restart failed servers
-- Reset: Keep busyCount current (don't lose context)
-
-**Example:**
-```
-Server 2 crashes (SIGKILL)
-    ↓
-Health check detects status=error
-    ↓
-Auto-restart: spawn new process on same port
-    ↓
-Update status=starting
-    ↓
-Ready for requests (status=idle)
+// Command: gemini -p=. --yolo
+// Output: Raw text
+// Parsing: Infer token usage from text length
+// Fallback: Uses Codex if not installed
 ```
 
 ### Usage Example
 
 ```javascript
-// Example: Parallel task execution with server pool
+// Example: Parallel task execution with CLI
 
-import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
 async function parallelProcessing() {
-  const pool = new OpenCodeServerPool({
-    minServers: 2,
-    maxServers: 4,
-    autoScale: true
-  });
-
-  await pool.initialize();
+  var tasks = [];
 
   // Submit 10 parallel tasks
-  const tasks = [];
-  for (let i = 0; i < 10; i++) {
+  for (var i = 0; i < 10; i++) {
     tasks.push(
-      pool.execute(`Analyze file ${i}.ts`, { agent: 'explorer' })
+      executeViaCLI({
+        prompt: `Analyze file ${i}.ts`,
+        provider: 'openai',
+        agent: 'oracle'
+      })
     );
   }
 
-  const results = await Promise.all(tasks);
+  var results = await Promise.all(tasks);
 
-  const status = pool.getStatus();
-  console.log(`Completed ${results.length} tasks`);
-  console.log(`Total requests: ${status.totalRequests}`);
-  console.log(`Avg response time: ${status.averageResponseTime}ms`);
+  var successCount = results.filter(r => r.success).length;
+  console.log(`Completed ${successCount}/${results.length} tasks`);
 
-  await pool.shutdown();
+  var totalTokens = results.reduce((sum, r) => sum + r.tokens.input + r.tokens.output, 0);
+  console.log(`Total tokens: ${totalTokens}`);
 }
 ```
 
@@ -1062,7 +1016,7 @@ async function refactorProject() {
  */
 
 import { ParallelExecutor } from 'src/orchestrator/parallel-executor.mjs';
-import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
+import { executeViaCLI, detectCLI } from 'src/executor/cli-executor.mjs';
 import { buildContext } from 'src/context/index.mjs';
 import { RealtimeTracker, MetricsCollector } from 'src/tracking/index.mjs';
 
@@ -1071,13 +1025,10 @@ async function buildComplexSystem() {
   const tracker = new RealtimeTracker();
   const collector = new MetricsCollector();
 
-  // 2. Start server pool
-  const pool = new OpenCodeServerPool({
-    minServers: 2,
-    maxServers: 4,
-    autoScale: true
-  });
-  await pool.initialize();
+  // 2. Verify CLI availability
+  if (!detectCLI('codex') && !detectCLI('gemini')) {
+    throw new Error('No CLI available - install codex or gemini');
+  }
 
   // 3. Capture context for potential handoff
   const context = buildContext({
@@ -1152,8 +1103,7 @@ async function buildComplexSystem() {
   console.log(`Cost: $${metrics.totalCost.toFixed(2)}`);
   console.log(`Avg Latency: ${metrics.avgLatencies}ms`);
 
-  // 8. Cleanup
-  await pool.shutdown();
+  // 8. Cleanup (stateless, no shutdown needed)
 }
 
 // Run with fusion mode
@@ -1177,24 +1127,22 @@ buildComplexSystem().catch(console.error);
 
 ### Execution Speed
 
-| Mode | First Call | Subsequent | Total 10 tasks |
-|------|---|---|---|
-| CLI (no pool) | 12s | 11s | 122s |
-| **Server pool (1 server)** | 4s | 1.2s | 16s |
-| **Server pool (4 servers)** | 5s | 1.1s per task | 6s |
+| Mode | Single Task | Parallel (4 tasks) |
+|------|---|---|
+| **CLI Direct Execution** | ~2-5s | ~5-8s (concurrent) |
 
-**Parallel speedup:** 4 servers = ~16x faster for independent tasks
+**Parallel speedup:** Concurrent CLI calls enable true parallelism
 
 ---
 
 ## Version Compatibility
 
-**v1.0.0 Features:**
-- ✅ Realtime Tracking (v1.0.0 new)
-- ✅ Context Transfer (v1.0.0 new)
-- ✅ Multi-Provider Balancing (v1.0.0 new)
-- ✅ Parallel Executor (v1.0.0 new)
-- ✅ Server Pool (v1.0.0 new)
+**v2.1.0 Features:**
+- ✅ CLI Direct Execution (v2.1.0 new)
+- ✅ Realtime Tracking (v1.0.0)
+- ✅ Context Transfer (v1.0.0)
+- ✅ Multi-Provider Balancing (v1.0.0)
+- ✅ Parallel Executor (v1.0.0)
 - ✅ Fusion Mode (v0.3.0+)
 - ✅ Agent Mapping (v0.5.0+)
 - ✅ Dynamic Routing (v0.8.0+)

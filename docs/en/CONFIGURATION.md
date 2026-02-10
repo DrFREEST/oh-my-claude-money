@@ -186,7 +186,7 @@ Keywords to detect in Claude Code prompts.
 |--------|------|---------|-------------|
 | `routing.enabled` | boolean | true | Enable hybrid routing |
 | `routing.usageThreshold` | number | 70 | Above this usage, increase OpenCode distribution (%) |
-| `routing.maxOpencodeWorkers` | number | 3 | Maximum simultaneous OpenCode server pool count (1~25, consider memory) |
+| `routing.maxOpencodeWorkers` | number | 3 | Maximum parallel CLI calls (1~10 recommended) |
 | `routing.preferOpencode` | string[] | ["explore", "explore-medium", "researcher", "researcher-low", "writer"] | Agent list that prefers OpenCode |
 | `routing.preferClaude` | string[] | ["architect", "executor-high", "critic", "planner"] | Agent list that prefers Claude |
 | `routing.autoDelegate` | boolean | true | Enable auto-delegation |
@@ -922,9 +922,8 @@ chmod +x ~/.claude/plugins/omcm/hooks/custom-hook.mjs
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `OMCM_BASE_PORT` | OpenCode server pool base port | 4096 | `export OMCM_BASE_PORT=4096` |
-| `OMCM_MIN_SERVERS` | Minimum server instances | 1 | `export OMCM_MIN_SERVERS=1` |
-| `OMCM_MAX_SERVERS` | Maximum server instances | 4 | `export OMCM_MAX_SERVERS=4` |
+| `OMCM_MAX_WORKERS` | Maximum parallel CLI calls | 3 | `export OMCM_MAX_WORKERS=5` |
+| `OMCM_CLI_TIMEOUT` | CLI execution timeout (ms) | 300000 | `export OMCM_CLI_TIMEOUT=600000` |
 | `OMCM_FUSION_MODE` | Force fusion mode | (none) | `export OMCM_FUSION_MODE=hulw` |
 | `OMCM_DEBUG` | Debug logging | false | `export OMCM_DEBUG=true` |
 | `OMCM_CONFIG_DIR` | Configuration directory | `~/.omcm` | `export OMCM_CONFIG_DIR=$HOME/.omcm` |
@@ -941,18 +940,17 @@ chmod +x ~/.claude/plugins/omcm/hooks/custom-hook.mjs
 
 **Temporary Setting**:
 ```bash
-export OMCM_BASE_PORT=9000
-export OMCM_MAX_SERVERS=10
+export OMCM_MAX_WORKERS=5
+export OMCM_CLI_TIMEOUT=600000
 export ANTHROPIC_API_KEY="sk-ant-..."
-opencode
+codex auth login
 ```
 
 **Permanent Setting** (~/.bashrc or ~/.zshrc):
 ```bash
 # OMCM Configuration
-export OMCM_BASE_PORT=4096
-export OMCM_MIN_SERVERS=1
-export OMCM_MAX_SERVERS=4
+export OMCM_MAX_WORKERS=3
+export OMCM_CLI_TIMEOUT=300000
 export OMCM_DEBUG=false
 
 # Provider API Keys
@@ -967,26 +965,24 @@ source ~/.bashrc  # for bash
 source ~/.zshrc   # for zsh
 ```
 
-### Server Pool Port Management
+### CLI Execution Settings
 
-OMCM uses consecutive ports for the OpenCode server pool.
+OMCM uses direct CLI execution (stateless, no port management needed).
 
-**Port Allocation**:
-```
-OMCM_BASE_PORT=4096, OMCM_MAX_SERVERS=4
-└─ 4096, 4097, 4098, 4099
-```
-
-**Collision Prevention**:
-1. Check Used Ports:
-```bash
-netstat -tuln | grep LISTEN
+**CLI Configuration**:
+```json
+{
+  "routing": {
+    "maxOpencodeWorkers": 4,  // Max parallel CLI calls
+    "timeout": 300000         // 5 minutes default
+  }
+}
 ```
 
-2. Change Port Range:
-```bash
-export OMCM_BASE_PORT=9000  # Uses 9000-9003
-```
+**Performance Notes**:
+- CLI execution is stateless (no persistent processes)
+- No port conflicts (CLI is stateless)
+- Memory efficient (~50MB per call vs ~250MB per server)
 
 ---
 
@@ -1081,7 +1077,7 @@ Optimized for large parallel workloads:
   "routing": {
     "enabled": true,
     "usageThreshold": 65,
-    "maxOpencodeWorkers": 10,
+    "maxOpencodeWorkers": 8,
     "preferOpencode": [
       "explore", "explore-medium", "explore-high",
       "researcher", "researcher-low",
@@ -1102,9 +1098,7 @@ Optimized for large parallel workloads:
     "maxContextLength": 100000
   },
   "opencode": {
-    "command": "opencode",
-    "args": ["--parallel"],
-    "ultraworkByDefault": true,
+    "command": "codex",
     "timeout": 600000
   }
 }
@@ -1163,20 +1157,20 @@ EOF
 claude
 ```
 
-### Q3: OpenCode Server Port Conflict
+### Q3: CLI Execution Timeout
 
-**Error**: `Address already in use 0.0.0.0:4096`
+**Error**: `CLI execution timeout after 300000ms`
 
 **Solution**:
 ```bash
-# Change port
-export OMCM_BASE_PORT=9000
+# Increase timeout
+export OMCM_CLI_TIMEOUT=600000
 
 # Or add to config
 cat >> ~/.claude/plugins/omcm/config.json << 'EOF'
 {
-  "opencode": {
-    "basePort": 9000
+  "routing": {
+    "timeout": 600000
   }
 }
 EOF

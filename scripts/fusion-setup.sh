@@ -7,7 +7,7 @@
 # 모든 설정은 기본값을 사용하며, 필요시 스킵 가능합니다.
 #
 # 필수 단계:
-#   1. OpenCode 서버 실행 (필수 - 스킵 불가)
+#   1. Codex/Gemini CLI 확인 (필수 - 스킵 불가)
 #   2. fusionDefault 설정 (기본: true, 스킵 가능)
 #   3. CLAUDE.md 퓨전 지시사항 (자동, 스킵 가능)
 #   4. OpenCode 프로바이더 인증 확인 (안내만)
@@ -35,8 +35,6 @@ NC='\033[0m'
 QUICK_MODE=false
 FUSION_DEFAULT=true
 THRESHOLD=90
-SERVER_PORT=4096
-TIMEOUT=300000
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
@@ -57,8 +55,6 @@ show_help() {
     echo "기본값:"
     echo "  fusionDefault: true"
     echo "  threshold: 90%"
-    echo "  serverPort: 4096"
-    echo "  timeout: 5분"
     exit 0
 }
 
@@ -85,46 +81,35 @@ ask_yes_no() {
 }
 
 # ============================================================================
-# 1. OpenCode 서버 실행 (필수 - 스킵 불가!)
+# 1. Codex/Gemini CLI 확인 (필수 - 스킵 불가!)
 # ============================================================================
-start_opencode_server() {
-    log_step "1. OpenCode 서버 실행 (필수)"
+check_cli_availability() {
+    log_step "1. Codex/Gemini CLI 확인 (필수)"
 
-    if ! command -v opencode &> /dev/null; then
-        log_error "OpenCode가 설치되지 않았습니다"
-        log_info "설치: npm install -g @anthropics/opencode"
+    local has_codex=false
+    local has_gemini=false
+
+    if command -v codex &> /dev/null; then
+        has_codex=true
+        log_success "Codex CLI 감지됨"
+    else
+        log_warn "Codex CLI 미설치 (npm install -g @openai/codex)"
+    fi
+
+    if command -v gemini &> /dev/null; then
+        has_gemini=true
+        log_success "Gemini CLI 감지됨"
+    else
+        log_warn "Gemini CLI 미설치 (npm install -g @google/gemini-cli)"
+    fi
+
+    if [[ "$has_codex" == "false" && "$has_gemini" == "false" ]]; then
+        log_error "Codex 또는 Gemini CLI가 하나 이상 필요합니다"
         exit 1
     fi
 
-    # 이미 실행 중인지 확인
-    if curl -s "http://localhost:$SERVER_PORT/health" >/dev/null 2>&1; then
-        log_success "OpenCode 서버 이미 실행 중 (포트: $SERVER_PORT)"
-        return 0
-    fi
-
-    log_info "OpenCode 서버 시작 중... (포트: $SERVER_PORT)"
-
-    # 백그라운드에서 서버 시작
-    nohup opencode serve --port "$SERVER_PORT" > "$HOME/.omcm/opencode-server.log" 2>&1 &
-    local pid=$!
-    echo "$pid" > "$HOME/.omcm/opencode-server.pid"
-
-    # 서버 준비 대기 (최대 30초)
-    local count=0
-    while [[ $count -lt 30 ]]; do
-        if curl -s "http://localhost:$SERVER_PORT/health" >/dev/null 2>&1; then
-            log_success "OpenCode 서버 시작됨 (PID: $pid, 포트: $SERVER_PORT)"
-            return 0
-        fi
-        sleep 1
-        ((count++))
-        printf "."
-    done
-    echo ""
-
-    log_error "OpenCode 서버 시작 실패 (타임아웃)"
-    log_info "수동 시작: opencode serve --port $SERVER_PORT"
-    return 1
+    log_success "CLI 직접 실행 모드 사용 가능"
+    return 0
 }
 
 # ============================================================================
@@ -158,9 +143,7 @@ setup_config() {
 {
   "fusionDefault": true,
   "threshold": 90,
-  "autoHandoff": false,
-  "serverPort": $SERVER_PORT,
-  "timeout": $TIMEOUT
+  "autoHandoff": false
 }
 EOF
         log_success "기본 설정 적용됨"
@@ -179,9 +162,7 @@ EOF
 {
   "fusionDefault": $fusion_val,
   "threshold": $threshold_val,
-  "autoHandoff": false,
-  "serverPort": $SERVER_PORT,
-  "timeout": $TIMEOUT
+  "autoHandoff": false
 }
 EOF
         log_success "커스텀 설정 적용됨"
@@ -325,7 +306,7 @@ main() {
     echo ""
     echo -e "${MAGENTA}╔════════════════════════════════════════════════════╗${NC}"
     echo -e "${MAGENTA}║   ${BOLD}OMCM 퓨전 모드 셋업${NC}${MAGENTA}                              ║${NC}"
-    echo -e "${MAGENTA}║   Claude Code ↔ OpenCode 퓨전 오케스트레이터       ║${NC}"
+    echo -e "${MAGENTA}║   Claude Code ↔ Codex/Gemini CLI 퓨전              ║${NC}"
     echo -e "${MAGENTA}╚════════════════════════════════════════════════════╝${NC}"
     echo ""
 
@@ -335,8 +316,8 @@ main() {
 
     local errors=0
 
-    # 1. OpenCode 서버 실행 (필수!)
-    start_opencode_server || ((errors++))
+    # 1. CLI 확인 (필수!)
+    check_cli_availability || ((errors++))
 
     # 2. fusionDefault 설정
     setup_config || ((errors++))
@@ -364,8 +345,6 @@ main() {
     echo ""
     echo -e "${CYAN}설정 파일:${NC}"
     echo "  ~/.claude/plugins/omcm/config.json"
-    echo "  ~/.omcm/opencode-server.pid"
-    echo "  ~/.omcm/opencode-server.log"
     echo ""
 }
 

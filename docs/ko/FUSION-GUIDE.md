@@ -468,31 +468,29 @@ autopilot hulw 완전한 REST API 서버 만들어줘
 [git diff --stat 출력]
 ```
 
-### 3. 서버 풀 관리
+### 3. CLI 설치 관리
 
-퓨전 모드는 OpenCode 서버 풀을 사용하여 라우팅 성능을 개선합니다:
+퓨전 모드는 Codex/Gemini CLI를 직접 실행하여 간결하고 효율적인 프로바이더 호출을 제공합니다:
 
 **성능 비교:**
 
-| 모드 | 첫 호출 | 이후 호출 |
-|------|--------|----------|
-| CLI 모드 (서버 없음) | ~10-15초 | ~10-15초 |
-| **서버 풀 모드** | ~5초 | **~1초** |
+| 모드 | 첫 호출 | 이후 호출 | 메모리 사용 |
+|------|--------|----------|------------|
+| v1.x 서버 풀 | ~5초 | ~1초 | ~250-300MB/서버 |
+| **v2.1 CLI 직접 실행** | ~3-5초 | ~3-5초 | 0 (stateless) |
 
-**서버 풀 관리:**
+**CLI 설치 확인:**
 
 ```bash
-# 서버 시작
-./scripts/opencode-server.sh start
+# Codex CLI 확인
+which codex || echo "Codex CLI 미설치"
 
-# 상태 확인
-./scripts/opencode-server.sh status
+# Gemini CLI 확인
+which gemini || echo "Gemini CLI 미설치"
 
-# 로그 확인
-./scripts/opencode-server.sh logs
-
-# 서버 중지
-./scripts/opencode-server.sh stop
+# 버전 확인
+codex --version
+gemini --version
 ```
 
 **설정 옵션** (`~/.claude/plugins/omcm/config.json`):
@@ -500,17 +498,17 @@ autopilot hulw 완전한 REST API 서버 만들어줘
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 5,        // 최대 서버 수 (1-25 권장)
-    "serverTimeout": 300000,        // 타임아웃 (ms)
-    "autoScale": true               // 자동 스케일링 활성화
+    "maxOpencodeWorkers": 10,       // 최대 병렬 작업 수 (제한 없음, 참고용)
+    "cliTimeout": 300000,           // CLI 타임아웃 (ms)
+    "enableParallel": true          // 병렬 실행 활성화
   }
 }
 ```
 
 **리소스 사용량:**
-- 서버당: ~250-300MB
-- 5개 서버: ~1.5GB
-- 25개 서버: ~6.25GB
+- CLI 실행당: 일시적 프로세스 (완료 후 종료)
+- 메모리: stateless (서버 유지 불필요)
+- 병렬 제한: 시스템 리소스에 따라 자동 조정
 
 ### 4. 병렬 Task 실행
 
@@ -557,7 +555,7 @@ Task(...) // 완료 대기
   "routing": {
     "enabled": true,
     "usageThreshold": 70,           // 70% 이상 하이브리드
-    "maxOpencodeWorkers": 3,        // 초기 3개, 필요시 증가
+    "maxOpencodeWorkers": 3,        // 초기 3개 CLI 호출, 필요시 증가
     "autoDelegate": true
   },
 
@@ -608,30 +606,33 @@ export GOOGLE_API_KEY="..."
 
 ### 이슈 1: 퓨전 라우팅이 느림
 
-**증상**: 퓨전 라우팅이 10-15초 이상 걸림
+**증상**: 퓨전 라우팅이 10초 이상 걸림
 
-**원인**: OpenCode 서버 풀이 실행 중이 아님
+**원인**: CLI 미설치 또는 인증 실패
 
 **해결책:**
 
 ```bash
-# 1. 서버 풀 상태 확인
-./scripts/opencode-server.sh status
+# 1. CLI 설치 확인
+which codex || echo "Codex CLI 미설치"
+which gemini || echo "Gemini CLI 미설치"
 
-# 2. 서버가 미실행 중이면 시작
-./scripts/opencode-server.sh start
+# 2. CLI 버전 확인
+codex --version
+gemini --version
 
-# 3. 포트 충돌 확인
-lsof -i :4096
+# 3. 인증 상태 확인
+codex auth status
+gemini auth status
 
-# 4. 강제 재시작
-./scripts/opencode-server.sh stop
-./scripts/opencode-server.sh start
+# 4. 재인증 (필요시)
+codex auth login
+gemini auth login
 ```
 
 **예방책:**
-- 세션 시작 시 자동 서버 시작 설정
-- `maxOpencodeWorkers` 값을 작업 특성에 맞게 조정
+- 세션 시작 전 CLI 설치 및 인증 확인
+- `cliTimeout` 값을 네트워크 환경에 맞게 조정
 
 ### 이슈 2: 프로바이더 인증 실패
 
@@ -658,28 +659,30 @@ export OPENAI_API_KEY="새로운_키"
 opencode auth status  # 확인
 ```
 
-### 이슈 3: 서버 연결 실패
+### 이슈 3: CLI 실행 실패
 
-**증상**: "OpenCode 서버에 연결할 수 없음"
+**증상**: "CLI 실행 오류" 또는 "명령을 찾을 수 없음"
 
-**원인**: 포트 사용 중 또는 서버 크래시
+**원인**: CLI 경로 문제 또는 권한 부족
 
 **해결책:**
 
 ```bash
-# 1. 포트 확인
-lsof -i :4096
+# 1. PATH 환경변수 확인
+echo $PATH | grep -o "[^:]*codex[^:]*"
+echo $PATH | grep -o "[^:]*gemini[^:]*"
 
-# 2. 기존 프로세스 종료
-kill -9 <PID>
+# 2. CLI 실행 권한 확인
+ls -l $(which codex)
+ls -l $(which gemini)
 
-# 3. 서버 재시작
-./scripts/opencode-server.sh stop
-./scripts/opencode-server.sh start
+# 3. 수동 실행 테스트
+codex run --prompt "test" --model gpt-5.2
+gemini run --prompt "test" --model gemini-3.0-flash
 
-# 4. 포트 변경 (충돌 시)
-# ~/.claude/plugins/omcm/config.json 수정:
-# "serverPort": 4097
+# 4. 재설치 (필요시)
+# Codex CLI 재설치
+# Gemini CLI 재설치
 ```
 
 ### 이슈 4: 핸드오프 컨텍스트 미전달
@@ -754,34 +757,32 @@ cat ~/.local/share/omcm/src/router/rules.mjs
 tail -f ~/.omcm/logs/fusion-router.log
 ```
 
-### 이슈 7: 메모리 누수 (Multiple Servers)
+### 이슈 7: 과도한 병렬 실행으로 인한 시스템 부하
 
-**증상**: 서버 풀 실행 후 메모리 사용량이 계속 증가
+**증상**: 병렬 작업 실행 시 시스템이 느려지거나 응답 없음
 
-**원인**: 서버 수가 너무 많거나 타임아웃 설정 오류
+**원인**: 동시 CLI 프로세스가 너무 많음
 
 **해결책:**
 
 ```bash
-# 1. 서버 수 줄이기
+# 1. 병렬 작업 수 제한
 # ~/.claude/plugins/omcm/config.json:
 {
   "routing": {
-    "maxOpencodeWorkers": 2  // 3에서 2로 감소
+    "maxOpencodeWorkers": 5  // 적절한 값으로 조정
   }
 }
 
-# 2. 타임아웃 설정 확인
-# 기본값: 300000ms (5분)
-# 필요시 조정
+# 2. 실행 중인 CLI 프로세스 확인
+ps aux | grep -E 'codex|gemini' | grep -v grep
 
-# 3. 서버 풀 재시작
-./scripts/opencode-server.sh stop
-sleep 5
-./scripts/opencode-server.sh start
+# 3. 필요시 프로세스 종료
+pkill -f 'codex run'
+pkill -f 'gemini run'
 
-# 4. 메모리 모니터링
-watch -n 1 'ps aux | grep opencode'
+# 4. 시스템 리소스 모니터링
+top -o %CPU | grep -E 'codex|gemini'
 ```
 
 ### 이슈 8: Autopilot 취소 실패
@@ -831,8 +832,9 @@ grep -q "statusLine" ~/.claude/settings.json && echo "✅" || echo "❌"
 echo "6. OpenCode 인증"
 opencode auth status | grep -q "authenticated" && echo "✅" || echo "❌"
 
-echo "7. 서버 풀 상태"
-curl -s http://localhost:4096/health > /dev/null && echo "✅ Running" || echo "❌ Not running"
+echo "7. CLI 설치 상태"
+which codex > /dev/null && echo "✅ Codex installed" || echo "❌ Codex not found"
+which gemini > /dev/null && echo "✅ Gemini installed" || echo "❌ Gemini not found"
 
 echo "8. 컨텍스트 디렉토리"
 [ -d ~/.omcm ] && echo "✅" || echo "❌"
@@ -870,28 +872,28 @@ echo "문제 있는 항목을 확인하세요."
 }
 ```
 
-### 서버 풀 튜닝
+### CLI 실행 튜닝
 
-**고성능 설정** (25+ 병렬 작업):
+**고성능 설정** (많은 병렬 작업):
 
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 10,
-    "serverTimeout": 600000,
-    "autoScale": true,
-    "scaleThreshold": 7
+    "maxOpencodeWorkers": 20,
+    "cliTimeout": 600000,
+    "enableParallel": true
   }
 }
 ```
 
-**저리소스 설정** (메모리 제한):
+**저리소스 설정** (시스템 부하 제한):
 
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 1,
-    "serverReuse": true
+    "maxOpencodeWorkers": 3,
+    "cliTimeout": 300000,
+    "enableParallel": true
   }
 }
 ```

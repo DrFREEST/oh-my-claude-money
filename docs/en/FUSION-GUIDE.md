@@ -476,31 +476,26 @@ Implementing login functionality
 [git diff --stat output]
 ```
 
-### 3. Server Pool Management
+### 3. CLI Direct Execution
 
-Fusion mode uses OpenCode server pool to improve routing performance:
+Fusion mode uses direct CLI execution for optimal performance:
 
 **Performance Comparison:**
 
-| Mode | First Call | Subsequent Calls |
-|------|------------|------------------|
-| CLI mode (no server) | ~10-15s | ~10-15s |
-| **Server Pool Mode** | ~5s | **~1s** |
+| Mode | Execution Time | Memory Usage |
+|------|----------------|--------------|
+| **CLI Direct Execution** | **~2-5s** | **~50MB per call** |
 
-**Server Pool Management:**
+**CLI Execution Details:**
 
 ```bash
-# Start server
-./scripts/opencode-server.sh start
+# Codex CLI (OpenAI)
+codex exec -m gpt-5.2-codex --json --full-auto
 
-# Check status
-./scripts/opencode-server.sh status
+# Gemini CLI (Google)
+gemini -p=. --yolo
 
-# Check logs
-./scripts/opencode-server.sh logs
-
-# Stop server
-./scripts/opencode-server.sh stop
+# Auto-detection and fallback built-in
 ```
 
 **Configuration Options** (`~/.claude/plugins/omcm/config.json`):
@@ -508,16 +503,15 @@ Fusion mode uses OpenCode server pool to improve routing performance:
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 4,        // Max server count (1-25 recommended)
-    "serverTimeout": 300000,        // Timeout (ms)
-    "autoScale": true               // Enable auto-scaling
+    "maxOpencodeWorkers": 4,        // Max parallel CLI calls
+    "timeout": 300000               // CLI timeout (ms)
   }
 }
 ```
 
 **Resource Usage:**
-- Per server: ~250-300MB
-- 4 servers: ~1.2GB
+- Per CLI call: ~50MB during execution
+- Stateless: No persistent processes running
 
 ### 4. Parallel Task Execution
 
@@ -615,30 +609,37 @@ export GOOGLE_API_KEY="..."
 
 ### Issue 1: Fusion Routing is Slow
 
-**Symptom**: Fusion routing takes 10-15+ seconds
+**Symptom**: Fusion routing takes longer than expected
 
-**Cause**: OpenCode server pool is not running
+**Cause**: CLI not installed or network latency
 
 **Solution:**
 
 ```bash
-# 1. Check server pool status
-./scripts/opencode-server.sh status
+# 1. Check CLI availability
+which codex
+which gemini
 
-# 2. Start server if not running
-./scripts/opencode-server.sh start
+# 2. Test CLI execution
+codex --version
+gemini --version
 
-# 3. Check for port conflicts
-lsof -i :4096
+# 3. Check authentication
+codex auth status
+# or
+opencode auth status
 
-# 4. Force restart
-./scripts/opencode-server.sh stop
-./scripts/opencode-server.sh start
+# 4. Increase timeout if needed (config.json)
+{
+  "routing": {
+    "timeout": 600000  // 10 minutes
+  }
+}
 ```
 
 **Prevention:**
-- Set up automatic server start at session start
-- Adjust `maxOpencodeWorkers` value based on task characteristics
+- Ensure both Codex and Gemini CLIs are installed
+- Adjust `maxOpencodeWorkers` for parallel call limits
 
 ### Issue 2: Provider Authentication Failed
 
@@ -665,28 +666,31 @@ export OPENAI_API_KEY="new_key"
 opencode auth status  # Verify
 ```
 
-### Issue 3: Server Connection Failure
+### Issue 3: CLI Execution Failure
 
-**Symptom**: "Cannot connect to OpenCode server"
+**Symptom**: "CLI execution failed" or timeout errors
 
-**Cause**: Port in use or server crashed
+**Cause**: CLI not available or authentication issues
 
 **Solution:**
 
 ```bash
-# 1. Check port
-lsof -i :4096
+# 1. Install missing CLI
+npm install -g @openai/codex-cli
+npm install -g @google/gemini-cli
 
-# 2. Kill existing process
-kill -9 <PID>
+# 2. Authenticate
+codex auth login
+# or
+opencode auth login openai
+opencode auth login google
 
-# 3. Restart server
-./scripts/opencode-server.sh stop
-./scripts/opencode-server.sh start
+# 3. Test execution
+codex exec "test prompt" --json
+gemini -p=. "test prompt"
 
-# 4. Change port (if conflict)
-# Edit ~/.claude/plugins/omcm/config.json:
-# "serverPort": 4097
+# 4. Check error logs
+tail -f ~/.omcm/logs/cli-executor.log
 ```
 
 ### Issue 4: Handoff Context Not Passed
@@ -761,34 +765,31 @@ cat ~/.local/share/omcm/src/router/rules.mjs
 tail -f ~/.omcm/logs/fusion-router.log
 ```
 
-### Issue 7: Memory Leak with Multiple Servers
+### Issue 7: High Memory Usage
 
-**Symptom**: Memory usage keeps increasing after server pool starts
+**Symptom**: Memory usage increases with parallel CLI calls
 
-**Cause**: Too many servers or timeout setting error
+**Cause**: Too many parallel executions
 
 **Solution:**
 
 ```bash
-# 1. Reduce server count
+# 1. Reduce parallel limit
 # ~/.claude/plugins/omcm/config.json:
 {
   "routing": {
-    "maxOpencodeWorkers": 2  // Decrease from 3 to 2
+    "maxOpencodeWorkers": 2  // Limit concurrent CLI calls
   }
 }
 
-# 2. Check timeout settings
-# Default: 300000ms (5 minutes)
-# Adjust if needed
+# 2. CLI execution is stateless
+# Memory is freed after each call completes
 
-# 3. Restart server pool
-./scripts/opencode-server.sh stop
-sleep 5
-./scripts/opencode-server.sh start
+# 3. Monitor memory
+watch -n 1 'ps aux | grep -E "codex|gemini"'
 
-# 4. Monitor memory
-watch -n 1 'ps aux | grep opencode'
+# 4. No persistent processes
+# CLI calls are stateless and don't leave processes running
 ```
 
 ### Issue 8: Autopilot Cancellation Not Working
@@ -838,8 +839,8 @@ grep -q "statusLine" ~/.claude/settings.json && echo "✅" || echo "❌"
 echo "6. OpenCode Authentication"
 opencode auth status | grep -q "authenticated" && echo "✅" || echo "❌"
 
-echo "7. Server Pool Status"
-curl -s http://localhost:4096/health > /dev/null && echo "✅ Running" || echo "❌ Not running"
+echo "7. CLI Availability"
+which codex && which gemini && echo "✅ Both CLIs installed" || echo "⚠️ Missing CLIs"
 
 echo "8. Context Directory"
 [ -d ~/.omcm ] && echo "✅" || echo "❌"
@@ -877,17 +878,15 @@ You can customize default routing:
 }
 ```
 
-### Server Pool Tuning
+### CLI Execution Tuning
 
-**High-performance setup** (25+ parallel tasks):
+**High-performance setup** (many parallel tasks):
 
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 4,
-    "serverTimeout": 600000,
-    "autoScale": true,
-    "scaleThreshold": 3
+    "maxOpencodeWorkers": 10,
+    "timeout": 600000
   }
 }
 ```
@@ -897,8 +896,8 @@ You can customize default routing:
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 1,
-    "serverReuse": true
+    "maxOpencodeWorkers": 2,
+    "timeout": 300000
   }
 }
 ```

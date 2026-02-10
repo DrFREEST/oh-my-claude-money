@@ -110,7 +110,6 @@ OMCM의 핵심 설정 파일입니다. Claude Code에서 액세스할 수 있으
   "routing": {
     "enabled": boolean,
     "usageThreshold": number,
-    "maxOpencodeWorkers": number,
     "preferOpencode": string[],
     "preferClaude": string[],
     "autoDelegate": boolean
@@ -187,7 +186,6 @@ Claude Code 프롬프트에서 감지할 키워드 목록입니다.
 |------|------|--------|------|
 | `routing.enabled` | boolean | true | 하이브리드 라우팅 활성화 |
 | `routing.usageThreshold` | number | 70 | 이 사용량 이상이면 OpenCode 분배 증가 (%) |
-| `routing.maxOpencodeWorkers` | number | 3 | 동시 OpenCode 서버 풀 최대 수 (1~25, 메모리 고려) |
 | `routing.preferOpencode` | string[] | ["explore", "explore-medium", "researcher", "researcher-low", "writer"] | OpenCode 선호 에이전트 목록 |
 | `routing.preferClaude` | string[] | ["architect", "executor-high", "critic", "planner"] | Claude 선호 에이전트 목록 |
 | `routing.autoDelegate` | boolean | true | 자동 위임 활성화 |
@@ -198,7 +196,6 @@ Claude Code 프롬프트에서 감지할 키워드 목록입니다.
   "routing": {
     "enabled": true,
     "usageThreshold": 70,
-    "maxOpencodeWorkers": 5,
     "preferOpencode": [
       "explore",
       "explore-medium",
@@ -890,9 +887,6 @@ chmod +x ~/.claude/plugins/omcm/hooks/custom-hook.mjs
 
 | 변수 | 설명 | 기본값 | 예제 |
 |------|------|--------|------|
-| `OMCM_BASE_PORT` | OpenCode 서버 풀 기본 포트 | 4096 | `export OMCM_BASE_PORT=4096` |
-| `OMCM_MIN_SERVERS` | 최소 서버 인스턴스 수 | 1 | `export OMCM_MIN_SERVERS=1` |
-| `OMCM_MAX_SERVERS` | 최대 서버 인스턴스 수 | 4 | `export OMCM_MAX_SERVERS=4` |
 | `OMCM_FUSION_MODE` | 강제 퓨전 모드 | (없음) | `export OMCM_FUSION_MODE=hulw` |
 | `OMCM_DEBUG` | 디버그 로깅 | false | `export OMCM_DEBUG=true` |
 | `OMCM_CONFIG_DIR` | 설정 디렉토리 | `~/.omcm` | `export OMCM_CONFIG_DIR=$HOME/.omcm` |
@@ -909,18 +903,13 @@ chmod +x ~/.claude/plugins/omcm/hooks/custom-hook.mjs
 
 **임시 설정**:
 ```bash
-export OMCM_BASE_PORT=9000
-export OMCM_MAX_SERVERS=10
+export OMCM_DEBUG=true
 export ANTHROPIC_API_KEY="sk-ant-..."
-opencode
 ```
 
 **영구 설정** (~/.bashrc 또는 ~/.zshrc):
 ```bash
 # OMCM 설정
-export OMCM_BASE_PORT=4096
-export OMCM_MIN_SERVERS=1
-export OMCM_MAX_SERVERS=4
 export OMCM_DEBUG=false
 
 # 프로바이더 API 키
@@ -933,27 +922,6 @@ export GOOGLE_API_KEY="..."
 ```bash
 source ~/.bashrc  # bash 사용 시
 source ~/.zshrc   # zsh 사용 시
-```
-
-### 서버 풀 포트 관리
-
-OMCM은 OpenCode 서버 풀을 위해 연속적인 포트를 사용합니다.
-
-**포트 할당**:
-```
-OMCM_BASE_PORT=4096, OMCM_MAX_SERVERS=4
-└─ 4096, 4097, 4098, 4099
-```
-
-**충돌 방지**:
-1. 사용 중인 포트 확인:
-```bash
-netstat -tuln | grep LISTEN
-```
-
-2. 포트 범위 변경:
-```bash
-export OMCM_BASE_PORT=9000  # 9000-9004 사용
 ```
 
 ---
@@ -971,8 +939,7 @@ export OMCM_BASE_PORT=9000  # 9000-9004 사용
   "autoHandoff": false,
   "routing": {
     "enabled": true,
-    "usageThreshold": 70,
-    "maxOpencodeWorkers": 3
+    "usageThreshold": 70
   }
 }
 ```
@@ -987,8 +954,7 @@ cat > ~/.claude/plugins/omcm/config.json << 'EOF'
   "autoHandoff": false,
   "routing": {
     "enabled": true,
-    "usageThreshold": 70,
-    "maxOpencodeWorkers": 3
+    "usageThreshold": 70
   }
 }
 EOF
@@ -1005,7 +971,6 @@ EOF
   "autoHandoff": true,
   "routing": {
     "enabled": true,
-    "maxOpencodeWorkers": 5,
     "preferOpencode": [
       "explore", "explore-medium", "researcher",
       "designer", "writer", "vision"
@@ -1026,7 +991,6 @@ EOF
   "routing": {
     "enabled": true,
     "usageThreshold": 80,
-    "maxOpencodeWorkers": 5,
     "autoDelegate": true
   },
   "notifications": {
@@ -1049,7 +1013,6 @@ EOF
   "routing": {
     "enabled": true,
     "usageThreshold": 65,
-    "maxOpencodeWorkers": 10,
     "preferOpencode": [
       "explore", "explore-medium", "explore-high",
       "researcher", "researcher-low",
@@ -1133,21 +1096,17 @@ claude
 
 ### Q3: OpenCode 서버 포트 충돌
 
-**에러**: `Address already in use 0.0.0.0:8000`
+**에러**: CLI 실행 시 타임아웃
 
 **해결**:
 ```bash
-# 포트 변경
-export OMCM_BASE_PORT=9000
+# CLI 설치 확인
+which codex && codex --version
+which gemini && gemini --version
 
-# 또는 설정에 추가
-cat >> ~/.claude/plugins/omcm/config.json << 'EOF'
-{
-  "opencode": {
-    "basePort": 9000
-  }
-}
-EOF
+# CLI 재설치
+npm install -g @openai/codex
+npm install -g @google/gemini-cli
 ```
 
 ### Q4: 에이전트 매핑이 작동하지 않음

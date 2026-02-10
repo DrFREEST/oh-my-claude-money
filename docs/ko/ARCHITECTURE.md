@@ -17,15 +17,15 @@ OMCM은 Claude Code와 OpenCode를 통합하는 퓨전 오케스트레이터입�
 │              │ "어떤 LLM이 최적인가?"      │                        │
 │              │ (1. 폴백 2. 리밋 3. 모드)  │                        │
 │              └────────────────────────────┘                        │
-│                    ↓              ↓              ↓                  │
-│     ┌──────────────────┐ ┌──────────────┐ ┌──────────────┐        │
-│     │ oh-my-claudecode │ │  OpenCode    │ │   서버 풀    │        │
-│     │ (Claude 토큰)    │ │ (다른 LLM)   │ │   (병렬)     │        │
-│     │                  │ │              │ │              │        │
-│     │ • planner        │ │ • build      │ │ HTTP 포트    │        │
-│     │ • executor       │ │ • explore    │ │ 4096-4099    │        │
-│     │ • critic         │ │ • general    │ │              │        │
-│     └──────────────────┘ └──────────────┘ └──────────────┘        │
+│                    ↓              ↓                                 │
+│     ┌──────────────────┐ ┌──────────────────────────┐             │
+│     │ oh-my-claudecode │ │  Codex/Gemini CLI        │             │
+│     │ (Claude 토큰)    │ │ (직접 실행)              │             │
+│     │                  │ │                          │             │
+│     │ • planner        │ │ • codex exec --json      │             │
+│     │ • executor       │ │ • gemini -p=. --yolo     │             │
+│     │ • critic         │ │ • Stateless 실행         │             │
+│     └──────────────────┘ └──────────────────────────┘             │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -90,54 +90,65 @@ shouldRouteToOpenCode(toolInput, options)
 | security-reviewer-low | OMO build | Gemini 3.0 Flash | 빠른 검사 |
 | **HIGH 13개** (architect, planner, critic 등) | Claude (유지) | Claude Opus | 높은 품질 (fallbackToOMC) |
 
-### 1.2 서버 풀 (src/executor/opencode-server-pool.mjs)
+### 1.2 CLI 직접 실행 엔진 (src/executor/cli-executor.mjs)
 
-OpenCode의 라우팅 대기 시간을 ~90% 단축하는 플렉서블 서버 풀입니다.
+Codex/Gemini CLI를 직접 호출하여 상태 없는(stateless) 실행을 제공합니다.
 
-#### 동적 스케일링 아키텍처
+#### CLI 실행 아키텍처
 
 ```
 요청 도착
     ↓
 ┌─────────────────────────────┐
-│ 포트 4096 (IDLE)            │ → 선택됨 (사용 가능)
-│ 포트 4097 (BUSY) ┐          │
-│ 포트 4098 (BUSY) ├─ 이미 사용 중
-│ (maxServers 도달)│          │
+│ CLI 감지 (detectCLI)        │
+│ - codex: 설치 확인          │
+│ - gemini: 설치 확인         │
 └─────────────────────────────┘
     ↓
-  [실행]
+executeViaCLI()
     ↓
-사용률 체크
-├─ 80% 이상 → 스케일업 (새 포트 4099 시작)
-└─ 30% 미만 & 대기 → 스케일다운 (1분 후)
+┌─────────────────────────────┐
+│ Codex CLI 실행              │
+│ codex exec -m MODEL         │
+│   --json --full-auto        │
+└─────────────────────────────┘
+    또는
+┌─────────────────────────────┐
+│ Gemini CLI 실행             │
+│ gemini -p=. --yolo          │
+│ (Codex 미설치 시 폴백)      │
+└─────────────────────────────┘
+    ↓
+결과 반환 (JSONL 또는 텍스트)
 ```
 
-#### 설정 옵션
+#### 인터페이스
 
 ```javascript
-const pool = new OpenCodeServerPool({
-  minServers: 1,      // 항상 유지할 서버 수
-  maxServers: 5,      // 최대 서버 수 (메모리: 250-300MB/서버)
-  basePort: 4096,     // 시작 포트
-  autoScale: true     // 자동 스케일링 활성화
+import { executeViaCLI, detectCLI } from '../executor/cli-executor.mjs';
+
+// CLI 존재 확인
+var hasCodex = detectCLI('codex');
+var hasGemini = detectCLI('gemini');
+
+// 실행
+var result = await executeViaCLI({
+  prompt: 'task instructions',
+  provider: 'openai',  // 또는 'google'
+  model: 'gpt-5.2-codex',  // optional
+  agent: 'oracle',
+  timeout: 300000,
+  cwd: '/path/to/project'
 });
+// 결과: { success, output, tokens: {...}, error, duration, provider }
 ```
 
-#### 라운드로빈 로드 밸런싱
+#### 특징
 
-```javascript
-// 포트 4096, 4097, 4098 순환
-서버 1 (idle) → 선택 → busy로 변경
-서버 2 (busy) → 스킵
-서버 3 (idle) → 다음 선택
-```
-
-#### 헬스체크 및 복구
-
-- 30초마다 모든 서버 상태 확인
-- ERROR 상태 서버 자동 재시작
-- 강제 종료 타임아웃: 5초
+- **Stateless**: 각 호출마다 새 프로세스 (서버 유지 불필요)
+- **자동 폴백**: Gemini 미설치 시 Codex로 자동 전환
+- **JSONL 파싱**: Codex stdout을 실시간 파싱
+- **타임아웃**: 기본 5분, 설정 가능
 
 ### 1.3 병렬 실행기 (src/orchestrator/parallel-executor.mjs)
 
@@ -326,10 +337,10 @@ tracker.getRecent(10)  // 최근 10개 반환
 5. 작업 실행
    │
    ├─ route === true
-   │  └─ OpenCode 워커로 위임
-   │     ├─ Server Pool 초기화 (필요 시)
-   │     ├─ 포트 4096-4100 범위에서 idle 서버 선택
-   │     └─ 프롬프트 실행
+   │  └─ Codex/Gemini CLI로 위임
+   │     ├─ CLI 감지 (detectCLI)
+   │     ├─ executeViaCLI() 호출
+   │     └─ 프롬프트 실행 (stateless)
    │
    └─ route === false
       └─ Claude에서 직접 실행
@@ -349,8 +360,8 @@ ParallelExecutor.executeParallel([T1, T2, T3, T4, T5])
 │  ├─ [T1, T2] 그룹 (순차)
 │  ├─ [T3, T4, T5] 그룹 (병렬 가능)
 │
-├─ 워커 풀 초기화
-│  └─ OpenCodeServerPool.initialize() (maxWorkers=3)
+├─ CLI 실행 환경 확인
+│  └─ detectCLI('codex') / detectCLI('gemini')
 │
 ├─ 그룹 1: 순차 실행
 │  ├─ T1 실행 (완료 대기)
@@ -667,26 +678,19 @@ FUSION_STATE_FILE (5초마다 갱신)
 
 ```
 Task 분석
-  ├─ type = 'run' (일반 실행)
-  │  ├─ 30초 미만 → 'run' (CLI 직접 실행)
-  │  └─ 30초 이상 → 'serve' (서버 풀)
+  ├─ type = 'run' (CLI 직접 실행)
+  │  └─ executeViaCLI() 호출
   │
-  ├─ type = 'serve' (서버 필요)
-  │  ├─ serverRunning? → 'serve'
-  │  └─ !serverRunning? → 'run' (폴백)
-  │
-  └─ type = 'acp' (ACP 프로토콜)
-     ├─ acpAvailable? → 'acp'
-     └─ !acpAvailable? → 'serve' (폴백)
+  └─ type = 'cli' (기본값)
+     └─ Codex/Gemini CLI로 stateless 실행
 ```
 
 #### 각 전략의 특징
 
-| 전략 | 프로토콜 | 오버헤드 | 사용 사례 | 장점 |
-|------|---------|---------|----------|------|
-| **run** | CLI | ~10-15초 | 단발성 작업 | 구현 간단 |
-| **serve** | HTTP | ~1-2초 | 병렬 작업 | 빠른 응답 |
-| **acp** | ACP | <100ms | 실시간 상호작용 | 매우 빠름 |
+| 전략 | 프로토콜 | 초기화 시간 | 사용 사례 | 장점 |
+|------|---------|------------|----------|------|
+| **cli** | CLI 직접 호출 | 즉시 | 모든 작업 | Stateless, 간단 |
+| **run** | CLI 직접 호출 | 즉시 | 단발성 작업 | 리소스 효율적 |
 
 ### 6.2 TaskRouter (src/orchestrator/task-router.mjs)
 
@@ -739,8 +743,7 @@ oh-my-claude-money/
 │   │   └── hybrid-ultrawork.mjs       # 하이브리드 울트라워크
 │   │
 │   ├── executor/                  # 실행기
-│   │   ├── opencode-executor.mjs      # OpenCode CLI 래퍼
-│   │   ├── opencode-server-pool.mjs   # v1.0.0 서버 풀
+│   │   ├── cli-executor.mjs            # Codex/Gemini CLI 실행기
 │   │   └── acp-client.mjs             # ACP 클라이언트
 │   │
 │   ├── hooks/                     # Claude Code 훅 (src/)
@@ -781,7 +784,7 @@ oh-my-claude-money/
 │   └── opencode.md                    # OpenCode 전환
 │
 ├── scripts/
-│   ├── opencode-server.sh             # 서버 관리
+│   ├── fusion-setup.sh                # 퓨전 셋업
 │   ├── export-context.sh              # 컨텍스트 내보내기
 │   ├── handoff-to-opencode.sh         # 전환 스크립트
 │   └── install.sh                     # 설치 스크립트
@@ -904,7 +907,7 @@ tracking/       32개    → RingBuffer, TimeBucket, 메트릭
 context/        26개    → 컨텍스트 빌드, 직렬화
 router/         49개    → 라우팅 결정, 캐시, 규칙
 orchestrator/   19개    → 병렬 실행, 충돌 감지
-executor/       신규    → 서버 풀, CLI 래퍼
+executor/       신규    → CLI 직접 실행 (Codex/Gemini)
 utils/          신규    → 설정, 컨텍스트 유틸
 ```
 

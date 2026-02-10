@@ -8,9 +8,7 @@ OMCM(Oh My Claude Money)의 모든 공개 API와 모듈을 문서화합니다.
 - [컨텍스트 관리 (Context Management)](#컨텍스트-관리-context-management)
 - [병렬 실행기 (Parallel Executor)](#병렬-실행기-parallel-executor)
 - [작업 라우팅 (Task Routing)](#작업-라우팅-task-routing)
-- [OpenCode 워커 (OpenCode Worker)](#opencode-워커-opencode-worker)
-- [OpenCode 서버 풀 (Server Pool)](#opencode-서버-풀-server-pool)
-- [ACP 클라이언트 (Agent Client Protocol)](#acp-클라이언트-agent-client-protocol)
+- [CLI 실행기 (CLI Executor)](#cli-실행기-cli-executor)
 - [실시간 추적 (Realtime Tracker)](#실시간-추적-realtime-tracker)
 
 ---
@@ -581,7 +579,7 @@ const stats = executor.getStats();
 // 실행 취소
 executor.cancel();
 
-// 정리 (서버 풀 종료)
+// 정리
 await executor.cleanup();
 ```
 
@@ -747,454 +745,142 @@ export const OPENCODE_AGENT_MAPPING = {
 
 ---
 
-## OpenCode 워커 (OpenCode Worker)
+## CLI 실행기 (CLI Executor)
 
 ### 모듈 위치
-`src/orchestrator/opencode-worker.mjs`
+`src/executor/cli-executor.mjs`
 
-### OpenCodeWorker 클래스
+### executeViaCLI 함수
 
-#### 생성자
+#### 기본 사용법
 
 ```javascript
-import { OpenCodeWorker } from 'src/orchestrator/opencode-worker.mjs';
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
-const worker = new OpenCodeWorker({
+const result = await executeViaCLI({
+  provider: 'openai',         // 'openai' | 'google'
+  model: 'gpt-5.2-codex',    // 모델 ID
+  prompt: '인증 버그 수정',
   projectDir: process.cwd(),
-  timeout: 300000,           // 5분 기본 타임아웃
-  quiet: true,               // 조용한 모드
-  outputFormat: 'text'       // 또는 'json'
-});
-```
-
-#### `execute(prompt, options)`
-
-프롬프트를 실행합니다.
-
-```javascript
-const result = await worker.execute('Fix the bug in auth.js', {
-  enableUltrawork: true
+  timeout: 300000             // 5분 타임아웃
 });
 
 // Returns:
 // {
 //   success: boolean,
-//   workerId: string,
-//   output: string,
+//   stdout: string,
+//   stderr: string,
+//   exitCode: number,
 //   duration: number,
 //   error?: string
 // }
 ```
 
-#### 속성
+#### 옵션
+
+| 옵션 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `provider` | string | - | 'openai' 또는 'google' |
+| `model` | string | - | 모델 ID (예: 'gpt-5.2-codex', 'gemini-3.0-flash') |
+| `prompt` | string | - | 실행할 프롬프트 |
+| `projectDir` | string | cwd | 작업 디렉토리 |
+| `timeout` | number | 300000 | 타임아웃 (ms) |
+
+### detectCLI 함수
+
+CLI 설치 여부를 확인합니다.
 
 ```javascript
-worker.status;      // 'idle', 'running', 'completed', 'failed'
-worker.result;      // 실행 결과
-worker.error;       // 에러 메시지
-worker.startTime;   // 시작 시간
-worker.endTime;     // 종료 시간
+import { detectCLI } from 'src/executor/cli-executor.mjs';
+
+const codexAvailable = detectCLI('openai');
+const geminiAvailable = detectCLI('google');
+
+if (codexAvailable && geminiAvailable) {
+  console.log('모든 CLI 사용 가능');
+} else {
+  if (!codexAvailable) console.log('Codex CLI 미설치');
+  if (!geminiAvailable) console.log('Gemini CLI 미설치');
+}
 ```
 
-### OpenCodeWorkerPool 클래스
+### 병렬 실행
 
-#### 생성자
-
-```javascript
-import { OpenCodeWorkerPool } from 'src/orchestrator/opencode-worker.mjs';
-
-const pool = new OpenCodeWorkerPool({
-  maxWorkers: 5,
-  projectDir: process.cwd()
-});
-```
-
-#### `submit(prompt, options)`
-
-단일 작업을 제출합니다.
+CLI는 stateless이므로 제한 없이 병렬 실행 가능합니다.
 
 ```javascript
-const result = await pool.submit('Implement feature X', {
-  enableUltrawork: true
-});
-```
-
-#### `submitBatch(tasks)`
-
-여러 작업을 병렬 제출합니다.
-
-```javascript
-const results = await pool.submitBatch([
-  { prompt: 'Task 1', options: { enableUltrawork: true } },
-  { prompt: 'Task 2', options: { enableUltrawork: true } }
-]);
-
-// Returns: [ { success, workerId, output, duration }, ... ]
-```
-
-#### `getStatus()`
-
-풀 상태를 조회합니다.
-
-```javascript
-const status = pool.getStatus();
-// Returns:
-// {
-//   activeWorkers: number,
-//   maxWorkers: number,
-//   queuedTasks: number,
-//   completedTasks: number
-// }
-```
-
-#### `shutdown()`
-
-풀을 종료합니다.
-
-```javascript
-await pool.shutdown();
-```
-
-### 편의 함수
-
-```javascript
-import {
-  runOpenCodeTask,
-  runOpenCodeTasks,
-  runOpenCodeUltrawork
-} from 'src/orchestrator/opencode-worker.mjs';
-
-// 단일 작업 실행
-const result = await runOpenCodeTask('Implement feature X');
-
-// 여러 작업 병렬 실행
-const results = await runOpenCodeTasks([
-  { prompt: 'Task 1' },
-  { prompt: 'Task 2' }
-]);
-
-// ultrawork 모드로 실행
-const result = await runOpenCodeUltrawork('Complex task');
-```
-
----
-
-## OpenCode 서버 풀 (Server Pool)
-
-### 모듈 위치
-`src/executor/opencode-server-pool.mjs`
-
-### OpenCodeServerPool 클래스
-
-#### 생성자
-
-```javascript
-import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
-
-const pool = new OpenCodeServerPool({
-  minServers: 1,           // 최소 서버 수
-  maxServers: 5,           // 최대 서버 수
-  basePort: 4096,          // 시작 포트
-  autoScale: true,         // 자동 스케일링
-  projectDir: process.cwd()
-});
-```
-
-#### `initialize()`
-
-풀을 초기화하고 최소 서버 수만큼 시작합니다.
-
-```javascript
-await pool.initialize();
-// minServers 개의 OpenCode 서버를 포트 basePort부터 시작
-```
-
-#### `execute(prompt, options)`
-
-프롬프트를 실행합니다.
-
-```javascript
-const result = await pool.execute('Fix authentication bug', {
-  model: 'claude-opus',
-  agent: 'architect',
-  timeout: 300000
-});
-
-// Returns:
-// {
-//   success: boolean,
-//   result: { ... },
-//   serverPort: number,
-//   duration: number
-// }
-```
-
-#### `executeBatch(prompts)`
-
-여러 프롬프트를 병렬 실행합니다.
-
-```javascript
-const results = await pool.executeBatch([
-  { prompt: 'Task 1', options: {} },
-  { prompt: 'Task 2', options: {} },
-  { prompt: 'Task 3', options: {} }
-]);
-
-// Returns: [ result1, result2, result3 ]
-// 성공한 작업은 { status: 'fulfilled', value: result }
-// 실패한 작업은 { status: 'rejected', reason: error }
-```
-
-#### `getStatus()`
-
-풀의 상태를 조회합니다.
-
-```javascript
-const status = pool.getStatus();
-// Returns:
-// {
-//   initialized: boolean,
-//   minServers: number,
-//   maxServers: number,
-//   currentServers: number,
-//   idleServers: number,
-//   busyServers: number,
-//   servers: [
-//     {
-//       port: number,
-//       status: 'idle' | 'busy' | 'starting' | 'stopping' | 'error',
-//       busyCount: number,
-//       lastUsed: timestamp,
-//       uptime: number
-//     }
-//   ],
-//   stats: {
-//     totalRequests: number,
-//     completedRequests: number,
-//     failedRequests: number,
-//     averageResponseTime: number,
-//     peakServers: number
-//   },
-//   autoScale: boolean
-// }
-```
-
-#### `scale(targetSize)`
-
-서버 수를 수동으로 조정합니다.
-
-```javascript
-await pool.scale(3);  // 3개의 서버로 스케일
-```
-
-#### `shutdown()`
-
-풀을 완전히 종료합니다.
-
-```javascript
-await pool.shutdown();
-// 모든 서버 프로세스 종료
-```
-
-### 자동 스케일링
-
-- **스케일 업**: 사용률 >= 80% 또는 대기 작업 있음
-- **스케일 다운**: 사용률 < 30% && 대기 작업 없음 (1분 지연)
-
-### 이벤트
-
-```javascript
-pool.on('initialized', (status) => {
-  console.log('풀 초기화됨');
-});
-
-pool.on('serverStarted', ({ port }) => {
-  console.log(`서버 시작: ${port}`);
-});
-
-pool.on('serverError', ({ port, error }) => {
-  console.log(`서버 에러: ${port} - ${error}`);
-});
-
-pool.on('scaleUp', ({ newSize, port }) => {
-  console.log(`스케일 업: ${newSize}개 서버`);
-});
-
-pool.on('scaleDown', ({ newSize, port }) => {
-  console.log(`스케일 다운: ${newSize}개 서버`);
-});
-
-pool.on('shutdown', () => {
-  console.log('풀 종료됨');
-});
-```
-
-### 편의 함수
-
-```javascript
-import {
-  getDefaultPool,
-  executeWithPool,
-  executeBatchWithPool,
-  shutdownDefaultPool
-} from 'src/executor/opencode-server-pool.mjs';
-
-// 기본 풀 가져오기/생성
-const pool = getDefaultPool({
-  minServers: 2,
-  maxServers: 10
-});
-
-// 기본 풀로 실행
-const result = await executeWithPool('Task prompt');
-
-// 기본 풀로 배치 실행
-const results = await executeBatchWithPool([
-  { prompt: 'Task 1' },
-  { prompt: 'Task 2' }
-]);
-
-// 기본 풀 종료
-await shutdownDefaultPool();
-```
-
----
-
-## ACP 클라이언트 (Agent Client Protocol)
-
-### 모듈 위치
-`src/executor/acp-client.mjs`
-
-### ACPClient 클래스
-
-#### 생성자
-
-```javascript
-import { ACPClient } from 'src/executor/acp-client.mjs';
-
-const client = new ACPClient();
-```
-
-#### `connect(options)`
-
-OpenCode ACP 서버에 연결합니다.
-
-```javascript
-await client.connect({
-  cwd: '/path/to/project',
-  timeout: 10000  // 10초 타임아웃
-});
-```
-
-#### `send(prompt, options)`
-
-프롬프트를 전송하고 응답을 기다립니다.
-
-```javascript
-const response = await client.send('Analyze this error', {
-  model: 'claude-opus',
-  files: ['src/error.log'],
-  disableUlw: false,
-  timeout: 5 * 60 * 1000,  // 5분
-  stream: false
-});
-
-// Returns:
-// {
-//   id: number,
-//   type: 'response' | 'result' | 'error',
-//   content: string,
-//   error?: string
-// }
-```
-
-#### `disconnect()`
-
-연결을 종료합니다.
-
-```javascript
-await client.disconnect();
-```
-
-#### 속성 및 메서드
-
-```javascript
-client.isConnected();             // 연결 상태 (boolean)
-client.getPendingRequestCount();  // 대기 중인 요청 수 (number)
-```
-
-### 이벤트
-
-```javascript
-client.on('message', (msg) => {
-  console.log('메시지 수신:', msg);
-});
-
-client.on('stream', (msg) => {
-  console.log('스트리밍:', msg.data);
-});
-
-client.on('error', (err) => {
-  console.log('에러:', err.message);
-});
-
-client.on('close', (code) => {
-  console.log('연결 종료:', code);
-});
-
-client.on('stderr', (data) => {
-  console.log('OpenCode stderr:', data.toString());
-});
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
+
+const tasks = [
+  { provider: 'openai', model: 'gpt-5.2-codex', prompt: '작업 1' },
+  { provider: 'google', model: 'gemini-3.0-flash', prompt: '작업 2' },
+  { provider: 'openai', model: 'gpt-5.2-codex', prompt: '작업 3' }
+];
+
+const results = await Promise.all(
+  tasks.map(task => executeViaCLI(task))
+);
+
+const successCount = results.filter(r => r.success).length;
+console.log(`성공: ${successCount}/${results.length}`);
 ```
 
 ### 사용 예제
 
 ```javascript
-import { ACPClient } from 'src/executor/acp-client.mjs';
+import { executeViaCLI, detectCLI } from 'src/executor/cli-executor.mjs';
 
-async function example() {
-  const client = new ACPClient();
-
-  try {
-    // 연결
-    await client.connect({ cwd: process.cwd() });
-    console.log('연결됨');
-
-    // 작업 실행
-    const response = await client.send('Implement login feature', {
-      model: 'claude-opus'
-    });
-    console.log('응답:', response.content);
-
-    // 여러 작업 실행
-    const responses = await Promise.all([
-      client.send('Task 1'),
-      client.send('Task 2'),
-      client.send('Task 3')
-    ]);
-
-  } finally {
-    // 정리
-    await client.disconnect();
+async function batchProcessing() {
+  // CLI 확인
+  if (!detectCLI('openai') || !detectCLI('google')) {
+    throw new Error('CLI 미설치');
   }
+
+  // 병렬 작업 실행
+  const tasks = [];
+  for (var i = 0; i < 10; i++) {
+    tasks.push(
+      executeViaCLI({
+        provider: i % 2 === 0 ? 'openai' : 'google',
+        model: i % 2 === 0 ? 'gpt-5.2-codex' : 'gemini-3.0-flash',
+        prompt: `파일 ${i}.ts 분석`,
+        projectDir: process.cwd()
+      })
+    );
+  }
+
+  const results = await Promise.all(tasks);
+
+  const successCount = results.filter(r => r.success).length;
+  console.log(`완료: ${successCount}/${results.length}`);
+
+  const avgDuration = results.reduce((sum, r) => sum + r.duration, 0) / results.length;
+  console.log(`평균 시간: ${avgDuration}ms`);
 }
 
-await example();
+await batchProcessing();
 ```
 
-### 싱글톤 인스턴스
+### 편의 함수
 
 ```javascript
-import { getACPClient, resetACPClient } from 'src/executor/acp-client.mjs';
+import {
+  executeCodex,
+  executeGemini,
+  executeBatch
+} from 'src/executor/cli-executor.mjs';
 
-// 글로벌 인스턴스 가져오기
-const client = getACPClient();
-await client.connect();
+// Codex 실행
+const result1 = await executeCodex('코드 분석', { model: 'gpt-5.2-codex' });
 
-// ... 작업 수행 ...
+// Gemini 실행
+const result2 = await executeGemini('UI 생성', { model: 'gemini-3.0-flash' });
 
-// 글로벌 인스턴스 재설정
-const newClient = await resetACPClient();
+// 배치 실행
+const results = await executeBatch([
+  { provider: 'openai', prompt: 'Task 1' },
+  { provider: 'google', prompt: 'Task 2' }
+]);
 ```
 
 ---
@@ -1436,11 +1122,10 @@ const tracker = createTracker({
 ## 모듈 간 의존성 다이어그램
 
 ```
-OpenCode 실행:
+CLI 실행:
   parallel-executor.mjs
     ├─ task-router.mjs (작업 라우팅)
-    ├─ opencode-server-pool.mjs (서버 풀)
-    ├─ opencode-executor.mjs (실행)
+    ├─ cli-executor.mjs (CLI 직접 실행)
     └─ execution-strategy.mjs (전략 선택)
 
 프로바이더 관리:
@@ -1513,39 +1198,42 @@ if (checkThreshold(75).exceeded) {
 }
 ```
 
-### 예제 3: 서버 풀 사용
+### 예제 3: CLI 직접 실행
 
 ```javascript
-import { getDefaultPool } from 'src/executor/opencode-server-pool.mjs';
+import { executeViaCLI, detectCLI } from 'src/executor/cli-executor.mjs';
 
-const pool = getDefaultPool({
-  minServers: 2,
-  maxServers: 5
+if (!detectCLI('openai')) {
+  throw new Error('Codex CLI 미설치');
+}
+
+const result = await executeViaCLI({
+  provider: 'openai',
+  model: 'gpt-5.2-codex',
+  prompt: 'Implement feature X',
+  projectDir: process.cwd()
 });
 
-await pool.initialize();
-
-const result = await pool.execute('Implement feature X');
-console.log('결과:', result);
-
-await pool.shutdown();
+console.log('결과:', result.stdout);
+console.log('성공:', result.success);
 ```
 
-### 예제 4: ACP 클라이언트
+### 예제 4: 병렬 CLI 실행
 
 ```javascript
-import { getACPClient } from 'src/executor/acp-client.mjs';
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
-const client = getACPClient();
+const tasks = [
+  { provider: 'openai', model: 'gpt-5.2-codex', prompt: 'Task 1' },
+  { provider: 'google', model: 'gemini-3.0-flash', prompt: 'Task 2' },
+  { provider: 'openai', model: 'gpt-5.2-codex', prompt: 'Task 3' }
+];
 
-try {
-  await client.connect({ cwd: process.cwd() });
+const results = await Promise.all(
+  tasks.map(task => executeViaCLI(task))
+);
 
-  const response = await client.send('Fix the bug');
-  console.log('응답:', response.content);
-} finally {
-  await client.disconnect();
-}
+console.log('완료:', results.filter(r => r.success).length);
 ```
 
 ### 예제 5: 실시간 추적

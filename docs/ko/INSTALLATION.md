@@ -144,6 +144,7 @@ cd oh-my-claude-money
 - ✅ Claude Code Hooks 설정
 - ✅ HUD 파일 복사
 - ✅ 글로벌 상태 파일 초기화
+- ✅ Codex/Gemini CLI 설치 확인
 
 ---
 
@@ -442,7 +443,7 @@ Claude Code 프롬프트에서:
 - ✅ HUD 캐시 초기화
 - ✅ 퓨전 설정 파일 생성
 - ✅ CLAUDE.md에 퓨전 지시사항 추가
-- ✅ OpenCode 서버 풀 시작 (선택)
+- ✅ Codex/Gemini CLI 설치 확인
 
 ### Step 8: 글로벌 상태 파일 초기화 (수동 설치용)
 
@@ -716,53 +717,63 @@ claude
 /omcm:fusion-setup
 ```
 
-#### "OpenCode 서버 연결 실패"
+#### "CLI 실행 실패"
 
 ```bash
-# 서버 포트 확인
-lsof -i :4096
+# CLI 설치 확인
+which codex
+which gemini
 
-# 서버 상태 확인
-ps aux | grep opencode
+# 경로 확인
+echo $PATH
 
-# 서버 수동 시작
-opencode serve --port 4096
+# CLI 재설치
+npm install -g @openai/codex
+npm install -g @google/gemini-cli
 
-# 또는 OMCM 서버 풀 시작
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# 인증 상태 확인
+codex auth status
+gemini auth status
 ```
 
 ### 성능 최적화
 
-#### OpenCode 서버 풀 설정
+#### Codex/Gemini CLI 설치 확인
 
 ```bash
-# 서버 풀 시작
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# Codex CLI 설치 확인
+which codex
+codex --version
 
-# 상태 확인
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh status
+# 설치되지 않았으면:
+npm install -g @openai/codex
 
-# 로그 확인
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh logs
+# Gemini CLI 설치 확인
+which gemini
+gemini --version
 
-# 서버 중지
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh stop
+# 설치되지 않았으면:
+npm install -g @google/gemini-cli
+
+# 인증 확인
+codex auth status
+gemini auth status
 ```
 
-#### 최대 워커 수 조정
+#### CLI 실행 설정
 
 `~/.claude/plugins/omcm/config.json` 편집:
 
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 5
+    "enabled": true,
+    "autoDelegate": true
   }
 }
 ```
 
-값 범위: 1~25 (메모리 고려, ~250MB/서버)
+CLI는 stateless로 실행되므로 서버 관리가 불필요합니다.
 
 ---
 

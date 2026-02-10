@@ -17,15 +17,15 @@ OMCM is a Fusion Orchestrator that integrates Claude Code and OpenCode. A single
 │              │ "Which LLM is optimal?"    │                        │
 │              │ (1. Fallback 2. Limit 3. Mode) │                   │
 │              └────────────────────────────┘                        │
-│                    ↓              ↓              ↓                  │
-│     ┌──────────────────┐ ┌──────────────┐ ┌──────────────┐        │
-│     │ oh-my-claudecode │ │  OpenCode    │ │   Server Pool │       │
-│     │ (Claude tokens)  │ │ (Other LLMs) │ │   (Parallel)  │       │
-│     │                  │ │              │ │              │        │
-│     │ • planner        │ │ • build      │ │ HTTP ports   │        │
-│     │ • executor       │ │ • explore    │ │ 4096-4099    │        │
-│     │ • critic         │ │ • general    │ │              │        │
-│     └──────────────────┘ └──────────────┘ └──────────────┘        │
+│                    ↓              ↓                                 │
+│     ┌──────────────────┐ ┌────────────────────────┐               │
+│     │ oh-my-claudecode │ │  CLI Direct Execution  │               │
+│     │ (Claude tokens)  │ │   (Other LLMs)         │               │
+│     │                  │ │                        │               │
+│     │ • planner        │ │ • Codex CLI (GPT)      │               │
+│     │ • executor       │ │ • Gemini CLI (Google)  │               │
+│     │ • critic         │ │ • Stateless execution  │               │
+│     └──────────────────┘ └────────────────────────┘               │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -100,54 +100,66 @@ shouldRouteToOpenCode(toolInput, options)
 | security-reviewer-low, build-fixer-low, tdd-guide-low | build | Gemini-3.0-Flash |
 | code-reviewer-low, scientist-low | build | Gemini-3.0-Flash |
 
-### 1.2 Server Pool (src/executor/opencode-server-pool.mjs)
+### 1.2 CLI Execution Engine (src/executor/cli-executor.mjs)
 
-A Flexible Server Pool that reduces OpenCode's routing latency by ~90%.
+Direct CLI execution eliminates server pool overhead and cold boot delays.
 
-#### Dynamic Scaling Architecture
+#### Direct Execution Architecture
 
 ```
 Request arrives
     ↓
 ┌─────────────────────────────┐
-│ Port 4096 (IDLE)            │ → Selected (available)
-│ Port 4097 (BUSY) ┐          │
-│ Port 4098 (BUSY) ├─ Already in use
-│ (maxServers reached)│        │
-└─────────────────────────────┘
+│    CLI Executor              │
+│  executeViaCLI()             │
+├─────────────────────────────┤
+│                              │
+│  ┌────────────────────┐     │
+│  │ Codex CLI          │     │
+│  │ codex exec --json  │     │
+│  │ --full-auto        │     │
+│  └────────────────────┘     │
+│           or                 │
+│  ┌────────────────────┐     │
+│  │ Gemini CLI         │     │
+│  │ gemini --yolo      │     │
+│  └────────────────────┘     │
+│                              │
+└──────────────────────────────┘
     ↓
-  [Execute]
+  [Parse Output]
     ↓
-Check utilization
-├─ ≥80% → Scale up (start new port 4099)
-└─ <30% & idle → Scale down (after 1 minute)
+  Return { success, output, tokens, duration }
 ```
 
 #### Configuration Options
 
 ```javascript
-const pool = new OpenCodeServerPool({
-  minServers: 1,      // Minimum servers to maintain
-  maxServers: 4,      // Maximum servers (Memory: 250-300MB/server)
-  basePort: 4096,     // Base port
-  autoScale: true     // Enable auto scaling
+var result = await executeViaCLI({
+  prompt: 'task instructions',
+  provider: 'openai',     // or 'google'
+  model: 'gpt-5.2-codex', // optional
+  agent: 'oracle',        // for logging
+  timeout: 300000,        // 5min default
+  cwd: '/path/to/project'
 });
 ```
 
-#### Round-Robin Load Balancing
+#### CLI Detection & Fallback
 
 ```javascript
-// Cycle through ports 4096, 4097, 4098
-Server 1 (idle) → selected → changed to busy
-Server 2 (busy) → skip
-Server 3 (idle) → next selection
+// Auto-detect CLI availability
+detectCLI('codex');   // boolean
+detectCLI('gemini');  // boolean
+
+// Auto-fallback: Gemini CLI not installed → use Codex
 ```
 
-#### Health Check & Recovery
+#### Token Extraction
 
-- Check all server status every 30 seconds
-- Auto restart ERROR state servers
-- Force shutdown timeout: 5 seconds
+- Codex CLI: Parses JSONL output with token counts
+- Gemini CLI: Infers token usage from text length
+- Unified response format with detailed token breakdown
 
 ### 1.3 Parallel Executor (src/orchestrator/parallel-executor.mjs)
 
@@ -336,10 +348,10 @@ Performance:
 5. Task Execution
    │
    ├─ route === true
-   │  └─ Delegate to OpenCode worker
-   │     ├─ Initialize Server Pool (if needed)
-   │     ├─ Select idle server from ports 4096-4099
-   │     └─ Execute prompt
+   │  └─ Delegate to OpenCode CLI
+   │     ├─ Detect available CLI (codex/gemini)
+   │     ├─ Execute via executeViaCLI()
+   │     └─ Parse output and extract tokens
    │
    └─ route === false
       └─ Execute directly on Claude
@@ -359,17 +371,17 @@ ParallelExecutor.executeParallel([T1, T2, T3, T4, T5])
 │  ├─ [T1, T2] group (Sequential)
 │  ├─ [T3, T4, T5] group (Parallelizable)
 │
-├─ Worker Pool Initialization
-│  └─ OpenCodeServerPool.initialize() (maxWorkers=3)
+├─ CLI Executor Setup
+│  └─ Initialize CLI executor (maxWorkers=3)
 │
 ├─ Group 1: Sequential Execution
-│  ├─ Execute T1 (wait for completion)
-│  └─ Execute T2 (after T1)
+│  ├─ Execute T1 via CLI (wait for completion)
+│  └─ Execute T2 via CLI (after T1)
 │
 ├─ Group 2: Parallel Execution
-│  ├─ W1: Execute T3
-│  ├─ W2: Execute T4
-│  └─ W3: Execute T5
+│  ├─ W1: Execute T3 via CLI
+│  ├─ W2: Execute T4 via CLI
+│  └─ W3: Execute T5 via CLI
 │     (all concurrent)
 │
 └─ Merge Results and Return
@@ -660,24 +672,21 @@ Selects optimal execution strategy by task type.
 ```
 Task analysis
   ├─ type = 'run' (general execution)
-  │  ├─ <30 seconds → 'run' (direct CLI execution)
-  │  └─ ≥30 seconds → 'serve' (server pool)
+  │  └─ Direct CLI execution (stateless)
   │
-  ├─ type = 'serve' (requires server)
-  │  ├─ serverRunning? → 'serve'
-  │  └─ !serverRunning? → 'run' (fallback)
+  ├─ type = 'serve' (deprecated)
+  │  └─ Fallback to 'run' (CLI execution)
   │
   └─ type = 'acp' (ACP protocol)
      ├─ acpAvailable? → 'acp'
-     └─ !acpAvailable? → 'serve' (fallback)
+     └─ !acpAvailable? → 'run' (fallback)
 ```
 
 #### Strategy Characteristics
 
 | Strategy | Protocol | Overhead | Use Case | Advantage |
 |----------|----------|----------|----------|-----------|
-| **run** | CLI | ~10-15s | Single tasks | Simple implementation |
-| **serve** | HTTP | ~1-2s | Parallel tasks | Fast response |
+| **run** | CLI | ~2-5s | All tasks | Stateless, simple |
 | **acp** | ACP | <100ms | Real-time interaction | Very fast |
 
 ### 6.2 TaskRouter (src/orchestrator/task-router.mjs)
@@ -732,7 +741,7 @@ oh-my-claude-money/
 │   │
 │   ├── executor/                  # Executors
 │   │   ├── opencode-executor.mjs      # OpenCode CLI wrapper
-│   │   ├── opencode-server-pool.mjs   # v1.0.0 Server pool
+│   │   ├── cli-executor.mjs           # v2.1.0 CLI direct execution
 │   │   └── acp-client.mjs             # ACP client
 │   │
 │   ├── hooks/                     # Claude Code hook handlers
@@ -786,8 +795,6 @@ oh-my-claude-money/
 │   ├── handoff-to-opencode.sh         # Switch script
 │   ├── install-hud.sh                 # HUD installation
 │   ├── migrate-to-omcm.sh            # Migration script
-│   ├── opencode-server.sh            # Server management
-│   ├── start-server-pool.sh          # Server pool startup
 │   └── uninstall-hud.sh              # HUD removal
 │
 ├── docs/
@@ -811,19 +818,16 @@ oh-my-claude-money/
 
 ## 8. Performance Considerations
 
-### 8.1 Minimize Cold Boot
+### 8.1 CLI Direct Execution Performance
 
 ```
-CLI Mode (no server):
-Request → start opencode process → initialize → execute → terminate
-       └────────────────── ~10-15 seconds ──────────────┘
+CLI Direct Execution (v2.1.0):
+Request → codex exec --full-auto → parse JSONL → return
+       └────────── stateless, no server overhead ─────────┘
 
-Server Pool Mode:
-Server start (pre-started): ~5 seconds
-Request 1: HTTP call → execute → response (~1 second)
-Request 2: HTTP call → execute → response (~1 second)
-Request 3: HTTP call → execute → response (~1 second)
-       └─────────────── 90% reduction ──────────┘
+Codex CLI: ~2-5 seconds (with thinking tokens)
+Gemini CLI: ~1-3 seconds (fast response)
+       └─────────────── Cold boot eliminated ──────────┘
 ```
 
 ### 8.2 Memory Efficiency
@@ -832,11 +836,11 @@ Request 3: HTTP call → execute → response (~1 second)
 RingBuffer (max 1000 events):
 Memory usage = ~100KB (1000 × 100 bytes/event)
 
-Server Pool (4 servers):
-Memory usage ≈ 250-300MB × 4 = 1.2GB
+CLI Direct Execution (stateless):
+Memory usage ≈ per-call overhead only (~50MB during execution)
 
 Total OMCM (including state files):
-Memory usage ≈ 2GB (Recommended: 4GB+)
+Memory usage ≈ 200MB (Recommended: 1GB+)
 ```
 
 ### 8.3 Network Optimization
@@ -877,12 +881,12 @@ shouldRouteToOpenCode() → error → JSON parsing failure
   └─ Default: route=false (retain Claude)
 ```
 
-### 9.2 Server Pool Failure
+### 9.2 CLI Execution Failure
 
 ```javascript
-// Server start failure
-_startServer() → error → timeoutMet(30 seconds)
-  └─ Fallback: switch to CLI mode (run strategy)
+// CLI detection failure
+detectCLI('codex') → false, detectCLI('gemini') → false
+  └─ Fallback: route to Claude (default fallback)
 ```
 
 ### 9.3 Provider Error

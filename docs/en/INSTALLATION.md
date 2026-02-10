@@ -374,9 +374,36 @@ This command will automatically:
 - ✅ Initialize HUD cache
 - ✅ Create fusion config files
 - ✅ Add fusion instructions to CLAUDE.md
-- ✅ Start OpenCode server pool (optional)
+- ✅ Verify Codex/Gemini CLI availability
 
-### Step 8: Initialize Global State Files (Manual Install)
+### Step 8: Verify CLI Installation
+
+Ensure Codex and Gemini CLIs are available:
+
+```bash
+# Check CLI installation
+codex --version
+gemini --version
+
+# If not installed, install via npm
+npm install -g @openai/codex-cli
+npm install -g @google/gemini-cli
+
+# Or install via OpenCode (includes both)
+npm install -g opencode-ai@latest
+
+# Authenticate CLIs
+codex auth login
+# or
+opencode auth login openai
+opencode auth login google
+
+# Test CLI execution
+codex exec "test prompt" --json --full-auto
+gemini -p=. "test prompt"
+```
+
+### Step 9: Initialize Global State Files (Manual Install)
 
 Create the following files in `~/.omcm/` directory:
 
@@ -648,53 +675,56 @@ claude
 /omcm:fusion-setup
 ```
 
-#### "OpenCode server connection failed"
+#### "CLI execution failed"
 
 ```bash
-# Check server port
-lsof -i :4096
+# Check CLI installation
+which codex
+which gemini
 
-# Check server status
-ps aux | grep opencode
+# Install if missing
+npm install -g @openai/codex-cli
+npm install -g @google/gemini-cli
 
-# Manually start server
-opencode serve --port 4096
+# Authenticate
+codex auth login
+# or
+opencode auth login openai
+opencode auth login google
 
-# Or start OMCM server pool
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# Test execution
+codex exec "test" --json --full-auto
+gemini -p=. "test"
 ```
 
 ### Performance Optimization
 
-#### OpenCode Server Pool Setup
-
-```bash
-# Start server pool
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
-
-# Check status
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh status
-
-# View logs
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh logs
-
-# Stop server
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh stop
-```
-
-#### Adjust Max Workers
+#### CLI Execution Settings
 
 Edit `~/.claude/plugins/omcm/config.json`:
 
 ```json
 {
   "routing": {
-    "maxOpencodeWorkers": 4
+    "maxOpencodeWorkers": 4,  // Max parallel CLI calls
+    "timeout": 300000         // CLI timeout (5 minutes)
   }
 }
 ```
 
-Value range: 1~25 (considering memory, ~250MB/server)
+Value range: 1~10 recommended for parallel calls
+
+#### Test CLI Performance
+
+```bash
+# Test Codex CLI speed
+time codex exec "simple task" --json --full-auto
+
+# Test Gemini CLI speed
+time gemini -p=. "simple task"
+
+# Expected: 2-5 seconds per call
+```
 
 ---
 

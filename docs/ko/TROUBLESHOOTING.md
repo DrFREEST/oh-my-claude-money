@@ -10,7 +10,7 @@
 2. [OpenCode 연결 문제](#2-opencode-연결-문제)
 3. [퓨전 라우팅 문제](#3-퓨전-라우팅-문제)
 4. [HUD 및 표시 문제](#4-hud-및-표시-문제)
-5. [서버 풀 문제](#5-서버-풀-문제)
+5. [CLI 실행 문제](#5-cli-실행-문제)
 6. [설정 및 훅 문제](#6-설정-및-훅-문제)
 7. [성능 최적화](#7-성능-최적화)
 8. [진단 도구 사용법](#8-진단-도구-사용법)
@@ -271,20 +271,24 @@ EOF
 **해결 단계**:
 
 ```bash
-# 1단계: OpenCode 서버 상태 확인
-ps aux | grep opencode
+# 1단계: CLI 설치 확인
+which codex
+which gemini
 
-# 2단계: 포트 확인
-lsof -i :4096  # 또는 설정된 포트
+# 2단계: CLI 버전 확인
+codex --version
+gemini --version
 
-# 3단계: 서버 수동 시작
-opencode serve --port 4096
+# 3단계: 인증 상태 확인
+codex auth status
+gemini auth status
 
-# 4단계: OMCM 서버 풀 시작
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# 4단계: CLI 재설치 (필요 시)
+npm install -g @openai/codex
+npm install -g @google/gemini-cli
 
-# 5단계: 상태 확인
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh status
+# 5단계: 경로 확인
+echo $PATH
 ```
 
 ---
@@ -486,102 +490,89 @@ ls -la ~/.claude/plugins/omcm/src/hud/omcm-hud.mjs
 
 ---
 
-## 5. 서버 풀 문제
+## 5. CLI 실행 문제
 
-### 5.1 서버 풀 시작 실패
+### 5.1 Codex/Gemini CLI 찾을 수 없음
 
-**증상**: `Failed to start server pool` 또는 포트 충돌 오류
+**증상**: `codex: command not found` 또는 `gemini: command not found`
 
-**포트 확인**:
-
-```bash
-# 사용 중인 포트 확인
-lsof -i :4096
-lsof -i :4097
-netstat -tuln | grep LISTEN
-
-# 충돌하는 프로세스 종료
-kill -9 <PID>
-```
-
-**포트 변경**:
+**해결 단계**:
 
 ```bash
-# 환경 변수로 포트 변경
-export OMCM_BASE_PORT=9000
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# 1단계: PATH 확인
+echo $PATH
 
-# 또는 설정 파일에서
-cat > ~/.claude/plugins/omcm/config.json << 'EOF'
-{
-  "routing": {
-    "maxOpencodeWorkers": 4,
-    "basePort": 9000
-  }
-}
-EOF
-```
+# 2단계: npm 글로벌 디렉토리 확인
+npm config get prefix
 
-**권한 부족**:
+# 3단계: CLI 설치
+npm install -g @openai/codex
+npm install -g @google/gemini-cli
 
-```bash
-# 1024 이하 포트 사용 시 sudo 필요
-sudo ~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# 4단계: 설치 확인
+which codex
+which gemini
 
-# 또는 1024 이상 포트 사용
-export OMCM_BASE_PORT=4096
+# 5단계: 새 터미널에서 재확인
+hash -r
+codex --version
+gemini --version
 ```
 
 ---
 
-### 5.2 서버 풀 상태 확인
+### 5.2 CLI 인증 실패
 
-**명령어**:
+**증상**: `Authentication failed` 또는 `Invalid credentials`
+
+**해결**:
 
 ```bash
-# 상태 확인
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh status
+# 인증 상태 확인
+codex auth status
+gemini auth status
 
-# 로그 확인
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh logs
+# 재인증
+codex auth login
+gemini auth login
 
-# 실시간 로그
-tail -f ~/.omcm/logs/opencode-server.log
+# 환경 변수로 인증 (대안)
+export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="..."
 
-# 모든 서버 프로세스 확인
-ps aux | grep opencode
+# 인증 정보 확인
+codex auth whoami
+gemini auth whoami
 ```
 
 ---
 
-### 5.3 서버 메모리 사용량 많음
+### 5.3 CLI 실행 타임아웃
 
-**증상**: 서버 풀이 많은 메모리 사용 (서버당 ~300MB)
+**증상**: CLI 호출이 응답 없이 멈춤
 
-**확인**:
-
-```bash
-# 메모리 사용량 확인
-ps aux | grep opencode | grep -v grep
-
-# 또는
-top -p <PID>
-```
-
-**최적화**:
+**해결**:
 
 ```bash
-# 최대 서버 수 줄이기
+# 1단계: 네트워크 연결 확인
+ping -c 3 8.8.8.8
+
+# 2단계: 타임아웃 시간 증가 (config.json)
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
-  "routing": {
-    "maxOpencodeWorkers": 2  # 기본값 3 → 2로 감소
+  "opencode": {
+    "timeout": 600000
   }
 }
 EOF
 
-# 또는 서버 완전 중지
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh stop
+# 3단계: CLI 수동 테스트
+codex --help
+gemini --help
+
+# 4단계: 프록시 설정 확인 (필요 시)
+echo $HTTP_PROXY
+echo $HTTPS_PROXY
 ```
 
 ---
@@ -674,14 +665,16 @@ chmod +x ~/.claude/plugins/omcm/src/hooks/*.mjs
 **최적화**:
 
 ```bash
-# 1단계: 서버 풀 사용 (추천)
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh start
+# 1단계: CLI 설치 확인 및 캐싱
+which codex
+which gemini
 
-# 2단계: 최대 워커 수 조정
+# 2단계: 라우팅 설정 최적화
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "maxOpencodeWorkers": 5  # 병렬 처리 증가
+    "enabled": true,
+    "autoDelegate": true
   }
 }
 EOF
@@ -701,21 +694,22 @@ EOF
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "maxOpencodeWorkers": 10,      # 최대 10개 동시 작업
-    "usageThreshold": 60           # 빨리 분산 시작
+    "enabled": true,
+    "usageThreshold": 60,
+    "autoDelegate": true
   },
   "context": {
-    "maxContextLength": 100000     # 컨텍스트 증가
+    "maxContextLength": 100000
   },
   "opencode": {
-    "timeout": 600000             # 10분 타임아웃
+    "timeout": 600000
   }
 }
 EOF
 
-# 환경 변수도 설정
-export OMCM_MAX_SERVERS=4
-export OMCM_BASE_PORT=4096
+# CLI 설치 확인
+which codex
+which gemini
 ```
 
 ---
@@ -736,9 +730,6 @@ cat ~/.claude/plugins/omcm/config.json | jq '.threshold'
 ### 8.2 로그 확인
 
 ```bash
-# 서버 풀 로그
-cat ~/.omcm/logs/opencode-server.log
-
 # 라우팅 로그
 cat ~/.omcm/routing-log.jsonl | tail -20
 
@@ -747,6 +738,9 @@ cat ~/.omcm/fusion-state.json
 
 # 프로바이더 제한
 cat ~/.omcm/provider-limits.json
+
+# CLI 실행 로그 (stderr/stdout)
+tail -f ~/.omcm/logs/cli-executor.log
 ```
 
 ### 8.3 의존성 확인
@@ -921,20 +915,23 @@ cat ~/.omcm/provider-limits.json | jq '.providers'
 **A**: 단계별 확인:
 
 ```bash
-# 1단계: 서버 상태 확인
-ps aux | grep opencode
+# 1단계: CLI 설치 확인
+which codex
+which gemini
 
-# 2단계: 로그 확인
-tail -50 ~/.omcm/logs/opencode-server.log
+# 2단계: CLI 실행 테스트
+codex --version
+gemini --version
 
-# 3단계: 서버 재시작
-~/.claude/plugins/local/oh-my-claude-money/scripts/opencode-server.sh restart
+# 3단계: 인증 상태 확인
+codex auth status
+gemini auth status
 
 # 4단계: 인터넷 연결 확인
 ping -c 3 8.8.8.8
 
-# 5단계: 프로바이더 상태 확인
-opencode auth status
+# 5단계: 로그 확인
+tail -50 ~/.omcm/logs/cli-executor.log
 ```
 
 ---
@@ -987,13 +984,13 @@ rm -rf ~/.omcm
 | `Task timeout` | 작업 시간 초과 | `opencode.timeout` 증가 |
 | `Context too long` | 컨텍스트 초과 | `maxContextLength` 감소 |
 
-### 서버 관련
+### CLI 실행 관련
 
 | 에러 | 원인 | 해결책 |
 |------|------|--------|
-| `Failed to start server` | 포트 충돌/권한 부족 | 포트 변경 또는 `sudo` 사용 |
-| `Connection refused` | 서버 미시작 | `opencode-server.sh start` |
-| `Address already in use` | 포트 사용 중 | `export OMCM_BASE_PORT=9000` |
+| `CLI not found` | CLI 미설치 | `npm install -g @openai/codex @google/gemini-cli` |
+| `Authentication failed` | 인증 실패 | `codex auth login`, `gemini auth login` |
+| `Command timeout` | 네트워크/응답 지연 | 타임아웃 증가, 네트워크 확인 |
 
 ### HUD 관련
 

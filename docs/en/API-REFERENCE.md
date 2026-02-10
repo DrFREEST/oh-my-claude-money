@@ -9,7 +9,7 @@ Complete documentation of all public APIs and modules in OMCM (Oh My Claude Mone
 - [Parallel Executor](#parallel-executor)
 - [Task Routing](#task-routing)
 - [OpenCode Worker](#opencode-worker)
-- [OpenCode Server Pool](#opencode-server-pool)
+- [CLI Executor](#cli-executor)
 - [ACP Client (Agent Client Protocol)](#acp-client-agent-client-protocol)
 - [Realtime Tracker](#realtime-tracker)
 
@@ -581,7 +581,7 @@ const stats = executor.getStats();
 // Cancel execution
 executor.cancel();
 
-// Cleanup (shutdown server pool)
+// Cleanup (stateless, no shutdown needed)
 await executor.cleanup();
 ```
 
@@ -879,183 +879,169 @@ const result = await runOpenCodeUltrawork('Complex task');
 
 ---
 
-## OpenCode Server Pool
+## CLI Direct Execution
 
 ### Module Location
-`src/executor/opencode-server-pool.mjs`
+`src/executor/cli-executor.mjs`
 
-### OpenCodeServerPool Class
+### executeViaCLI Function
 
-#### Constructor
-
-```javascript
-import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
-
-const pool = new OpenCodeServerPool({
-  minServers: 1,           // Minimum servers
-  maxServers: 4,           // Maximum servers
-  basePort: 4096,          // Starting port
-  autoScale: true,         // Auto-scaling
-  projectDir: process.cwd()
-});
-```
-
-#### `initialize()`
-
-Initializes pool and starts minimum number of servers.
+#### Function Signature
 
 ```javascript
-await pool.initialize();
-// Starts minServers OpenCode servers from basePort
-```
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
-#### `execute(prompt, options)`
-
-Executes a prompt.
-
-```javascript
-const result = await pool.execute('Fix authentication bug', {
-  model: 'claude-opus',
-  agent: 'architect',
-  timeout: 300000
+var result = await executeViaCLI({
+  prompt: 'Fix authentication bug',
+  provider: 'openai',     // or 'google'
+  model: 'gpt-5.2-codex', // optional
+  agent: 'oracle',        // for logging
+  timeout: 300000,        // 5min default
+  cwd: '/path/to/project'
 });
 
 // Returns:
 // {
 //   success: boolean,
-//   result: { ... },
-//   serverPort: number,
-//   duration: number
-// }
-```
-
-#### `executeBatch(prompts)`
-
-Executes multiple prompts in parallel.
-
-```javascript
-const results = await pool.executeBatch([
-  { prompt: 'Task 1', options: {} },
-  { prompt: 'Task 2', options: {} },
-  { prompt: 'Task 3', options: {} }
-]);
-
-// Returns: [ result1, result2, result3 ]
-// Successful: { status: 'fulfilled', value: result }
-// Failed: { status: 'rejected', reason: error }
-```
-
-#### `getStatus()`
-
-Queries pool status.
-
-```javascript
-const status = pool.getStatus();
-// Returns:
-// {
-//   initialized: boolean,
-//   minServers: number,
-//   maxServers: number,
-//   currentServers: number,
-//   idleServers: number,
-//   busyServers: number,
-//   servers: [
-//     {
-//       port: number,
-//       status: 'idle' | 'busy' | 'starting' | 'stopping' | 'error',
-//       busyCount: number,
-//       lastUsed: timestamp,
-//       uptime: number
-//     }
-//   ],
-//   stats: {
-//     totalRequests: number,
-//     completedRequests: number,
-//     failedRequests: number,
-//     averageResponseTime: number,
-//     peakServers: number
+//   output: string,
+//   tokens: {
+//     input: number,
+//     output: number,
+//     reasoning: number,  // Codex only
+//     cacheRead: number   // Codex only
 //   },
-//   autoScale: boolean
+//   error: string,        // if failed
+//   duration: number,     // milliseconds
+//   provider: string      // 'openai' or 'google'
 // }
 ```
 
-#### `scale(targetSize)`
+#### Parameters
 
-Manually adjusts server count.
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `prompt` | string | Yes | Task instructions |
+| `provider` | string | No | 'openai' or 'google' (default: 'openai') |
+| `model` | string | No | Model name (auto-detected if not specified) |
+| `agent` | string | No | Agent name for logging (default: 'default') |
+| `timeout` | number | No | Timeout in milliseconds (default: 300000) |
+| `cwd` | string | No | Working directory (default: process.cwd()) |
+
+### detectCLI Function
+
+Checks if a CLI is installed and available.
 
 ```javascript
-await pool.scale(3);  // Scale to 3 servers
+import { detectCLI } from 'src/executor/cli-executor.mjs';
+
+// Check CLI availability
+var hasCodex = detectCLI('codex');   // boolean
+var hasGemini = detectCLI('gemini'); // boolean
+
+// Use for conditional execution
+if (detectCLI('codex')) {
+  // Execute with Codex
+} else if (detectCLI('gemini')) {
+  // Execute with Gemini
+} else {
+  // Fallback to Claude
+}
 ```
 
-#### `shutdown()`
+### CLI Execution Details
 
-Completely shuts down the pool.
+#### Codex CLI (OpenAI)
 
 ```javascript
-await pool.shutdown();
-// Terminates all server processes
+// Command executed:
+// codex exec -m <model> --json --full-auto
+
+// Output format: JSONL
+// Token extraction: From JSON response
+// Models supported: gpt-5.2, gpt-5.2-codex, gpt-4o
+
+// Example output parsing:
+// {"type":"tokens","input":150,"output":280,"reasoning":45,"cacheRead":100}
 ```
 
-### Auto-Scaling
-
-- **Scale Up**: Utilization >= 80% or queued tasks exist
-- **Scale Down**: Utilization < 30% && no queued tasks (1 minute delay)
-
-### Events
+#### Gemini CLI (Google)
 
 ```javascript
-pool.on('initialized', (status) => {
-  console.log('Pool initialized');
-});
+// Command executed:
+// gemini -p=<cwd> --yolo
 
-pool.on('serverStarted', ({ port }) => {
-  console.log(`Server started: ${port}`);
-});
+// Output format: Plain text
+// Token estimation: Based on text length
+// Models supported: gemini-2.0-flash, gemini-3.0-pro
 
-pool.on('serverError', ({ port, error }) => {
-  console.log(`Server error: ${port} - ${error}`);
-});
-
-pool.on('scaleUp', ({ newSize, port }) => {
-  console.log(`Scaled up: ${newSize} servers`);
-});
-
-pool.on('scaleDown', ({ newSize, port }) => {
-  console.log(`Scaled down: ${newSize} servers`);
-});
-
-pool.on('shutdown', () => {
-  console.log('Pool shutdown');
-});
+// Fallback: Uses Codex if Gemini CLI not installed
 ```
 
-### Convenience Functions
+### Usage Examples
+
+#### Basic Execution
 
 ```javascript
-import {
-  getDefaultPool,
-  executeWithPool,
-  executeBatchWithPool,
-  shutdownDefaultPool
-} from 'src/executor/opencode-server-pool.mjs';
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
-// Get/create default pool
-const pool = getDefaultPool({
-  minServers: 2,
-  maxServers: 10
+var result = await executeViaCLI({
+  prompt: 'Analyze this code for security issues',
+  provider: 'openai',
+  agent: 'security-reviewer'
 });
 
-// Execute with default pool
-const result = await executeWithPool('Task prompt');
+if (result.success) {
+  console.log('Analysis:', result.output);
+  console.log('Tokens used:', result.tokens.input + result.tokens.output);
+} else {
+  console.error('Error:', result.error);
+}
+```
 
-// Batch execute with default pool
-const results = await executeBatchWithPool([
-  { prompt: 'Task 1' },
-  { prompt: 'Task 2' }
-]);
+#### Parallel Execution
 
-// Shutdown default pool
-await shutdownDefaultPool();
+```javascript
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
+
+var tasks = [
+  { prompt: 'Analyze file1.ts', provider: 'openai' },
+  { prompt: 'Analyze file2.ts', provider: 'openai' },
+  { prompt: 'Analyze file3.ts', provider: 'google' }
+];
+
+var results = await Promise.all(
+  tasks.map(task => executeViaCLI(task))
+);
+
+var totalTokens = results.reduce((sum, r) =>
+  sum + r.tokens.input + r.tokens.output, 0
+);
+console.log(`Total tokens: ${totalTokens}`);
+```
+
+#### With Error Handling
+
+```javascript
+import { executeViaCLI, detectCLI } from 'src/executor/cli-executor.mjs';
+
+async function safeExecute(prompt) {
+  // Check CLI availability first
+  if (!detectCLI('codex') && !detectCLI('gemini')) {
+    throw new Error('No CLI available');
+  }
+
+  var result = await executeViaCLI({
+    prompt,
+    provider: detectCLI('codex') ? 'openai' : 'google',
+    timeout: 600000 // 10 minutes
+  });
+
+  if (!result.success) {
+    throw new Error(`Execution failed: ${result.error}`);
+  }
+
+  return result;
+}
 ```
 
 ---
@@ -1439,7 +1425,7 @@ const tracker = createTracker({
 OpenCode Execution:
   parallel-executor.mjs
     ├─ task-router.mjs (task routing)
-    ├─ opencode-server-pool.mjs (server pool)
+    ├─ cli-executor.mjs (CLI executor)
     ├─ opencode-executor.mjs (execution)
     └─ execution-strategy.mjs (strategy selection)
 
@@ -1513,22 +1499,25 @@ if (checkThreshold(75).exceeded) {
 }
 ```
 
-### Example 3: Server Pool Usage
+### Example 3: CLI Direct Execution
 
 ```javascript
-import { getDefaultPool } from 'src/executor/opencode-server-pool.mjs';
+import { executeViaCLI, detectCLI } from 'src/executor/cli-executor.mjs';
 
-const pool = getDefaultPool({
-  minServers: 2,
-  maxServers: 4
+// Check CLI availability
+if (!detectCLI('codex')) {
+  throw new Error('Codex CLI not installed');
+}
+
+// Execute via CLI
+var result = await executeViaCLI({
+  prompt: 'Implement feature X',
+  provider: 'openai',
+  model: 'gpt-5.2-codex'
 });
 
-await pool.initialize();
-
-const result = await pool.execute('Implement feature X');
-console.log('Result:', result);
-
-await pool.shutdown();
+console.log('Result:', result.output);
+console.log('Tokens:', result.tokens);
 ```
 
 ### Example 4: ACP Client

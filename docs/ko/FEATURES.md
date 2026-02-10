@@ -1,11 +1,11 @@
-# OMCM v1.0.0 기능 가이드
+# OMCM v2.1.0 기능 가이드
 
-OMCM (oh-my-claude-money) v1.0.0의 모든 기능에 대한 완전한 기술 참조 문서입니다. API 문서 및 사용 예제를 포함합니다.
+OMCM (oh-my-claude-money) v2.1.0의 모든 기능에 대한 완전한 기술 참조 문서입니다. API 문서 및 사용 예제를 포함합니다.
 
 ## 목차
 
 1. [퓨전 모드](#fusion-mode)
-2. [서버 풀 관리](#server-pool-management)
+2. [CLI 직접 실행](#cli-direct-execution)
 3. [실시간 추적 시스템](#realtime-tracking-system)
 4. [컨텍스트 전송 시스템](#context-transfer-system)
 5. [멀티 프로바이더 밸런싱](#multi-provider-balancing)
@@ -91,8 +91,8 @@ hulw: 데이터베이스 마이그레이션과 함께 REST API 생성
 1. `hulw` 키워드 감지
 2. mode='always'로 `fusionRouter` 활성화
 3. 병렬 실행기에 작업 디스패치
-4. OpenCode 서버 풀 시작 (1-5 서버)
-5. 작업 분배: Claude는 아키텍처 처리, OpenCode는 탐색 처리
+4. Codex/Gemini CLI 준비 확인
+5. 작업 분배: Claude는 아키텍처 처리, Codex/Gemini는 탐색 처리
 
 #### 2. 자동 퓨전 울트라워크 (ulw)
 
@@ -182,194 +182,143 @@ autopilot hulw 실시간 데이터가 있는 대시보드 생성
 |------|------|--------|------|
 | `fusionDefault` | boolean | false | 모든 작업에 퓨전 활성화 |
 | `usageThreshold` | number | 70 | 하이브리드 모드 활성화 % (ulw만 해당) |
-| `maxOpencodeWorkers` | number | 3 | 최대 병렬 OpenCode 서버 (1-25) |
+| `maxOpencodeWorkers` | number | 3 | 최대 병렬 CLI 호출 수 (1-10 권장) |
 | `preferOpencode` | array | [...] | 항상 OpenCode로 라우팅되는 에이전트 |
 | `preferClaude` | array | [...] | 항상 Claude로 라우팅되는 에이전트 |
 | `autoDelegate` | boolean | true | 작업 타입 기반 자동 라우팅 |
 
 ---
 
-## 서버 풀 관리 (Server Pool Management) {#server-pool-management}
+## CLI 직접 실행 (CLI Direct Execution) {#cli-direct-execution}
 
 ### 개요
 
-OpenCode 서버 풀은 지속적인 서버 인스턴스를 유지하여 콜드 부트 지연을 제거합니다.
+OMCM v2.1.0은 Codex/Gemini CLI를 직접 실행하여 간결하고 효율적인 프로바이더 호출을 제공합니다. 서버 풀 오버헤드 없이 stateless 실행 모델을 사용합니다.
 
 **성능 비교:**
 
-| 모드 | 첫 호출 | 후속 호출 |
-|------|---------|-----------|
-| CLI 모드 (서버 없음) | ~10-15s | ~10-15s |
-| **서버 풀 모드** | ~5s (풀 시작) | **~1s** |
+| 모드 | 첫 호출 | 후속 호출 | 메모리 사용 |
+|------|---------|-----------|------------|
+| v1.x 서버 풀 | ~5s | ~1s | ~250MB/서버 |
+| **v2.1 CLI 직접 실행** | ~3-5s | ~3-5s | 0 (stateless) |
 
 **아키텍처:**
 ```
 Request Queue
     ↓
-Load Balancer (Round-Robin + Min Busy)
+CLI Executor (executeViaCLI)
     ↓
-Server Pool (1-5 instances)
+Direct CLI Invocation
 │
-├─ Server 1 (idle)
-├─ Server 2 (busy: 2 requests)
-├─ Server 3 (starting)
-└─ Server 4 (error → recovering)
+├─ codex run --prompt "..." --model gpt-5.2
+├─ gemini run --prompt "..." --model gemini-3.0-flash
+└─ Parallel execution via Promise.all()
 ```
 
 ### API 참조
 
-#### OpenCodeServerPool 클래스
+#### executeViaCLI 함수
 
-**위치:** `src/executor/opencode-server-pool.mjs`
+**위치:** `src/executor/cli-executor.mjs`
 
-##### 생성자
+##### 기본 사용법
 
 ```javascript
-import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
-const pool = new OpenCodeServerPool({
-  minServers: 1,
-  maxServers: 5,
-  basePort: 4096,
-  autoScale: true,
-  projectDir: process.cwd()
+const result = await executeViaCLI({
+  provider: 'openai',      // 'openai' | 'google'
+  model: 'gpt-5.2-codex',
+  prompt: '코드 분석',
+  projectDir: process.cwd(),
+  timeout: 300000
 });
+// 반환: { success: boolean, stdout: string, stderr: string, exitCode: number, duration: number }
 ```
 
 **옵션:**
 
 | 옵션 | 타입 | 기본값 | 설명 |
 |------|------|--------|------|
-| `minServers` | number | 1 | 유지할 최소 서버 수 |
-| `maxServers` | number | 5 | 시작할 최대 서버 수 |
-| `basePort` | number | 4096 | 기본 포트 번호 |
-| `autoScale` | boolean | true | 자동 스케일링 활성화 |
-| `projectDir` | string | cwd | 프로젝트 디렉토리 |
+| `provider` | string | - | 'openai' 또는 'google' |
+| `model` | string | - | 모델 ID (예: 'gpt-5.2-codex') |
+| `prompt` | string | - | 실행할 프롬프트 |
+| `projectDir` | string | cwd | 작업 디렉토리 |
+| `timeout` | number | 300000 | 타임아웃 (ms) |
 
-##### 주요 메서드
+##### CLI 설치 확인
 
-**initialize()**
 ```javascript
-// 최소 서버 시작 (비동기)
-await pool.initialize();
-// 반환: { activeServers: 1, idleServers: 1, busyServers: 0 }
+import { detectCLI } from 'src/executor/cli-executor.mjs';
+
+const openaiAvailable = detectCLI('openai');
+const googleAvailable = detectCLI('google');
+
+if (openaiAvailable && googleAvailable) {
+  console.log('모든 CLI 사용 가능');
+}
 ```
 
-**execute(prompt, options)**
+**설치 확인 방법:**
+```bash
+# OpenAI Codex CLI 확인
+which codex || echo "codex CLI 미설치"
+
+# Google Gemini CLI 확인
+which gemini || echo "gemini CLI 미설치"
+```
+
+### 병렬 실행
+
+CLI는 stateless이므로 제한 없이 병렬 실행 가능:
+
 ```javascript
-// 풀에 작업 제출
-const result = await pool.execute('코드 분석', {
-  agent: 'explorer',
-  model: 'gemini-flash',
-  timeout: 30000
-});
-// 반환: { stdout, stderr, exitCode, executionTime }
-```
+import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
-**getAvailableServer()**
-```javascript
-// 다음 사용 가능 서버 가져오기 (라운드 로빈 + 최소 바쁨)
-const server = pool.getAvailableServer();
-// 반환: { port, status, busyCount }
-```
+const tasks = [
+  { provider: 'openai', model: 'gpt-5.2-codex', prompt: '작업 1' },
+  { provider: 'google', model: 'gemini-3.0-flash', prompt: '작업 2' },
+  { provider: 'openai', model: 'gpt-5.2-codex', prompt: '작업 3' }
+];
 
-**getStatus()**
-```javascript
-// 풀 상태 가져오기
-const status = pool.getStatus();
-// 반환: { activeServers: 1, idleServers: 0, busyServers: 1, totalRequests: 42 }
-```
-
-**shutdown()**
-```javascript
-// 모든 서버를 우아하게 중지
-await pool.shutdown();
-```
-
-### 동적 스케일링
-
-풀은 부하에 따라 자동으로 스케일됩니다:
-
-**스케일 업 트리거:**
-- 현재 부하 > 용량의 80%
-- 동작: 추가 서버 시작 (maxServers까지)
-
-**스케일 다운 트리거:**
-- 현재 부하 < 30%가 60초 이상 지속
-- 동작: 초과 서버 제거
-
-**스케일링 시나리오 예시:**
-```
-Time 0s:    풀이 1개 서버로 시작
-            부하: 10% (1/10 busy slots)
-
-Time 5s:    10개 동시 요청 도착
-            부하: 100% (10/10 busy slots)
-            트리거: 스케일 업 → 서버 2 시작
-
-Time 10s:   요청 완료
-            부하: 20% (2/10 busy slots)
-            타이머: 스케일 다운 지연 시작
-
-Time 70s:   스케일 다운 타이머 만료
-            부하 여전히 < 30%
-            동작: 서버 2 중지
-            풀: 1개 서버로 복귀
-```
-
-### 헬스 체크 및 복구
-
-**자동 헬스 모니터링:**
-- 체크 간격: 30초
-- 감지: 충돌된 서버, 멈춘 연결
-- 복구: 실패한 서버 자동 재시작
-- 리셋: busyCount 현재 상태 유지 (컨텍스트 손실 방지)
-
-**예시:**
-```
-Server 2 crashes (SIGKILL)
-    ↓
-Health check detects status=error
-    ↓
-Auto-restart: spawn new process on same port
-    ↓
-Update status=starting
-    ↓
-Ready for requests (status=idle)
+const results = await Promise.all(
+  tasks.map(task => executeViaCLI(task))
+);
 ```
 
 ### 사용 예제
 
 ```javascript
-// 예제: 서버 풀을 사용한 병렬 작업 실행
+// 예제: CLI를 사용한 병렬 작업 실행
 
-import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
+import { executeViaCLI, detectCLI } from 'src/executor/cli-executor.mjs';
 
 async function parallelProcessing() {
-  const pool = new OpenCodeServerPool({
-    minServers: 2,
-    maxServers: 5,
-    autoScale: true
-  });
-
-  await pool.initialize();
+  // CLI 사용 가능 여부 확인
+  if (!detectCLI('openai') || !detectCLI('google')) {
+    throw new Error('Codex 또는 Gemini CLI가 설치되지 않았습니다');
+  }
 
   // 10개 병렬 작업 제출
   const tasks = [];
-  for (let i = 0; i < 10; i++) {
+  for (var i = 0; i < 10; i++) {
     tasks.push(
-      pool.execute(`파일 ${i}.ts 분석`, { agent: 'explorer' })
+      executeViaCLI({
+        provider: i % 2 === 0 ? 'openai' : 'google',
+        model: i % 2 === 0 ? 'gpt-5.2-codex' : 'gemini-3.0-flash',
+        prompt: `파일 ${i}.ts 분석`,
+        projectDir: process.cwd()
+      })
     );
   }
 
   const results = await Promise.all(tasks);
 
-  const status = pool.getStatus();
-  console.log(`완료된 작업: ${results.length}개`);
-  console.log(`총 요청 수: ${status.totalRequests}`);
-  console.log(`평균 응답 시간: ${status.averageResponseTime}ms`);
+  const successCount = results.filter(r => r.success).length;
+  console.log(`완료된 작업: ${successCount}/${results.length}개`);
 
-  await pool.shutdown();
+  const avgDuration = results.reduce((sum, r) => sum + r.duration, 0) / results.length;
+  console.log(`평균 응답 시간: ${avgDuration}ms`);
 }
 ```
 
@@ -1061,7 +1010,7 @@ async function refactorProject() {
  */
 
 import { ParallelExecutor } from 'src/orchestrator/parallel-executor.mjs';
-import { OpenCodeServerPool } from 'src/executor/opencode-server-pool.mjs';
+import { executeViaCLI, detectCLI } from 'src/executor/cli-executor.mjs';
 import { buildContext } from 'src/context/index.mjs';
 import { RealtimeTracker, MetricsCollector } from 'src/tracking/index.mjs';
 
@@ -1070,13 +1019,10 @@ async function buildComplexSystem() {
   const tracker = new RealtimeTracker();
   const collector = new MetricsCollector();
 
-  // 2. 서버 풀 시작
-  const pool = new OpenCodeServerPool({
-    minServers: 2,
-    maxServers: 5,
-    autoScale: true
-  });
-  await pool.initialize();
+  // 2. CLI 사용 가능 여부 확인
+  if (!detectCLI('openai') || !detectCLI('google')) {
+    throw new Error('Codex 또는 Gemini CLI가 설치되지 않았습니다');
+  }
 
   // 3. 잠재적 핸드오프를 위한 컨텍스트 캡처
   const context = buildContext({
@@ -1150,9 +1096,6 @@ async function buildComplexSystem() {
   console.log(`작업: ${results.filter(r => r.success).length}/${results.length} ✓`);
   console.log(`비용: $${metrics.totalCost.toFixed(2)}`);
   console.log(`평균 지연 시간: ${metrics.avgLatencies}ms`);
-
-  // 8. 정리
-  await pool.shutdown();
 }
 
 // 퓨전 모드로 실행
@@ -1188,19 +1131,25 @@ buildComplexSystem().catch(console.error);
 
 ## 버전 호환성
 
-**v1.0.0 기능:**
-- ✅ 실시간 추적 (v1.0.0 신규)
-- ✅ 컨텍스트 전송 (v1.0.0 신규)
-- ✅ 멀티 프로바이더 밸런싱 (v1.0.0 신규)
-- ✅ 병렬 실행기 (v1.0.0 신규)
-- ✅ 서버 풀 (v1.0.0 신규)
+**v2.1.0 기능:**
+- ✅ CLI 직접 실행 (v2.1.0 신규)
+- ✅ 실시간 추적 (v1.0.0+)
+- ✅ 컨텍스트 전송 (v1.0.0+)
+- ✅ 멀티 프로바이더 밸런싱 (v1.0.0+)
+- ✅ 병렬 실행기 (v1.0.0+)
 - ✅ 퓨전 모드 (v0.3.0+)
 - ✅ 에이전트 매핑 (v0.5.0+)
 - ✅ 동적 라우팅 (v0.8.0+)
 
-**주요 변경 사항:** 없음. v1.0.0은 v0.8.0과 완전히 하위 호환됩니다.
+**주요 변경 사항 (v2.1.0):**
+- 서버 풀 제거, CLI 직접 실행으로 전환
+- 메모리 사용량 감소 (stateless 모델)
+- 무제한 병렬 처리 지원
 
-**마이그레이션:** 마이그레이션 필요 없음. 기존 설정이 변경 없이 작동합니다.
+**마이그레이션:**
+- `OpenCodeServerPool` → `executeViaCLI` 함수로 교체
+- `opencode-server.sh` 스크립트 더 이상 사용하지 않음
+- Codex/Gemini CLI 설치 필요 (`which codex`, `which gemini`로 확인)
 
 ---
 

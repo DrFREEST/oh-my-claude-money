@@ -18,6 +18,37 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.1.2] - 2026-02-10
+
+### 호환성 업데이트 (Compatibility)
+- **OMC v4.1.10 호환** — 19개 파일의 OMC 버전 참조 4.1.9 → 4.1.10 일괄 업데이트
+
+### 호환성 (Compatibility)
+- **OMC**: v4.1.10
+- **Codex CLI**: v0.98.0+
+- **Gemini CLI**: 선택적 (미설치 시 Codex 폴백)
+
+---
+
+## [2.1.1] - 2026-02-10
+
+### 호환성 업데이트 (Compatibility)
+- **OMC v4.1.9 호환** — 19개 파일의 OMC 버전 참조 4.1.7 → 4.1.9 일괄 업데이트
+
+### 수정 (Fixed)
+- **Stop 훅 안정성 개선** — OMC 4.1.9 Issue #319 패턴 포팅 (`persistent-mode.mjs`)
+  - `console.log()` → `process.stdout.write()` + try-catch 래핑 (EPIPE 방지)
+  - 글로벌 에러 핸들러 추가 (`uncaughtException`, `unhandledRejection`)
+  - 10초 safety timeout 추가 (무한 행 방지)
+  - Invalid JSON 입력 시 early return 추가
+
+### 호환성 (Compatibility)
+- **OMC**: v4.1.9
+- **Codex CLI**: v0.98.0+
+- **Gemini CLI**: 선택적 (미설치 시 Codex 폴백)
+
+---
+
 ## [2.1.0] - 2026-02-10
 
 ### 변경 (Changed)

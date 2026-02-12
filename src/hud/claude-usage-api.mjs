@@ -55,6 +55,9 @@ function readCache() {
       if (cache.data.sonnetWeeklyResetsAt) {
         cache.data.sonnetWeeklyResetsAt = new Date(cache.data.sonnetWeeklyResetsAt);
       }
+      if (cache.data.opusWeeklyResetsAt) {
+        cache.data.opusWeeklyResetsAt = new Date(cache.data.opusWeeklyResetsAt);
+      }
     }
 
     return cache;
@@ -125,6 +128,7 @@ function readKeychainCredentials() {
       return {
         accessToken: creds.accessToken,
         expiresAt: creds.expiresAt,
+        refreshToken: creds.refreshToken,
       };
     }
   } catch {
@@ -153,6 +157,7 @@ function readFileCredentials() {
       return {
         accessToken: creds.accessToken,
         expiresAt: creds.expiresAt,
+        refreshToken: creds.refreshToken,
       };
     }
   } catch {
@@ -287,6 +292,13 @@ function parseUsageResponse(response) {
     result.sonnetWeeklyResetsAt = parseDate(sonnetResetsAt);
   }
 
+  var opusSevenDay = response.seven_day_opus && response.seven_day_opus.utilization;
+  var opusResetsAt = response.seven_day_opus && response.seven_day_opus.resets_at;
+  if (opusSevenDay != null) {
+    result.opusWeeklyPercent = clamp(opusSevenDay);
+    result.opusWeeklyResetsAt = parseDate(opusResetsAt);
+  }
+
   return result;
 }
 
@@ -320,6 +332,63 @@ export function formatTimeUntilReset(resetDate) {
   return `${minutes}m`;
 }
 
+var DEFAULT_OAUTH_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
+
+function refreshAccessToken(refreshToken) {
+  return new Promise((resolve) => {
+    var clientId = process.env.CLAUDE_CODE_OAUTH_CLIENT_ID || DEFAULT_OAUTH_CLIENT_ID;
+    var body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+    }).toString();
+    var req = https.request({
+      hostname: 'platform.claude.com',
+      path: '/v1/oauth/token',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) },
+      timeout: API_TIMEOUT_MS,
+    }, (res) => {
+      var data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            var parsed = JSON.parse(data);
+            if (parsed.access_token) {
+              resolve({ accessToken: parsed.access_token, refreshToken: parsed.refresh_token || refreshToken, expiresAt: parsed.expires_in ? Date.now() + parsed.expires_in * 1000 : parsed.expires_at });
+              return;
+            }
+          } catch { }
+        }
+        resolve(null);
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.end(body);
+  });
+}
+
+function writeBackCredentials(creds) {
+  try {
+    var credPath = join(homedir(), '.claude/.credentials.json');
+    if (!existsSync(credPath)) return;
+    var content = readFileSync(credPath, 'utf-8');
+    var parsed = JSON.parse(content);
+    if (parsed.claudeAiOauth) {
+      parsed.claudeAiOauth.accessToken = creds.accessToken;
+      if (creds.expiresAt != null) parsed.claudeAiOauth.expiresAt = creds.expiresAt;
+      if (creds.refreshToken) parsed.claudeAiOauth.refreshToken = creds.refreshToken;
+    } else {
+      parsed.accessToken = creds.accessToken;
+      if (creds.expiresAt != null) parsed.expiresAt = creds.expiresAt;
+      if (creds.refreshToken) parsed.refreshToken = creds.refreshToken;
+    }
+    writeFileSync(credPath, JSON.stringify(parsed, null, 2));
+  } catch { }
+}
+
 /**
  * Get usage data (with caching)
  *
@@ -338,10 +407,25 @@ export async function getClaudeUsage() {
   }
 
   // Get credentials
-  const creds = getCredentials();
-  if (!creds || !validateCredentials(creds)) {
+  var creds = getCredentials();
+  if (!creds) {
     writeCache(null, true);
     return null;
+  }
+  if (!validateCredentials(creds)) {
+    if (creds.refreshToken) {
+      var refreshed = await refreshAccessToken(creds.refreshToken);
+      if (refreshed) {
+        creds = Object.assign({}, creds, refreshed);
+        writeBackCredentials(creds);
+      } else {
+        writeCache(null, true);
+        return null;
+      }
+    } else {
+      writeCache(null, true);
+      return null;
+    }
   }
 
   // Fetch from API

@@ -180,6 +180,37 @@ function findRecentStatusFile(workingDir, provider) {
 }
 
 /**
+ * MCP-First 메트릭 업데이트
+ */
+function updateMcpFirstMetrics() {
+  var fusionStatePath = join(HOME, '.omcm', 'fusion-state.json');
+  try {
+    var state = {};
+    if (existsSync(fusionStatePath)) {
+      state = JSON.parse(readFileSync(fusionStatePath, 'utf-8'));
+    }
+    if (!state.mcpFirst) {
+      state.mcpFirst = {
+        totalEligible: 0,
+        actualMcpCalls: 0,
+        blockedAndRedirected: 0,
+        leakedToTask: 0,
+        utilizationRate: 0
+      };
+    }
+    state.mcpFirst.actualMcpCalls++;
+    if (state.mcpFirst.totalEligible > 0) {
+      state.mcpFirst.utilizationRate = Math.round(
+        (state.mcpFirst.actualMcpCalls / state.mcpFirst.totalEligible) * 100
+      );
+    }
+    writeFileSync(fusionStatePath, JSON.stringify(state, null, 2));
+  } catch (e) {
+    // 메트릭 업데이트 실패 무시
+  }
+}
+
+/**
  * MCP 추적 상태 업데이트
  */
 function updateMcpTracking(classification, tokenData) {
@@ -229,6 +260,11 @@ function updateMcpTracking(classification, tokenData) {
   tracking.lastUpdated = new Date().toISOString();
 
   writeFileSync(MCP_TRACKING_FILE, JSON.stringify(tracking, null, 2));
+
+  // MCP-First 메트릭 업데이트 (ask_codex/ask_gemini 호출 시)
+  if (classification.action === 'ask_codex' || classification.action === 'ask_gemini') {
+    updateMcpFirstMetrics();
+  }
 }
 
 async function main() {
@@ -245,6 +281,7 @@ async function main() {
 
     var classification = classifyMcpCall(toolName);
     if (!classification) {
+      try { process.stdout.write(JSON.stringify({ suppressOutput: true }) + '\n'); } catch (_e) { /* EPIPE */ }
       process.exit(0);
     }
 
@@ -352,6 +389,7 @@ async function main() {
   } catch (e) {
     // 오류 시 조용히 종료
   }
+  try { process.stdout.write(JSON.stringify({ suppressOutput: true }) + '\n'); } catch (_e) { /* EPIPE */ }
   process.exit(0);
 }
 

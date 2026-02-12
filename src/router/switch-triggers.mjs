@@ -8,7 +8,7 @@
  * - MCP 연속 실패
  * - 평균 응답 지연
  *
- * OMC v4.1.7 대응
+ * OMC v4.1.16 대응
  *
  * @version 1.0.0
  */
@@ -26,9 +26,9 @@ var RESET = '\x1b[0m';
  * @type {Object.<string, {threshold: number, unit: string, action: string}>}
  */
 var SWITCH_TRIGGERS = {
-  hourly_rate: { threshold: 50, unit: 'requests/hour', action: 'suggest_opencode' },
-  cost_budget: { threshold: 5.0, unit: '$/session', action: 'force_opencode' },
-  mcp_failure: { threshold: 3, unit: 'consecutive', action: 'fallback_opencode' },
+  hourly_rate: { threshold: 50, unit: 'requests/hour', action: 'suggest_mcp' },
+  cost_budget: { threshold: 5.0, unit: '$/session', action: 'enforce_mcp' },
+  mcp_failure: { threshold: 3, unit: 'consecutive', action: 'fallback_claude' },
   latency: { threshold: 30000, unit: 'ms_avg', action: 'switch_model' },
   token_burn_rate: { threshold: 100000, unit: 'tokens/minute', action: 'suggest_downgrade' },
 };
@@ -38,11 +38,11 @@ var SWITCH_TRIGGERS = {
  * @type {Object.<string, number>}
  */
 var ACTION_PRIORITY = {
-  force_opencode: 100,
-  fallback_opencode: 80,
+  enforce_mcp: 100,
+  fallback_claude: 80,
   suggest_downgrade: 60,
   switch_model: 40,
-  suggest_opencode: 20,
+  suggest_mcp: 20,
 };
 
 /**
@@ -50,11 +50,11 @@ var ACTION_PRIORITY = {
  * @type {Object.<string, string>}
  */
 var ACTION_SEVERITY = {
-  force_opencode: 'critical',
-  fallback_opencode: 'critical',
+  enforce_mcp: 'critical',
+  fallback_claude: 'critical',
   suggest_downgrade: 'warning',
   switch_model: 'warning',
-  suggest_opencode: 'info',
+  suggest_mcp: 'info',
 };
 
 /**

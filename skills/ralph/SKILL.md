@@ -44,6 +44,17 @@ triggers:
 4. **FUNCTIONALITY**: 요청 기능 동작 확인
 5. **TODO**: 모든 태스크 완료
 
+### MCP-First 검증 (v3.0)
+
+**Architect 검증을 MCP로 수행하여 토큰 절약**:
+
+- **검증 단계**: ask_codex MCP 사용 (agent_role: "architect" 또는 "verifier")
+- **코드 리뷰**: ask_codex MCP 사용 (agent_role: "code-reviewer")
+- **보안 리뷰**: ask_codex MCP 사용 (agent_role: "security-reviewer")
+
+Task(architect) 대신 MCP 직접 호출로 **검증 루프의 토큰 비용 대폭 절감**.
+각 반복(iteration)마다 MCP를 사용하면 누적 절약 효과가 큽니다.
+
 ## 활성화 방법
 
 ### 명시적 활성화

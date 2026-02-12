@@ -72,10 +72,12 @@ export function writeCounters(sessionId, counters) {
 export function recordToolCall(sessionId, toolName) {
   var counters = readCounters(sessionId);
 
-  // Task 호출 시 카운터 리셋
+  // Task 호출 시 카운터 리셋 (플래그도 초기화하여 다음 연속 호출 시 다시 제안 가능)
   if (toolName === 'Task') {
     counters.consecutiveRead = 0;
     counters.consecutiveBash = 0;
+    counters.readSuggestionShown = false;
+    counters.bashSuggestionShown = false;
     counters.lastTool = 'Task';
     writeCounters(sessionId, counters);
     return { consecutiveRead: 0, consecutiveBash: 0, shouldSuggestDelegation: false, suggestion: null };
@@ -95,16 +97,20 @@ export function recordToolCall(sessionId, toolName) {
   counters.lastTool = toolName;
   writeCounters(sessionId, counters);
 
-  // 위임 제안 판단 (5의 배수에서만 제안하여 병렬 호출 시 중복 방지)
+  // 위임 제안 판단 (플래그 기반 — 임계치 도달 후 1회만 제안, 병렬 호출 중복 방지)
   var shouldSuggest = false;
   var suggestion = null;
 
-  if (counters.consecutiveRead > 0 && counters.consecutiveRead % 5 === 0) {
+  if (counters.consecutiveRead >= 5 && !counters.readSuggestionShown) {
     shouldSuggest = true;
     suggestion = '여러 파일을 읽고 있습니다. explore 에이전트에 위임하면 컨텍스트를 절약할 수 있습니다.';
-  } else if (counters.consecutiveBash > 0 && counters.consecutiveBash % 3 === 0) {
+    counters.readSuggestionShown = true;
+    writeCounters(sessionId, counters);
+  } else if (counters.consecutiveBash >= 3 && !counters.bashSuggestionShown) {
     shouldSuggest = true;
     suggestion = '여러 명령을 실행하고 있습니다. Task 에이전트에 위임하면 효율적입니다.';
+    counters.bashSuggestionShown = true;
+    writeCounters(sessionId, counters);
   }
 
   return {

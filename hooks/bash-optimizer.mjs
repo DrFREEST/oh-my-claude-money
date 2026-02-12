@@ -33,7 +33,7 @@ async function main() {
   try {
     var rawInput = await readStdin();
     if (!rawInput || !rawInput.trim()) {
-      console.log(JSON.stringify({ allow: true }));
+      try { process.stdout.write(JSON.stringify({ allow: true, suppressOutput: true }) + '\n'); } catch (_e) { /* EPIPE */ }
       process.exit(0);
     }
 
@@ -52,25 +52,25 @@ async function main() {
       var counterModule = await import('../src/utils/tool-counter.mjs');
       result = counterModule.recordToolCall(sessionId, 'Bash');
     } catch (e) {
-      console.log(JSON.stringify({ allow: true }));
+      try { process.stdout.write(JSON.stringify({ allow: true, suppressOutput: true }) + '\n'); } catch (_e) { /* EPIPE */ }
       process.exit(0);
     }
 
     // 위임 제안이 있으면 hookSpecificOutput에 추가
     if (result && result.shouldSuggestDelegation && result.suggestion) {
-      console.log(JSON.stringify({
+      try { process.stdout.write(JSON.stringify({
         allow: true,
         hookSpecificOutput: {
           hookEventName: "PreToolUse",
           additionalContext: '[OMCM 토큰 절약 힌트] ' + result.suggestion
         }
-      }));
+      }) + '\n'); } catch (_e) { /* EPIPE */ }
     } else {
-      console.log(JSON.stringify({ allow: true }));
+      try { process.stdout.write(JSON.stringify({ allow: true, suppressOutput: true }) + '\n'); } catch (_e) { /* EPIPE */ }
     }
 
   } catch (e) {
-    console.log(JSON.stringify({ allow: true }));
+    try { process.stdout.write(JSON.stringify({ allow: true, suppressOutput: true }) + '\n'); } catch (_e) { /* EPIPE */ }
   }
   process.exit(0);
 }

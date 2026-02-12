@@ -139,11 +139,16 @@ function runAutoUpdate() {
 // 메인
 // =============================================================================
 
+// stdout 버퍼 flush 후 안전하게 종료하는 헬퍼
+function safeOutput(data) {
+  var output = JSON.stringify(data) + '\n';
+  process.stdout.write(output, function() { process.exit(0); });
+}
+
 async function main() {
   // 안전 타임아웃: 7초 내에 완료 못하면 자동 통과
   const safetyTimer = setTimeout(() => {
-    console.log(JSON.stringify({ continue: true }));
-    process.exit(0);
+    safeOutput({ continue: true, suppressOutput: true });
   }, 7000);
 
   try {
@@ -169,8 +174,29 @@ async function main() {
     // 알림 비활성화 시 통과
     if (config.notifications && !config.notifications.showOnThreshold) {
       clearTimeout(safetyTimer);
-      console.log(JSON.stringify({ continue: true }));
-      process.exit(0);
+      safeOutput({ continue: true, suppressOutput: true });
+      return;
+    }
+
+    // MCP-First 모드 상태 표시
+    var mcpConfig = null;
+    try {
+      var configPaths = [
+        join(homedir(), '.claude', 'marketplaces', 'omcm', 'config.json'),
+        join(homedir(), '.claude', 'plugins', 'omcm', 'config.json'),
+      ];
+      for (var cp = 0; cp < configPaths.length; cp++) {
+        if (existsSync(configPaths[cp])) {
+          mcpConfig = JSON.parse(readFileSync(configPaths[cp], 'utf-8'));
+          break;
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    var mcpFirstMessage = '';
+    if (mcpConfig && mcpConfig.mcpFirst) {
+      var modeLabel = (mcpConfig.mcpFirstMode === 'enforce') ? 'enforce' : 'suggest';
+      mcpFirstMessage = `\n\n🔧 **MCP-First: ${modeLabel}** | 분석→ask_codex, 디자인→ask_gemini`;
     }
 
     // 위험 수준일 때만 경고
@@ -178,34 +204,39 @@ async function main() {
       const summary = getUsageSummary();
 
       clearTimeout(safetyTimer);
-      console.log(
-        JSON.stringify({
-          continue: true,
-          message: `⚠️ **사용량 경고**
+      safeOutput({
+        continue: true,
+        message: `⚠️ **사용량 경고**
 
 현재 사용량이 높습니다: ${summary}
 
-작업 연속성을 위해 OpenCode 전환을 고려하세요.
-"opencode로 전환" 또는 "/opt/oh-my-claude-money/scripts/handoff-to-opencode.sh" 사용`,
-        })
-      );
-      process.exit(0);
+작업 연속성을 위해 MCP-First 모드로 Codex/Gemini를 활용하세요.${mcpFirstMessage}`,
+      });
+      return;
+    }
+
+    // MCP-First 활성 시 정상 통과에도 메시지 표시
+    if (mcpFirstMessage) {
+      clearTimeout(safetyTimer);
+      safeOutput({
+        continue: true,
+        message: mcpFirstMessage.trim(),
+      });
+      return;
     }
 
     // 정상 통과
     clearTimeout(safetyTimer);
-    console.log(JSON.stringify({ continue: true }));
 
     // 비필수 작업: 메인 출력 후 비동기 실행
     syncOmcVersion();
     runAutoUpdate();
 
-    process.exit(0);
+    safeOutput({ continue: true, suppressOutput: true });
   } catch (e) {
     // 오류 시 정상 통과
     clearTimeout(safetyTimer);
-    console.log(JSON.stringify({ continue: true }));
-    process.exit(0);
+    safeOutput({ continue: true, suppressOutput: true });
   }
 }
 

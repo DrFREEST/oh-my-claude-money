@@ -28,5 +28,5 @@ try {
 var __dir = dirname(fileURLToPath(import.meta.url));
 import(join(__dir, 'fusion-router-main.mjs')).catch(function(e) {
   console.error('[OMCM Fusion] Failed to load main: ' + e.message);
-  console.log(JSON.stringify({ allow: true }));
+  console.log(JSON.stringify({ allow: true, suppressOutput: true }));
 });

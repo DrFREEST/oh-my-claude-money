@@ -22,7 +22,7 @@ async function main() {
     var toolInput = data.tool_input || data.toolInput || {};
 
     if (toolName !== 'Task') {
-      console.log(JSON.stringify({ allow: true }));
+      console.log(JSON.stringify({ allow: true, suppressOutput: true }));
       return;
     }
 
@@ -80,11 +80,11 @@ async function main() {
         message: guidance
       }));
     } else {
-      console.log(JSON.stringify({ allow: true }));
+      console.log(JSON.stringify({ allow: true, suppressOutput: true }));
     }
   } catch (e) {
     console.error('[OMCM Context Guard] Error: ' + e.message);
-    console.log(JSON.stringify({ allow: true }));
+    console.log(JSON.stringify({ allow: true, suppressOutput: true }));
   }
 }
 

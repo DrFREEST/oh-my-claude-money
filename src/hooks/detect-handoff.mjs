@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * detect-handoff.mjs - OpenCode 전환 감지 훅
+ * detect-handoff.mjs - 작업 위임 및 MCP 활용 권장 훅
  *
  * UserPromptSubmit 훅에서 실행됨
- * - 키워드 감지: "opencode", "전환", "handoff" 등
- * - 사용량 임계치 감지: HUD 캐시에서 90% 이상 확인
+ * - 모드 키워드 감지: ecomode, ralph, cancel 등
+ * - 작업 위임 패턴 감지 및 권장
+ * - MCP-First 리마인더
  */
 
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
@@ -35,8 +36,6 @@ async function loadUtils() {
     getUsageFromCache = () => null;
     checkThreshold = () => ({ exceeded: false });
     loadConfig = () => ({
-      threshold: 90,
-      keywords: ['opencode', 'handoff', '전환', 'opencode로', '오픈코드'],
       modeKeywords: {
         ecomode: ['eco:', 'ecomode:', 'eco ', '효율', '절약', 'budget', 'save-tokens'],
         ralph: ['ralph:', 'ralph ', "don't stop", 'must complete', '끝까지', '완료할때까지', '멈추지마'],
@@ -109,24 +108,6 @@ function extractPrompt(input) {
 }
 
 // =============================================================================
-// 키워드 감지
-// =============================================================================
-
-function detectKeyword(prompt, keywords) {
-  if (!prompt) return null;
-
-  const lowerPrompt = prompt.toLowerCase();
-
-  for (const kw of keywords) {
-    if (lowerPrompt.includes(kw.toLowerCase())) {
-      return kw;
-    }
-  }
-
-  return null;
-}
-
-// =============================================================================
 // 모드 키워드 감지 (ecomode, ralph, cancel)
 // =============================================================================
 
@@ -151,7 +132,7 @@ function detectModeKeyword(prompt, modeKeywords) {
 // =============================================================================
 
 function saveModeState(mode, projectDir) {
-  // OMC 4.1.7: 프로젝트 상대 경로 사용
+  // OMC 4.1.16: 프로젝트 상대 경로 사용
   const effectiveDir = projectDir || process.env.PWD || process.cwd();
   const stateDir = join(effectiveDir, '.omc/state');
 
@@ -169,7 +150,7 @@ function saveModeState(mode, projectDir) {
     };
 
     // cancel 모드의 경우 모든 상태 파일 비활성화
-    // OMC v4.1.7: team으로 통합 (ultrapilot, swarm은 레거시 호환)
+    // OMC v4.1.16: team으로 통합 (ultrapilot, swarm은 레거시 호환)
     if (mode === 'cancel') {
       const modes = ['ralph', 'autopilot', 'ultrawork', 'ecomode', 'team', 'swarm', 'pipeline', 'ultrapilot', 'ultraqa'];
 
@@ -197,32 +178,6 @@ function saveModeState(mode, projectDir) {
       }
       return;
     }
-
-    writeFileSync(stateFile, JSON.stringify(state, null, 2));
-  } catch (e) {
-    // 저장 실패 시 무시
-  }
-}
-
-// =============================================================================
-// 핸드오프 상태 저장
-// =============================================================================
-
-function saveHandoffState(reason, usage, projectDir) {
-  const handoffDir = join(projectDir || process.cwd(), '.omcm/handoff');
-
-  try {
-    if (!existsSync(handoffDir)) {
-      mkdirSync(handoffDir, { recursive: true });
-    }
-
-    const stateFile = join(handoffDir, 'pending-handoff.json');
-    const state = {
-      timestamp: new Date().toISOString(),
-      reason,
-      usage,
-      triggered: true,
-    };
 
     writeFileSync(stateFile, JSON.stringify(state, null, 2));
   } catch (e) {
@@ -291,7 +246,7 @@ function detectDelegationPattern(prompt) {
     }
   }
 
-  // 리서치/문서 패턴 (OMC 4.1.7: researcher → dependency-expert)
+  // 리서치/문서 패턴 (OMC 4.1.16: researcher → dependency-expert)
   var researchPatterns = ['알려줘', '설명해', '문서', 'explain', 'document', 'research', '연구'];
   for (var l = 0; l < researchPatterns.length; l++) {
     if (lowerPrompt.indexOf(researchPatterns[l]) !== -1) {
@@ -313,7 +268,7 @@ async function main() {
     const rawInput = await readStdin();
 
     if (!rawInput.trim()) {
-      console.log(JSON.stringify({ continue: true }));
+      console.log(JSON.stringify({ continue: true, suppressOutput: true }));
       process.exit(0);
     }
 
@@ -322,8 +277,6 @@ async function main() {
     const projectDir = input.directory || process.cwd();
 
     const config = loadConfig();
-    const keywords = config.keywords || ['opencode', 'handoff', '전환'];
-    const threshold = config.threshold || 90;
 
     // 0. 모드 키워드 감지 (ecomode, ralph, cancel)
     const modeKeywords = config.modeKeywords || {};
@@ -379,77 +332,36 @@ async function main() {
       }
     }
 
-    // 1. 핸드오프 키워드 감지
-    const detectedKeyword = detectKeyword(prompt, keywords);
-    if (detectedKeyword) {
-      const usage = getUsageFromCache();
-      saveHandoffState('keyword', usage, projectDir);
-
-      const usageStr = usage
-        ? `5시간: ${usage.fiveHour}%, 주간: ${usage.weekly}%`
-        : 'N/A';
-
-      console.log(
-        JSON.stringify({
-          continue: true,
-          hookSpecificOutput: {
-            hookEventName: "UserPromptSubmit",
-            additionalContext: `🔄 **OpenCode 전환 감지**
-
-키워드 "${detectedKeyword}"가 감지되었습니다.
-
-현재 사용량: ${usageStr}
-
-전환을 진행하려면 터미널에서:
-\`\`\`bash
-cd ${projectDir} && /opt/oh-my-claude-money/scripts/handoff-to-opencode.sh
-\`\`\`
-
-또는 컨텍스트만 저장:
-\`\`\`bash
-/opt/oh-my-claude-money/scripts/export-context.sh
-\`\`\``
-          },
-        })
-      );
-      process.exit(0);
+    // 0.6. MCP-First 리마인더 (분석/리뷰 키워드 감지 시)
+    var mcpKeywords = ['분석', '리뷰', '검토', '설계', '계획', 'analyze', 'review', 'plan', 'audit', 'debug', 'investigate'];
+    var promptLower = (prompt || '').toLowerCase();
+    var hasMcpKeyword = false;
+    for (var mk = 0; mk < mcpKeywords.length; mk++) {
+      if (promptLower.indexOf(mcpKeywords[mk]) !== -1) {
+        hasMcpKeyword = true;
+        break;
+      }
     }
-
-    // 2. 사용량 임계치 감지
-    const thresholdCheck = checkThreshold(threshold);
-    if (thresholdCheck.exceeded) {
-      const usage = getUsageFromCache();
-      saveHandoffState('usage_threshold', usage, projectDir);
-
-      const typeLabel = thresholdCheck.type === 'fiveHour' ? '5시간' : '주간';
-
+    if (hasMcpKeyword) {
+      var mcpReminder = 'MCP-First 활성: 분석/리뷰 작업은 ask_codex/ask_gemini MCP를 직접 사용하세요. Task(architect/reviewer) 대신 MCP 호출이 토큰을 절약합니다.';
       console.log(
         JSON.stringify({
           continue: true,
           hookSpecificOutput: {
             hookEventName: "UserPromptSubmit",
-            additionalContext: `⚠️ **사용량 임계치 도달**
-
-${typeLabel} 사용량이 **${thresholdCheck.percent}%**에 도달했습니다.
-
-작업 연속성을 위해 OpenCode로 전환을 권장합니다:
-\`\`\`bash
-cd ${projectDir} && /opt/oh-my-claude-money/scripts/handoff-to-opencode.sh
-\`\`\`
-
-계속 사용하시려면 이 메시지를 무시하세요.`
-          },
+            additionalContext: mcpReminder
+          }
         })
       );
       process.exit(0);
     }
 
     // 조건 미충족 - 정상 통과
-    console.log(JSON.stringify({ continue: true }));
+    console.log(JSON.stringify({ continue: true, suppressOutput: true }));
     process.exit(0);
   } catch (e) {
     // 오류 시 정상 통과
-    console.log(JSON.stringify({ continue: true }));
+    console.log(JSON.stringify({ continue: true, suppressOutput: true }));
     process.exit(0);
   }
 }

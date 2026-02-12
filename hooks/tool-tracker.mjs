@@ -35,15 +35,23 @@ async function main() {
   try {
     var rawInput = await readStdin();
     if (!rawInput || !rawInput.trim()) {
+      try { process.stdout.write(JSON.stringify({ suppressOutput: true }) + '\n'); } catch (_e) { /* EPIPE */ }
       process.exit(0);
     }
 
-    var input = JSON.parse(rawInput);
+    var input;
+    try {
+      input = JSON.parse(rawInput);
+    } catch (_e) {
+      try { process.stdout.write('{}' + '\n'); } catch (_e2) { /* EPIPE */ }
+      process.exit(0);
+    }
 
     // PostToolUse hook의 stdin 구조:
     // { tool_name: "Read", tool_input: {...}, tool_output: "..." }
     var toolName = input.tool_name || input.toolName || '';
     if (!toolName) {
+      try { process.stdout.write(JSON.stringify({ suppressOutput: true }) + '\n'); } catch (_e) { /* EPIPE */ }
       process.exit(0);
     }
 
@@ -62,6 +70,7 @@ async function main() {
   } catch (e) {
     // 오류 시 조용히 종료
   }
+  try { process.stdout.write(JSON.stringify({ suppressOutput: true }) + '\n'); } catch (_e) { /* EPIPE */ }
   process.exit(0);
 }
 

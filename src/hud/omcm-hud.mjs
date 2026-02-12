@@ -372,12 +372,64 @@ async function renderClaudeUsage() {
       parts.push(`wk:${color}${usage.weeklyPercent}%${RESET}${DIM}${timeStr}${RESET}`);
     }
 
+    // Opus weekly usage (OMC v4.1.16+)
+    if (usage.opusWeeklyPercent != null) {
+      const color = getUsageColor(usage.opusWeeklyPercent);
+      const resetTime = formatTimeUntilReset(usage.opusWeeklyResetsAt);
+      const timeStr = resetTime ? `(${resetTime})` : '';
+      parts.push(`Op:${color}${usage.opusWeeklyPercent}%${RESET}${DIM}${timeStr}${RESET}`);
+    }
+
     if (parts.length === 0) return null;
 
     return parts.join(' ');
   } catch {
     return null;
   }
+}
+
+/**
+ * Render MCP-First mode status and utilization rate
+ * Config에서 모드를 읽어 항상 표시, 호출 실적 있으면 활용률도 표시
+ * @param {object|null} fusionState - Fusion state data
+ * @returns {string|null}
+ */
+function renderMcpFirstRate(fusionState) {
+  // config.json에서 mcpFirst 모드 확인
+  var mcpMode = null;
+  try {
+    var cfgPaths = [
+      join(homedir(), '.claude', 'marketplaces', 'omcm', 'config.json'),
+      join(homedir(), '.claude', 'plugins', 'omcm', 'config.json'),
+    ];
+    for (var ci = 0; ci < cfgPaths.length; ci++) {
+      if (existsSync(cfgPaths[ci])) {
+        var cfg = JSON.parse(readFileSync(cfgPaths[ci], 'utf-8'));
+        if (cfg && cfg.mcpFirst) {
+          mcpMode = cfg.mcpFirstMode || 'suggest';
+        }
+        break;
+      }
+    }
+  } catch (e) { /* ignore */ }
+
+  if (!mcpMode) return null;
+
+  // 기본: ⚡MCP:enforce
+  var modeColor = mcpMode === 'enforce' ? GREEN : YELLOW;
+  var result = '⚡MCP:' + modeColor + mcpMode + RESET;
+
+  // 호출 실적 있으면 활용률 추가: ⚡MCP:enforce 85%(13)
+  if (fusionState && fusionState.mcpFirst) {
+    var mcpRate = fusionState.mcpFirst.utilizationRate || 0;
+    var mcpTotal = fusionState.mcpFirst.actualMcpCalls || 0;
+    if (mcpTotal > 0) {
+      var mcpColor = mcpRate >= 70 ? GREEN : (mcpRate >= 40 ? YELLOW : RED);
+      result = result + ' ' + mcpColor + mcpRate + '%' + RESET + DIM + '(' + mcpTotal + ')' + RESET;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -831,6 +883,9 @@ async function buildIndependentHud(stdinData) {
   var mcpData = readMcpTracking();
   var mcpOutput = renderMcpCostSummary(mcpData);
 
+  // 7.5. MCP-First 활용률
+  var mcpFirstOutput = renderMcpFirstRate(fusionState);
+
   // 8. Provider counts
   const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
   const sessionCounts = {
@@ -877,6 +932,7 @@ async function buildIndependentHud(stdinData) {
   if (tokenOutput) allSegments.push(tokenOutput);
   if (countsOutput) allSegments.push(countsOutput);
   if (mcpOutput) allSegments.push(mcpOutput);
+  if (mcpFirstOutput) allSegments.push(mcpFirstOutput);
   if (toolStatsOutput) allSegments.push(toolStatsOutput);
 
   if (allSegments.length <= 1) {
@@ -969,6 +1025,9 @@ async function main() {
         var mcpData = readMcpTracking();
         var mcpOutput = renderMcpCostSummary(mcpData);
 
+        // MCP-First 활용률
+        var mcpFirstOutput = renderMcpFirstRate(fusionState);
+
         // 다줄 출력: OMC 긴 출력을 줄당 ~4 세그먼트로 재포맷
         var SEGMENTS_PER_LINE = 4;
 
@@ -989,11 +1048,12 @@ async function main() {
           omcLines.push(group.join(' | '));
         }
 
-        // OMCM 메트릭 줄 (토큰/카운트/MCP/도구통계)
+        // OMCM 메트릭 줄 (토큰/카운트/MCP/MCP-First/도구통계)
         var metricExtras = [];
         if (tokenOutput) metricExtras.push(tokenOutput);
         if (countsOutput) metricExtras.push(countsOutput);
         if (mcpOutput) metricExtras.push(mcpOutput);
+        if (mcpFirstOutput) metricExtras.push(mcpFirstOutput);
         if (toolStatsOutput) metricExtras.push(toolStatsOutput);
 
         // Line 1: CC 시스템 메시지 전용 (빈 공간)

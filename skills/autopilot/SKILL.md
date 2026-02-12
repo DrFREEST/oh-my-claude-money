@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: 하이브리드 오토파일럿 - 아이디어부터 완성까지 자율 실행 + OpenCode 퓨전 지원. 키워드 "autopilot", "/autopilot" 감지 시 활성화
+description: 하이브리드 오토파일럿 - 아이디어부터 완성까지 자율 실행 + MCP 퓨전 (Codex/Gemini) 지원. 키워드 "autopilot", "/autopilot" 감지 시 활성화
 triggers:
   - autopilot
   - /autopilot
@@ -11,7 +11,7 @@ triggers:
   - I want a
 ---
 
-# Hybrid Autopilot - 퓨전 오토파일럿
+# Hybrid Autopilot - MCP 퓨전 오토파일럿
 
 ## 트리거 감지
 
@@ -42,44 +42,60 @@ triggers:
 1. **알림 출력**:
    > "**autopilot 활성화** - [일반/하이브리드] 모드로 자율 실행합니다."
 
-2. **CRITICAL: Task 도구로 에이전트 위임**
+2. **CRITICAL: MCP 직접 호출 우선, 필요 시 Task 위임**
 
-   **절대 직접 작업하지 마세요!** 반드시 Task 도구를 사용하여 에이전트에게 위임하세요.
+   **MCP-First 패턴** - 분석/리뷰/디자인은 MCP 직접 호출:
 
    ```
-   Task(
-     subagent_type="oh-my-claudecode:planner",  // 또는 적절한 에이전트
-     prompt="사용자 요청 내용"
-   )
+   # 분석/계획 작업
+   ask_codex(agent_role="planner", prompt_file="...", output_file="...")
+
+   # 디자인/문서 작업
+   ask_gemini(agent_role="designer", prompt_file="...", output_file="...")
+
+   # 코드 수정 (도구 접근 필요)
+   Task(subagent_type="oh-my-claudecode:executor", prompt="...")
    ```
 
-   **OMCM이 자동으로 처리합니다:**
-   - fusionDefault: true 설정 시 → OpenCode로 라우팅
-   - OMC 에이전트 → OMO 에이전트 자동 매핑
-   - OpenCode ULW 모드로 실행
+   **OMCM이 자동으로 MCP 우선 라우팅:**
+   - PreToolUse hook이 Task 호출 감지
+   - MCP 가능한 역할 → ask_codex/ask_gemini 직접 호출
+   - 도구 필요한 작업만 Claude Task로 실행
 
 3. **오토파일럿 워크플로우**:
 
    ```
-   1. 요구사항 분석 → Task(architect 또는 analyst)
-   2. 계획 수립 → Task(planner)
-   3. 코드 탐색 → Task(explore) → OMCM이 OpenCode로 라우팅
-   4. 구현 → Task(executor) → OMCM이 라우팅 결정
-   5. 검증 → Task(architect)
+   1. 요구사항 분석 → ask_codex MCP (analyst role) 또는 Task(explore)
+   2. 계획 수립 → ask_codex MCP (planner role)
+   3. 코드 탐색 → Task(explore) → Claude agent
+   4. 구현 → Task(executor) → Claude agent (도구 접근)
+   5. 검증 → ask_codex MCP (architect role)
    6. 완료 보고
    ```
 
-4. **퓨전 모드 에이전트 라우팅** (OMCM 자동 처리 - OMC 4.1.7 → OMO 3.4.0):
+### MCP-First 패턴 (v3.0)
 
-   | 단계 | OMC 에이전트 | → | OMO 에이전트 | 모델 |
-   |------|-------------|---|-------------|------|
-   | 요구사항 분석 | analyst | → | oracle | GPT 5.3 |
-   | 코드 탐색 | explore | → | explore | Gemini Flash |
-   | UI 구현 | designer | → | metis | Gemini Pro |
-   | 리서치 | dependency-expert | → | oracle | GPT 5.3 |
-   | 실행/구현 | executor | → | build | GPT 5.3 Codex |
-   | 계획 수립 | planner | → | Claude (유지) | - |
-   | 최종 검증 | architect | → | oracle | GPT 5.3 |
+**자동 라우팅 우선순위** (OMCM hook이 자동 처리):
+
+1. **MCP 직접 호출** (최우선) - 분석/리뷰/디자인 작업
+   - ask_codex: architect, planner, code-reviewer, verifier
+   - ask_gemini: designer, writer, ux-researcher
+2. **Claude Task** (도구 필요 시) - 실행/탐색 작업
+   - executor, explore, build-fixer, qa-tester, git-master
+
+이 패턴으로 **토큰 절약 + 속도 향상** 동시 달성.
+
+4. **퓨전 모드 에이전트 라우팅** (OMCM MCP-First v3.0):
+
+   | 단계 | 라우팅 | 모델 |
+   |------|--------|------|
+   | 요구사항 분석 | ask_codex MCP (analyst) | GPT 5.3 |
+   | 코드 탐색 | Claude Task (explore) | Sonnet |
+   | UI 구현 | ask_gemini MCP (designer) | Gemini Pro |
+   | 리서치 | ask_codex MCP (analyst) | GPT 5.3 |
+   | 실행/구현 | Claude Task (executor) | Opus |
+   | 계획 수립 | ask_codex MCP (planner) | GPT 5.3 |
+   | 최종 검증 | ask_codex MCP (architect) | GPT 5.3 |
 
 5. **완료 보고**:
    > "**autopilot 완료** - [작업 요약] / 토큰 절약: [X]%"
@@ -158,4 +174,4 @@ autopilot 모드에서 워커가 컨텍스트 리밋에 도달하면 자동 복�
 - 부분 결과: `.omc/state/context-recovery/{taskId}.json`에 저장
 - 통계: `getStats()` 반환값에 `recoveryStats` 포함
 
-**핵심**: Task를 호출하기만 하면 OMCM이 자동으로 OpenCode로 라우팅합니다!
+**핵심**: MCP 직접 호출로 Task 스폰 없이 즉시 실행되어 토큰 절약 극대화!

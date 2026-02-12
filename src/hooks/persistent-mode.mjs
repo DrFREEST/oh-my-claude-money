@@ -16,7 +16,7 @@ import { join } from 'path';
 // 상태 파일 경로 정의
 // =============================================================================
 
-// OMC 4.1.7: 프로젝트 상대 경로 사용 (homedir 아님)
+// OMC 4.1.16: 프로젝트 상대 경로 사용 (homedir 아님)
 // 세션 격리: .omc/state/sessions/{sessionId}/ 우선, 레거시 .omc/state/ 폴백
 const PROJECT_DIR = process.env.PWD || process.cwd();
 const STATE_DIR = join(PROJECT_DIR, '.omc/state');
@@ -91,7 +91,7 @@ function isContextLimitStop(input) {
 function checkActiveStates() {
   const activeModes = [];
 
-  // OMC 4.1.7 세션 격리: 세션별 경로 우선 탐색
+  // OMC 4.1.16 세션 격리: 세션별 경로 우선 탐색
   const sessionDirsPath = join(STATE_DIR, 'sessions');
   const searchPaths = [STATE_DIR];
 
@@ -181,29 +181,42 @@ function checkVerificationStatus(state) {
 
 async function main() {
   try {
-    const rawInput = await readStdin();
+    var rawInput = await readStdin();
     // Stop 이벤트는 input이 없을 수 있음
 
+    // Invalid JSON early return (issue #319)
+    var parsedInput = null;
+    if (rawInput && rawInput.trim()) {
+      try {
+        parsedInput = JSON.parse(rawInput);
+      } catch (_e) {
+        process.stdout.write(JSON.stringify({ continue: true, suppressOutput: true }) + '\n');
+        process.exit(0);
+        return;
+      }
+    }
+
     // Context-limit 감지 시 즉시 통과 (교착 방지)
-    if (isContextLimitStop(rawInput)) {
-      console.log(JSON.stringify({ continue: true }));
+    if (isContextLimitStop(parsedInput || rawInput)) {
+      console.log(JSON.stringify({ continue: true, suppressOutput: true }));
       process.exit(0);
     }
 
-    const activeModes = checkActiveStates();
+    var activeModes = checkActiveStates();
 
     // 활성 모드가 없으면 정상 종료 허용
     if (activeModes.length === 0) {
-      console.log(JSON.stringify({ continue: true }));
+      console.log(JSON.stringify({ continue: true, suppressOutput: true }));
       process.exit(0);
     }
 
     // 강화 카운트 업데이트 및 탈출 장치
-    for (const activeMode of activeModes) {
-      const stateFile = join(STATE_DIR, STATE_FILES[activeMode.mode]);
+    for (var i = 0; i < activeModes.length; i++) {
+      var activeMode = activeModes[i];
+      var stateFile = join(STATE_DIR, STATE_FILES[activeMode.mode]);
       if (existsSync(stateFile)) {
         try {
-          const state = JSON.parse(readFileSync(stateFile, 'utf-8'));
+          var state = JSON.parse(readFileSync(stateFile, 'utf-8'));
           state.reinforcement_count = (state.reinforcement_count || 0) + 1;
 
           // 탈출 장치: MAX_REINFORCEMENTS 초과 시 자동 비활성화
@@ -221,15 +234,15 @@ async function main() {
     }
 
     // ralph 모드 검사 (가장 중요)
-    const ralphMode = activeModes.find((m) => m.mode === 'ralph');
+    var ralphMode = activeModes.find(function(m) { return m.mode === 'ralph'; });
 
     if (ralphMode) {
-      const verification = checkVerificationStatus(ralphMode.state);
+      var verification = checkVerificationStatus(ralphMode.state);
 
       if (!verification.complete) {
-        const blockers = ralphMode.state.blockers || [];
-        const blockersStr =
-          blockers.length > 0 ? `\n\n**Blockers**:\n${blockers.map((b) => `- ${b}`).join('\n')}` : '';
+        var blockers = ralphMode.state.blockers || [];
+        var blockersStr =
+          blockers.length > 0 ? `\n\n**Blockers**:\n${blockers.map(function(b) { return `- ${b}`; }).join('\n')}` : '';
 
         console.log(
           JSON.stringify({
@@ -242,26 +255,80 @@ async function main() {
     }
 
     // 다른 활성 모드들에 대한 알림
-    const otherModes = activeModes.filter((m) => m.mode !== 'ralph');
+    var otherModes = activeModes.filter(function(m) { return m.mode !== 'ralph'; });
 
     if (otherModes.length > 0) {
       console.log(
         JSON.stringify({
           continue: true,
-          reason: `ℹ️ 활성 모드 감지: ${otherModes.map((m) => m.mode).join(', ')} | 종료하려면 cancel 명령을 사용하세요.`,
+          reason: `ℹ️ 활성 모드 감지: ${otherModes.map(function(m) { return m.mode; }).join(', ')} | 종료하려면 cancel 명령을 사용하세요.`,
         })
       );
       process.exit(0);
     }
 
     // 모든 검증 완료 - 정상 종료 허용
-    console.log(JSON.stringify({ continue: true }));
+    console.log(JSON.stringify({ continue: true, suppressOutput: true }));
     process.exit(0);
   } catch (e) {
-    // 오류 시 정상 통과
-    console.log(JSON.stringify({ continue: true }));
-    process.exit(0);
+    // 오류 시 정상 통과 (issue #319: EPIPE 방지)
+    try {
+      process.stderr.write('[persistent-mode] Error: ' + (e && e.message || e) + '\n');
+    } catch (_e) {
+      // stderr 에러 무시
+    }
+    try {
+      process.stdout.write(JSON.stringify({ continue: true, suppressOutput: true }) + '\n');
+    } catch (_e) {
+      process.exit(0);
+    }
   }
 }
 
-main();
+// Global error handlers (issue #319 - OMC 4.1.16 포트)
+process.on('uncaughtException', function(error) {
+  try {
+    process.stderr.write('[persistent-mode] Uncaught exception: ' + (error && error.message || error) + '\n');
+  } catch (_e) {
+    // 무시
+  }
+  try {
+    process.stdout.write(JSON.stringify({ continue: true, suppressOutput: true }) + '\n');
+  } catch (_e) {
+    // 쓰기 실패 시 종료
+  }
+  process.exit(0);
+});
+
+process.on('unhandledRejection', function(error) {
+  try {
+    process.stderr.write('[persistent-mode] Unhandled rejection: ' + (error && error.message || error) + '\n');
+  } catch (_e) {
+    // 무시
+  }
+  try {
+    process.stdout.write(JSON.stringify({ continue: true, suppressOutput: true }) + '\n');
+  } catch (_e) {
+    // 쓰기 실패 시 종료
+  }
+  process.exit(0);
+});
+
+// Safety timeout: 10초 내 미완료 시 강제 종료 (issue #319)
+var safetyTimeout = setTimeout(function() {
+  try {
+    process.stderr.write('[persistent-mode] Safety timeout reached, forcing exit\n');
+  } catch (_e) {
+    // 무시
+  }
+  try {
+    process.stdout.write(JSON.stringify({ continue: true, suppressOutput: true }) + '\n');
+  } catch (_e) {
+    // 쓰기 실패 시 종료
+  }
+  process.exit(0);
+}, 10000);
+
+main().finally(function() {
+  clearTimeout(safetyTimeout);
+});

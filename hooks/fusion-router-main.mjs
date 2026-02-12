@@ -160,7 +160,7 @@ async function main() {
     logRouting({
       toolName: toolName,
       subagentType: toolInput.subagent_type,
-      decision: decision.route ? 'opencode' : 'claude',
+      decision: decision.route === 'mcp' ? 'mcp' : (decision.route ? 'opencode' : 'claude'),
       reason: decision.reason,
       target: decision.targetModel ? decision.targetModel.id : 'claude'
     });
@@ -179,7 +179,81 @@ async function main() {
       }
     }
 
-    if (decision.route) {
+    if (decision.route === 'mcp') {
+      // === MCP-First 라우팅 (v3.0) ===
+      var mcpTool = decision.mcpTool || 'ask_codex';
+      var agentRole = decision.agentRole || 'architect';
+      var mcpMode = decision.mcpFirstMode || 'enforce';
+
+      console.error('[OMCM MCP-First] Blocking Task → MCP redirect');
+      console.error('[OMCM MCP-First] Tool: ' + mcpTool + ', Role: ' + agentRole);
+      console.error('[OMCM MCP-First] Reason: ' + decision.reason);
+
+      // flow-tracer 기록
+      if (flowTracer) {
+        try {
+          var cwd = process.cwd();
+          var hookDuration = Date.now() - hookStartTime;
+          flowTracer.recordHookResult(cwd, sessionId, 'omcm-fusion-router', 'PreToolUse', hookDuration, true, ('mcp:' + mcpTool + ':' + agentRole).length);
+        } catch (e) {
+          // 무시
+        }
+      }
+
+      // MCP-First 메트릭 업데이트 (totalEligible + blockedAndRedirected)
+      try {
+        var fs = await import('fs');
+        var fusionStatePath = (process.env.HOME || '') + '/.omcm/fusion-state.json';
+        var fusionState = {};
+        if (fs.existsSync(fusionStatePath)) {
+          fusionState = JSON.parse(fs.readFileSync(fusionStatePath, 'utf-8'));
+        }
+        if (!fusionState.mcpFirst) {
+          fusionState.mcpFirst = {
+            totalEligible: 0,
+            actualMcpCalls: 0,
+            blockedAndRedirected: 0,
+            leakedToTask: 0,
+            utilizationRate: 0
+          };
+        }
+        fusionState.mcpFirst.totalEligible++;
+        fusionState.mcpFirst.blockedAndRedirected++;
+        if (fusionState.mcpFirst.totalEligible > 0) {
+          fusionState.mcpFirst.utilizationRate = Math.round(
+            (fusionState.mcpFirst.actualMcpCalls / fusionState.mcpFirst.totalEligible) * 100
+          );
+        }
+        fs.writeFileSync(fusionStatePath, JSON.stringify(fusionState, null, 2));
+      } catch (e) {
+        // 메트릭 업데이트 실패 무시
+      }
+
+      // 라우팅 로그 기록
+      logRouting({
+        toolName: toolName,
+        subagentType: toolInput.subagent_type,
+        decision: 'mcp',
+        reason: decision.reason,
+        target: mcpTool + ':' + agentRole
+      });
+
+      // 퓨전 상태 업데이트
+      updateFusionState(decision, null, sessionId);
+
+      if (mcpMode === 'enforce') {
+        // enforce 모드: Task 차단 + MCP 안내
+        console.log(JSON.stringify({
+          allow: false,
+          reason: 'OMCM MCP-First: Use ' + mcpTool + ' MCP tool with agent_role="' + agentRole + '" instead of Task. This saves Claude tokens by routing analysis to ' + (mcpTool === 'ask_codex' ? 'Codex' : 'Gemini') + '.'
+        }));
+      } else {
+        // suggest 모드: Task 허용 + 경고만
+        console.error('[OMCM MCP-First] Suggest mode: allowing Task but recommending MCP');
+        console.log(JSON.stringify({ allow: true }));
+      }
+    } else if (decision.route) {
+      // === 기존 CLI 실행 경로 (MCP-ineligible 에이전트) ===
       console.error('[OMCM Fusion] Routing Task to CLI');
       var targetName = decision.targetModel && decision.targetModel.name
         ? decision.targetModel.name
@@ -237,6 +311,7 @@ async function main() {
         console.log(JSON.stringify({ allow: true }));
       }
     } else {
+      // === Claude 통과 ===
       // Claude 실행을 위한 상태 업데이트
       updateFusionState(decision, null, sessionId);
       console.log(JSON.stringify({ allow: true }));

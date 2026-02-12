@@ -1,6 +1,6 @@
 ---
 name: hulw
-description: 하이브리드 울트라워크 - Claude + OpenCode 퓨전 모드. 키워드 "hulw", "/hulw" 감지 시 자동 활성화
+description: 하이브리드 울트라워크 - Claude + MCP 퓨전 모드 (Codex/Gemini). 키워드 "hulw", "/hulw" 감지 시 자동 활성화
 triggers:
   - hulw
   - /hulw
@@ -8,7 +8,7 @@ triggers:
   - 하이브리드 울트라워크
 ---
 
-# Hybrid Ultrawork (hulw) - 퓨전 모드
+# Hybrid Ultrawork (hulw) - MCP 퓨전 모드
 
 ## 트리거 감지
 
@@ -29,20 +29,31 @@ triggers:
 
 1. **작업 분석**: 작업 유형 파악
 2. **라우팅 결정**:
-   - 분석/탐색 작업 → OpenCode (Oracle/GPT)
-   - UI/프론트엔드 → OpenCode (Frontend Engineer/Gemini)
+   - 분석/탐색 작업 → Codex MCP (architect/analyst role)
+   - UI/프론트엔드 → Gemini MCP (designer role)
    - 복잡한 구현 → Claude (Opus)
 3. **병렬 실행**: 가능한 작업은 동시 실행
 4. **결과 통합**: 모든 결과를 통합하여 응답
+
+### MCP-First 패턴 (v3.0)
+
+**생각은 O/G, 실행만 Claude** - OMCM hook이 자동으로 MCP 우선 라우팅 수행:
+
+- **분석/계획 단계**: ask_codex MCP 사용 (architect, planner role)
+- **리뷰/검증 단계**: ask_codex MCP 사용 (code-reviewer, verifier role)
+- **디자인/문서 단계**: ask_gemini MCP 사용 (designer, writer role)
+- **코드 수정 단계**: Task(executor) Claude agent 사용 (도구 접근 필요)
+
+MCP 직접 호출 시 Task 스폰 없이 즉시 실행되어 토큰 절약 극대화.
 
 ## 에이전트 라우팅 맵
 
 | 작업 유형 | 라우팅 | 모델 | 절약 |
 |----------|--------|------|------|
-| 아키텍처 분석 | OpenCode Oracle | GPT | ✅ |
-| 코드 탐색 | OpenCode Librarian | - | ✅ |
-| UI 작업 | OpenCode Frontend | Gemini | ✅ |
-| 리서치 | OpenCode Oracle | GPT | ✅ |
+| 아키텍처 분석 | ask_codex MCP (architect) | GPT | ✅ |
+| 코드 탐색 | Task(explore) | Claude | - |
+| UI 작업 | ask_gemini MCP (designer) | Gemini | ✅ |
+| 리서치 | ask_codex MCP (analyst) | GPT | ✅ |
 | 복잡한 구현 | Claude executor | Opus | - |
 | 전략적 계획 | Claude planner | Opus | - |
 
@@ -63,44 +74,39 @@ Task(explore, "분석2")  // 완료 대기
 이 스킬이 활성화되면 **반드시** 다음 단계를 수행하세요:
 
 1. **알림 출력**:
-   > "**hulw 모드 활성화** - Claude + OpenCode 퓨전으로 토큰을 절약하면서 작업합니다."
+   > "**hulw 모드 활성화** - Claude + MCP 퓨전 (Codex/Gemini)으로 토큰을 절약하면서 작업합니다."
 
-2. **CRITICAL: Task 도구로 에이전트 위임**
+2. **CRITICAL: MCP 직접 호출 우선, 필요 시 Task 위임**
 
-   **절대 직접 작업하지 마세요!** 반드시 Task 도구를 사용하여 에이전트에게 위임하세요.
+   **MCP-First 패턴** - 분석/리뷰/디자인은 MCP 직접 호출:
 
    ```
-   Task(
-     subagent_type="oh-my-claudecode:explore",  // OMC 에이전트 지정
-     prompt="사용자 요청 내용"
-   )
+   # 분석/계획 작업
+   ask_codex(agent_role="architect", prompt_file="...", output_file="...")
+
+   # 디자인/문서 작업
+   ask_gemini(agent_role="designer", prompt_file="...", output_file="...")
+
+   # 코드 수정 (도구 접근 필요)
+   Task(subagent_type="oh-my-claudecode:executor", prompt="...")
    ```
 
-   **OMCM이 자동으로 OpenCode(OMO)로 라우팅합니다:**
+   **OMCM이 자동으로 MCP 우선 라우팅:**
    - PreToolUse hook이 Task 호출 감지
-   - OMC 에이전트 → OMO 에이전트 자동 매핑
-   - OpenCode ULW 모드로 실행
+   - MCP 가능한 역할 → ask_codex/ask_gemini 직접 호출
+   - 도구 필요한 작업만 Claude Task로 실행
 
-3. **자동 라우팅 매핑** (OMCM이 처리 - OMC 4.1.7 → OMO 3.4.0):
+3. **자동 라우팅 매핑** (OMCM MCP-First v3.0):
 
-   | OMC 에이전트 | → | OMO 에이전트 | 모델 |
-   |-------------|---|-------------|------|
-   | explore | → | explore | Gemini Flash |
-   | architect, debugger | → | oracle | GPT 5.3 |
-   | dependency-expert | → | oracle | GPT 5.3 |
-   | designer, vision | → | metis | Gemini Pro |
-   | writer, style-reviewer, ux-researcher | → | momus | Gemini Flash |
-   | executor, deep-executor | → | build | GPT 5.3 Codex |
-   | scientist, verifier | → | oracle | GPT 5.3 |
-   | analyst, critic, product-analyst | → | oracle | GPT 5.3 |
-   | product-manager, information-architect | → | oracle | GPT 5.3 |
-   | qa-tester, test-engineer | → | hephaestus | GPT 5.3 Codex |
-   | code-reviewer, quality-reviewer | → | oracle | GPT 5.3 |
+   | 작업 유형 | 라우팅 | 모델 |
+   |----------|--------|------|
+   | 분석/계획/리뷰 | ask_codex MCP | GPT 5.3 |
+   | 디자인/문서 | ask_gemini MCP | Gemini Pro/Flash |
+   | 코드 수정/탐색 | Claude Task | Opus/Sonnet |
 
-4. **결과 통합**: OpenCode 결과를 받아 최종 응답 제공
+4. **결과 통합**: MCP 결과를 받아 최종 응답 제공
 
-**핵심**: Task를 호출하기만 하면 OMCM이 자동으로 OpenCode로 라우팅합니다.
-Claude 토큰을 최대한 절약하면서 OpenCode+OMO의 성능을 활용합니다!
+**핵심**: MCP 직접 호출로 Task 스폰 없이 즉시 실행되어 토큰 절약 극대화!
 
 ## 컨텍스트 가드 규칙 (CRITICAL)
 
@@ -137,7 +143,7 @@ Task(
 ## 사용량 기반 자동 전환
 
 - 5시간/주간 사용량 70% 이상 → 자동으로 hulw 모드 권장
-- 90% 이상 → OpenCode 중심 모드로 강제 전환
+- 90% 이상 → MCP 중심 모드로 강제 전환
 
 ## 컨텍스트 제한 복구
 
@@ -155,7 +161,7 @@ hulw 모드에서 워커가 컨텍스트 리밋에 도달하면 자동 복구가
 ```
 실패 감지 → 부분 결과 저장 (.omc/state/context-recovery/)
   → Phase 1: 프롬프트 축소 + 같은 에이전트로 재시도 (최대 2회)
-  → Phase 2: OpenCode 폴백 (Claude에서 실패 시)
+  → Phase 2: MCP 폴백 (Claude에서 실패 시 Codex/Gemini MCP로)
   → Phase 3: 작업 분할 + 서브태스크 개별 실행
   → 최종: 부분 결과만이라도 반환 (데이터 손실 없음)
 ```
@@ -168,5 +174,6 @@ hulw 모드에서 워커가 컨텍스트 리밋에 도달하면 자동 복구가
 
 ## 주의사항
 
-- OpenCode 프로바이더 인증이 필요합니다 (OPENAI_API_KEY, GOOGLE_API_KEY)
-- 인증되지 않은 프로바이더는 Claude로 폴백됩니다
+- MCP 사용을 위해 Codex CLI / Gemini CLI 설치 필요
+- Codex/Gemini CLI 인증이 필요합니다 (OPENAI_API_KEY, GOOGLE_API_KEY)
+- MCP 미설치/인증 실패 시 Claude로 폴백됩니다

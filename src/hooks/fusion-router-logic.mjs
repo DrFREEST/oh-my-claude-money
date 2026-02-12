@@ -56,6 +56,43 @@ export function readJsonFile(filepath) {
 }
 
 /**
+ * agent-mapping.json에서 MCP direct 매핑 조회
+ * @param {string} agentType - OMC 에이전트 타입 (예: 'architect')
+ * @returns {string|null} - MCP 도구명 ('ask_codex'|'ask_gemini') 또는 null
+ */
+var _mcpMappingCache = null;
+var _mcpMappingCacheTime = 0;
+var MCP_MAPPING_CACHE_TTL = 5 * 60 * 1000; // 5분
+
+export function getMcpDirectMapping(agentType) {
+  var now = Date.now();
+  if (!_mcpMappingCache || (now - _mcpMappingCacheTime) > MCP_MAPPING_CACHE_TTL) {
+    var mappingPaths = [
+      join(HOME, '.claude', 'marketplaces', 'omcm', 'scripts', 'agent-mapping.json'),
+      join(HOME, '.claude', 'plugins', 'omcm', 'scripts', 'agent-mapping.json'),
+    ];
+    _mcpMappingCache = {};
+    for (var i = 0; i < mappingPaths.length; i++) {
+      var data = readJsonFile(mappingPaths[i]);
+      if (data && data.mappings) {
+        var keys = Object.keys(data.mappings);
+        for (var j = 0; j < keys.length; j++) {
+          var key = keys[j];
+          if (key.indexOf('_comment') === 0) continue;
+          var entry = data.mappings[key];
+          if (entry && entry.mcp_direct) {
+            _mcpMappingCache[key] = entry.mcp_direct;
+          }
+        }
+        _mcpMappingCacheTime = now;
+        break;
+      }
+    }
+  }
+  return _mcpMappingCache[agentType] || null;
+}
+
+/**
  * 라우팅 결정 로그 기록
  * @param {object} decision - 라우팅 결정 정보
  */
@@ -83,7 +120,7 @@ export function logRouting(decision) {
 /**
  * OMC 에이전트를 OpenCode 에이전트로 매핑
  *
- * OMC 4.1.7 기준 에이전트 (28개, Lane 기반):
+ * OMC 4.1.16 기준 에이전트 (28개, Lane 기반):
  *   Build/Analysis: architect, executor, explore, debugger, verifier, deep-executor, git-master
  *   Review: security-reviewer, code-reviewer, style-reviewer, quality-reviewer, api-reviewer, performance-reviewer
  *   Testing: qa-tester, test-engineer (was tdd-guide)
@@ -93,7 +130,7 @@ export function logRouting(decision) {
  * OMO 3.4.0 기준 에이전트: oracle (GPT), explore (Gemini), build (GPT),
  *                        sisyphus, librarian, metis, momus, prometheus, atlas, hephaestus, multimodal-looker
  *
- * OMC v4.1.7: ultrapilot + swarm → team 통합 (delegation routing 유지)
+ * OMC v4.1.16: ultrapilot + swarm → team 통합 (delegation routing 유지)
  * OMCM은 delegationRouting이 활성화되면 자동으로 양보함
  *
  * @param {string} agentType - OMC 에이전트 타입
@@ -183,7 +220,7 @@ export function getModelInfoForAgent(omoAgent) {
     }
   }
 
-  // 기본값 (OMC 4.1.7 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2)
+  // 기본값 (OMC 4.1.16 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2)
   return { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex' };
 }
 
@@ -198,13 +235,39 @@ export function getModelInfoForAgent(omoAgent) {
  * @returns {object} - { route: boolean, reason: string, targetModel?: object, opencodeAgent?: string }
  */
 export function shouldRouteToOpenCode(toolInput, options = {}) {
+  // === MCP-First 라우팅 (v3.0) ===
+  // config.json의 mcpFirst 설정 확인
+  var config = options.config !== undefined ? options.config : readJsonFile(CONFIG_FILE);
+  var mcpFirstEnabled = config && config.mcpFirst === true;
+  var mcpFirstMode = (config && config.mcpFirstMode) || 'enforce';
+
+  if (mcpFirstEnabled && toolInput && toolInput.subagent_type) {
+    var agentForMcp = toolInput.subagent_type.replace('oh-my-claudecode:', '');
+    var mcpTool = getMcpDirectMapping(agentForMcp);
+
+    if (mcpTool && mcpFirstMode !== 'off') {
+      // MCP-eligible 에이전트 → MCP로 라우팅
+      var mcpModelInfo = getModelInfoForAgent(mapAgentToOpenCode(agentForMcp));
+      return {
+        route: 'mcp',
+        mcpTool: mcpTool,
+        agentRole: agentForMcp,
+        reason: 'mcp-first-' + agentForMcp,
+        targetModel: mcpModelInfo,
+        opencodeAgent: mapAgentToOpenCode(agentForMcp),
+        mcpFirstMode: mcpFirstMode
+      };
+    }
+  }
+
+  // === 기존 로직 (MCP-ineligible 에이전트용) ===
   // 의존성 주입 지원 (테스트용)
   var fusion = options.fusion !== undefined ? options.fusion : readJsonFile(FUSION_STATE_FILE);
   var fallback = options.fallback !== undefined ? options.fallback : readJsonFile(FALLBACK_STATE_FILE);
   var limits = options.limits !== undefined ? options.limits : readJsonFile(PROVIDER_LIMITS_FILE);
-  var config = options.config !== undefined ? options.config : readJsonFile(CONFIG_FILE);
+  // config는 이미 위에서 읽었으므로 재사용
 
-  // OMC v4.1.7+ delegationRouting 활성화 시: OMC가 직접 라우팅하므로 OMCM 퓨전 비활성화
+  // OMC v4.1.16+ delegationRouting 활성화 시: OMC가 직접 라우팅하므로 OMCM 퓨전 비활성화
   // 단, fusionMode가 명시적으로 'always'인 경우는 OMCM이 우선
   try {
     var omcConfigPath = join(HOME, '.omc-config.json');
@@ -527,7 +590,7 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
 
 /**
  * 라우팅 가능한 에이전트 목록 (OpenCode로 라우팅하여 토큰 절약)
- * OMC 4.1.7 + OMO 3.4.0 기준
+ * OMC 4.1.16 + OMO 3.4.0 기준
  * fusionDefault 모드에서는 planner 제외 모든 에이전트가 라우팅됨
  */
 export const TOKEN_SAVING_AGENTS = [
@@ -584,6 +647,26 @@ export function shouldRouteToOpenCodeV2(toolInput, context = {}, options = {}) {
 
   if (!agentType) {
     return { route: false, reason: 'no-agent-type' };
+  }
+
+  // 0. MCP-First 체크 (V2에서도 최우선)
+  if (toolInput && toolInput.subagent_type) {
+    var configForMcp = readJsonFile(CONFIG_FILE);
+    if (configForMcp && configForMcp.mcpFirst === true) {
+      var mcpToolV2 = getMcpDirectMapping(agentType);
+      if (mcpToolV2) {
+        var mcpDecision = {
+          route: 'mcp',
+          mcpTool: mcpToolV2,
+          agentRole: agentType,
+          reason: 'mcp-first-v2-' + agentType,
+          targetModel: getModelInfoForAgent(mapAgentToOpenCode(agentType)),
+          opencodeAgent: mapAgentToOpenCode(agentType)
+        };
+        cacheRoute(agentType, context, mcpDecision);
+        return mcpDecision;
+      }
+    }
   }
 
   // 1. 캐시 확인

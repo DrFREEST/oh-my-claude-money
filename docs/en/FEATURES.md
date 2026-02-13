@@ -1151,6 +1151,17 @@ buildComplexSystem().catch(console.error);
 
 **Migration:** No migration needed. Existing setups work unchanged.
 
+### v2.1.3 Compatibility Update
+
+**New Features:**
+- **z.ai Provider Support**: When ANTHROPIC_BASE_URL points to a z.ai host, usage is retrieved via GLM API
+- **Monthly Usage Display**: HUD shows monthly usage in `mo:XX%` format (OMC v4.2.6+)
+- **provider-limits monthly field**: Added monthlyPercent as 3rd argument to updateClaudeLimits()
+
+**Compatible Versions:**
+- OMC v4.2.6 or higher (monthly usage display support)
+- z.ai API provider support
+
 ---
 
 ## See Also

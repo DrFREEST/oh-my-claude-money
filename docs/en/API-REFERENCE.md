@@ -4,6 +4,7 @@ Complete documentation of all public APIs and modules in OMCM (Oh My Claude Mone
 
 **Table of Contents**
 - [Usage Tracking](#usage-tracking)
+- [Provider Limits](#provider-limits)
 - [Provider Balancing](#provider-balancing)
 - [Context Management](#context-management)
 - [Parallel Executor](#parallel-executor)
@@ -116,6 +117,117 @@ const summary = getUsageSummary();
 export const DEFAULT_THRESHOLD = 90;   // Default threshold (%)
 export const WARNING_THRESHOLD = 70;   // Warning threshold (%)
 export const HUD_CACHE_PATH = // ~/.claude/plugins/oh-my-claudecode/.usage-cache.json
+```
+
+---
+
+## Provider Limits
+
+### Module Location
+`src/utils/provider-limits.mjs`
+
+### Key Functions
+
+#### `updateClaudeLimits(fiveHourPercent, weeklyPercent, monthlyPercent)`
+
+Updates Claude usage limits. (v2.1.3+ supports monthlyPercent)
+
+```javascript
+import { updateClaudeLimits } from 'src/utils/provider-limits.mjs';
+
+// Update 5-hour, weekly, and monthly usage
+updateClaudeLimits(65, 45, 30);
+
+// Partial update (null/undefined values are ignored)
+updateClaudeLimits(70, null, null);  // Update 5-hour only
+updateClaudeLimits(null, 50, null);  // Update weekly only
+updateClaudeLimits(null, null, 35);  // Update monthly only (v2.1.3+)
+```
+
+**Parameters:**
+- `fiveHourPercent` (number | null): 5-hour usage percentage (0-100)
+- `weeklyPercent` (number | null): Weekly usage percentage (0-100)
+- `monthlyPercent` (number | null): Monthly usage percentage (0-100) - Added in v2.1.3
+
+**Returns:** Updated Claude limits object
+
+#### `getLimitsForHUD()`
+
+Returns a simple limit summary for HUD display. (v2.1.3+ includes monthly field)
+
+```javascript
+import { getLimitsForHUD } from 'src/utils/provider-limits.mjs';
+
+const limits = getLimitsForHUD();
+// Returns:
+// {
+//   claude: {
+//     percent: 65,          // Max usage (highest of fiveHour, weekly, monthly)
+//     fiveHour: 65,         // 5-hour usage (%)
+//     weekly: 45,           // Weekly usage (%)
+//     monthly: 30,          // Monthly usage (%) - v2.1.3+
+//     isLimited: false      // Whether 100% reached
+//   },
+//   openai: {
+//     percent: 20,
+//     remaining: 8000,
+//     isLimited: false
+//   },
+//   gemini: {
+//     percent: 15,
+//     remaining: 50,
+//     isLimited: false,
+//     isEstimated: true
+//   }
+// }
+```
+
+**Return Fields:**
+- `claude.percent`: Max usage (highest of fiveHour, weekly, monthly)
+- `claude.fiveHour`: 5-hour usage percentage
+- `claude.weekly`: Weekly usage percentage
+- `claude.monthly`: Monthly usage percentage (v2.1.3+)
+- `claude.isLimited`: Whether 100% reached
+
+#### `getClaudeLimits()`
+
+Retrieves Claude limit information.
+
+```javascript
+import { getClaudeLimits } from 'src/utils/provider-limits.mjs';
+
+const limits = getClaudeLimits();
+// Returns:
+// {
+//   fiveHour: { used: 65000, limit: 100000, percent: 65 },
+//   weekly: { used: 450000, limit: 1000000, percent: 45 },
+//   monthly: { used: 300000, limit: 1000000, percent: 30 },  // v2.1.3+
+//   lastUpdated: '2026-02-13T10:30:00Z'
+// }
+```
+
+### Usage Examples
+
+```javascript
+import {
+  updateClaudeLimits,
+  getLimitsForHUD,
+  getClaudeLimits
+} from 'src/utils/provider-limits.mjs';
+
+// Update usage from HUD (v2.1.3: includes monthly)
+updateClaudeLimits(67, 48, 32);
+
+// Get summary for HUD display
+const hudLimits = getLimitsForHUD();
+console.log(`Claude usage: ${hudLimits.claude.percent}%`);
+console.log(`5-hour: ${hudLimits.claude.fiveHour}%`);
+console.log(`Weekly: ${hudLimits.claude.weekly}%`);
+console.log(`Monthly: ${hudLimits.claude.monthly}%`);  // v2.1.3+
+
+// Get detailed information
+const details = getClaudeLimits();
+console.log(`Last updated: ${details.lastUpdated}`);
 ```
 
 ---

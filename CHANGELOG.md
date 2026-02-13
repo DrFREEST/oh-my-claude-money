@@ -18,6 +18,27 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.1.3] - 2026-02-13
+
+### 호환성 업데이트 (Compatibility)
+- **OMC v4.2.6 호환** — 전체 파일의 OMC 버전 참조 4.2.2 → 4.2.6 업데이트
+
+### 기능 추가 (Added)
+- **z.ai 프로바이더 지원** — `claude-usage-api.mjs`에 z.ai GLM API 경로 추가
+- **Monthly 사용량 표시** — HUD에 월간 사용량(`mo:XX%`) 표시 지원 (z.ai)
+- **Monthly 프로바이더 리밋** — `provider-limits.mjs`에 monthly 필드 추가
+
+### 변경 (Changed)
+- HUD 사용량 캐시에 `source` 필드 추가 (anthropic/zai 교차 오염 방지)
+- `weeklyPercent` optional 호환 (OMC v4.2.6 타입 변경 반영)
+
+### 호환성 (Compatibility)
+- **OMC**: v4.2.6
+- **Codex CLI**: v0.98.0+
+- **Gemini CLI**: 선택적 (미설치 시 Codex 폴백)
+
+---
+
 ## [2.1.2] - 2026-02-10
 
 ### 호환성 업데이트 (Compatibility)

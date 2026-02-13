@@ -324,6 +324,7 @@ function syncClaudeUsageFromOmcOutput(omcOutput) {
     const cleanOutput = stripAnsi(omcOutput);
     const fiveHourMatch = cleanOutput.match(/5h:(\d+)%/);
     const weeklyMatch = cleanOutput.match(/wk:(\d+)%/);
+    const monthlyMatch = cleanOutput.match(/mo:(\d+)%/);
 
     if (fiveHourMatch || weeklyMatch) {
       const fiveHourPercent = fiveHourMatch ? parseInt(fiveHourMatch[1], 10) : null;
@@ -372,12 +373,20 @@ async function renderClaudeUsage() {
       parts.push(`wk:${color}${usage.weeklyPercent}%${RESET}${DIM}${timeStr}${RESET}`);
     }
 
-    // Opus weekly usage (OMC v4.1.16+)
+    // Opus weekly usage (OMC v4.2.6+)
     if (usage.opusWeeklyPercent != null) {
       const color = getUsageColor(usage.opusWeeklyPercent);
       const resetTime = formatTimeUntilReset(usage.opusWeeklyResetsAt);
       const timeStr = resetTime ? `(${resetTime})` : '';
       parts.push(`Op:${color}${usage.opusWeeklyPercent}%${RESET}${DIM}${timeStr}${RESET}`);
+    }
+
+    // Monthly usage (OMC v4.2.6+, z.ai)
+    if (usage.monthlyPercent != null) {
+      const color = getUsageColor(usage.monthlyPercent);
+      const resetTime = formatTimeUntilReset(usage.monthlyResetsAt);
+      const timeStr = resetTime ? `(${resetTime})` : '';
+      parts.push(`mo:${color}${usage.monthlyPercent}%${RESET}${DIM}${timeStr}${RESET}`);
     }
 
     if (parts.length === 0) return null;

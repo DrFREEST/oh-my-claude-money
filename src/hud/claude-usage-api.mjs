@@ -58,6 +58,9 @@ function readCache() {
       if (cache.data.opusWeeklyResetsAt) {
         cache.data.opusWeeklyResetsAt = new Date(cache.data.opusWeeklyResetsAt);
       }
+      if (cache.data.monthlyResetsAt) {
+        cache.data.monthlyResetsAt = new Date(cache.data.monthlyResetsAt);
+      }
     }
 
     return cache;
@@ -70,8 +73,9 @@ function readCache() {
  * Write usage data to cache
  * @param {Object|null} data
  * @param {boolean} error
+ * @param {string} source
  */
-function writeCache(data, error = false) {
+function writeCache(data, error = false, source) {
   try {
     const cachePath = getCachePath();
     const cacheDir = dirname(cachePath);
@@ -84,6 +88,7 @@ function writeCache(data, error = false) {
       timestamp: Date.now(),
       data,
       error,
+      source,
     };
 
     writeFileSync(cachePath, JSON.stringify(cache, null, 2));
@@ -390,6 +395,116 @@ function writeBackCredentials(creds) {
 }
 
 /**
+ * Check if ANTHROPIC_BASE_URL points to z.ai
+ */
+function isZaiHost(urlString) {
+  try {
+    const url = new URL(urlString);
+    const hostname = url.hostname.toLowerCase();
+    return hostname === 'z.ai' || hostname.endsWith('.z.ai');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch usage from z.ai GLM API
+ */
+function fetchUsageFromZai() {
+  return new Promise((resolve) => {
+    const baseUrl = process.env.ANTHROPIC_BASE_URL;
+    const authToken = process.env.ANTHROPIC_AUTH_TOKEN;
+
+    if (!baseUrl || !authToken) {
+      resolve(null);
+      return;
+    }
+
+    try {
+      const url = new URL(baseUrl);
+      const baseDomain = `${url.protocol}//${url.host}`;
+      const quotaLimitUrl = `${baseDomain}/api/monitor/usage/quota/limit`;
+      const urlObj = new URL(quotaLimitUrl);
+
+      const req = https.request(
+        {
+          hostname: urlObj.hostname,
+          path: urlObj.pathname,
+          method: 'GET',
+          headers: {
+            'Authorization': authToken,
+            'Content-Type': 'application/json',
+            'Accept-Language': 'en-US,en',
+          },
+          timeout: API_TIMEOUT_MS,
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => { data += chunk; });
+          res.on('end', () => {
+            if (res.statusCode === 200) {
+              try {
+                resolve(JSON.parse(data));
+              } catch {
+                resolve(null);
+              }
+            } else {
+              resolve(null);
+            }
+          });
+        }
+      );
+
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+      req.end();
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Parse z.ai API response into usage data
+ */
+function parseZaiResponse(response) {
+  var limits = response && response.data && response.data.limits;
+  if (!limits || limits.length === 0) return null;
+
+  var tokensLimit = null;
+  var timeLimit = null;
+  for (var i = 0; i < limits.length; i++) {
+    if (limits[i].type === 'TOKENS_LIMIT') tokensLimit = limits[i];
+    if (limits[i].type === 'TIME_LIMIT') timeLimit = limits[i];
+  }
+
+  if (!tokensLimit && !timeLimit) return null;
+
+  var clamp = function(v) {
+    if (v == null || !isFinite(v)) return 0;
+    return Math.max(0, Math.min(100, v));
+  };
+
+  var parseResetTime = function(timestamp) {
+    if (!timestamp) return null;
+    try {
+      var date = new Date(timestamp);
+      return isNaN(date.getTime()) ? null : date;
+    } catch {
+      return null;
+    }
+  };
+
+  return {
+    fiveHourPercent: tokensLimit ? clamp(tokensLimit.percentage) : 0,
+    fiveHourResetsAt: tokensLimit ? parseResetTime(tokensLimit.nextResetTime) : null,
+    // z.ai has no weekly quota
+    monthlyPercent: timeLimit ? clamp(timeLimit.percentage) : undefined,
+    monthlyResetsAt: timeLimit ? (parseResetTime(timeLimit.nextResetTime) || null) : undefined,
+  };
+}
+
+/**
  * Get usage data (with caching)
  *
  * Returns null if:
@@ -400,16 +515,34 @@ function writeBackCredentials(creds) {
  * @returns {Promise<Object|null>}
  */
 export async function getClaudeUsage() {
-  // Check cache first
+  const baseUrl = process.env.ANTHROPIC_BASE_URL;
+  const authToken = process.env.ANTHROPIC_AUTH_TOKEN;
+  const isZai = baseUrl != null && isZaiHost(baseUrl);
+  const currentSource = isZai && authToken ? 'zai' : 'anthropic';
+
+  // Check cache first (source must match)
   const cache = readCache();
-  if (cache && isCacheValid(cache)) {
+  if (cache && isCacheValid(cache) && cache.source === currentSource) {
     return cache.data;
   }
 
+  // z.ai path
+  if (isZai && authToken) {
+    const response = await fetchUsageFromZai();
+    if (!response) {
+      writeCache(null, true, 'zai');
+      return null;
+    }
+    const usage = parseZaiResponse(response);
+    writeCache(usage, !usage, 'zai');
+    return usage;
+  }
+
+  // Anthropic OAuth path
   // Get credentials
   var creds = getCredentials();
   if (!creds) {
-    writeCache(null, true);
+    writeCache(null, true, 'anthropic');
     return null;
   }
   if (!validateCredentials(creds)) {
@@ -419,11 +552,11 @@ export async function getClaudeUsage() {
         creds = Object.assign({}, creds, refreshed);
         writeBackCredentials(creds);
       } else {
-        writeCache(null, true);
+        writeCache(null, true, 'anthropic');
         return null;
       }
     } else {
-      writeCache(null, true);
+      writeCache(null, true, 'anthropic');
       return null;
     }
   }
@@ -431,13 +564,13 @@ export async function getClaudeUsage() {
   // Fetch from API
   const response = await fetchUsageFromApi(creds.accessToken);
   if (!response) {
-    writeCache(null, true);
+    writeCache(null, true, 'anthropic');
     return null;
   }
 
   // Parse response
   const usage = parseUsageResponse(response);
-  writeCache(usage, !usage);
+  writeCache(usage, !usage, 'anthropic');
 
   return usage;
 }

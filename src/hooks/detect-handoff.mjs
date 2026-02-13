@@ -132,7 +132,7 @@ function detectModeKeyword(prompt, modeKeywords) {
 // =============================================================================
 
 function saveModeState(mode, projectDir) {
-  // OMC 4.1.16: 프로젝트 상대 경로 사용
+  // OMC 4.2.6: 프로젝트 상대 경로 사용
   const effectiveDir = projectDir || process.env.PWD || process.cwd();
   const stateDir = join(effectiveDir, '.omc/state');
 
@@ -150,7 +150,7 @@ function saveModeState(mode, projectDir) {
     };
 
     // cancel 모드의 경우 모든 상태 파일 비활성화
-    // OMC v4.1.16: team으로 통합 (ultrapilot, swarm은 레거시 호환)
+    // OMC v4.2.6: team으로 통합 (ultrapilot, swarm은 레거시 호환)
     if (mode === 'cancel') {
       const modes = ['ralph', 'autopilot', 'ultrawork', 'ecomode', 'team', 'swarm', 'pipeline', 'ultrapilot', 'ultraqa'];
 
@@ -246,7 +246,7 @@ function detectDelegationPattern(prompt) {
     }
   }
 
-  // 리서치/문서 패턴 (OMC 4.1.16: researcher → dependency-expert)
+  // 리서치/문서 패턴 (OMC 4.2.6: researcher → dependency-expert)
   var researchPatterns = ['알려줘', '설명해', '문서', 'explain', 'document', 'research', '연구'];
   for (var l = 0; l < researchPatterns.length; l++) {
     if (lowerPrompt.indexOf(researchPatterns[l]) !== -1) {

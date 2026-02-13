@@ -4,6 +4,7 @@ OMCM(Oh My Claude Money)의 모든 공개 API와 모듈을 문서화합니다.
 
 **목차**
 - [사용량 추적 (Usage Tracking)](#사용량-추적-usage-tracking)
+- [프로바이더 제한 (Provider Limits)](#프로바이더-제한-provider-limits)
 - [프로바이더 밸런싱 (Provider Balancing)](#프로바이더-밸런싱-provider-balancing)
 - [컨텍스트 관리 (Context Management)](#컨텍스트-관리-context-management)
 - [병렬 실행기 (Parallel Executor)](#병렬-실행기-parallel-executor)
@@ -114,6 +115,117 @@ const summary = getUsageSummary();
 export const DEFAULT_THRESHOLD = 90;   // 기본 임계치 (%)
 export const WARNING_THRESHOLD = 70;   // 경고 임계치 (%)
 export const HUD_CACHE_PATH = // ~/.claude/plugins/oh-my-claudecode/.usage-cache.json
+```
+
+---
+
+## 프로바이더 제한 (Provider Limits)
+
+### 모듈 위치
+`src/utils/provider-limits.mjs`
+
+### 주요 함수
+
+#### `updateClaudeLimits(fiveHourPercent, weeklyPercent, monthlyPercent)`
+
+Claude 사용량 제한을 업데이트합니다. (v2.1.3부터 monthlyPercent 지원)
+
+```javascript
+import { updateClaudeLimits } from 'src/utils/provider-limits.mjs';
+
+// 5시간, 주간, 월간 사용량 업데이트
+updateClaudeLimits(65, 45, 30);
+
+// 일부만 업데이트 (null/undefined는 무시됨)
+updateClaudeLimits(70, null, null);  // 5시간만 업데이트
+updateClaudeLimits(null, 50, null);  // 주간만 업데이트
+updateClaudeLimits(null, null, 35);  // 월간만 업데이트 (v2.1.3+)
+```
+
+**파라미터:**
+- `fiveHourPercent` (number | null): 5시간 사용량 퍼센트 (0-100)
+- `weeklyPercent` (number | null): 주간 사용량 퍼센트 (0-100)
+- `monthlyPercent` (number | null): 월간 사용량 퍼센트 (0-100) - v2.1.3에서 추가
+
+**반환값:** 업데이트된 Claude 제한 객체
+
+#### `getLimitsForHUD()`
+
+HUD 표시용 간단한 제한 요약을 반환합니다. (v2.1.3부터 monthly 필드 포함)
+
+```javascript
+import { getLimitsForHUD } from 'src/utils/provider-limits.mjs';
+
+const limits = getLimitsForHUD();
+// 반환:
+// {
+//   claude: {
+//     percent: 65,          // 최대 사용량 (fiveHour, weekly, monthly 중 최대값)
+//     fiveHour: 65,         // 5시간 사용량 (%)
+//     weekly: 45,           // 주간 사용량 (%)
+//     monthly: 30,          // 월간 사용량 (%) - v2.1.3+
+//     isLimited: false      // 100% 도달 여부
+//   },
+//   openai: {
+//     percent: 20,
+//     remaining: 8000,
+//     isLimited: false
+//   },
+//   gemini: {
+//     percent: 15,
+//     remaining: 50,
+//     isLimited: false,
+//     isEstimated: true
+//   }
+// }
+```
+
+**반환 필드:**
+- `claude.percent`: 최대 사용량 (fiveHour, weekly, monthly 중 최대값)
+- `claude.fiveHour`: 5시간 사용량 퍼센트
+- `claude.weekly`: 주간 사용량 퍼센트
+- `claude.monthly`: 월간 사용량 퍼센트 (v2.1.3+)
+- `claude.isLimited`: 100% 도달 여부
+
+#### `getClaudeLimits()`
+
+Claude 제한 정보를 조회합니다.
+
+```javascript
+import { getClaudeLimits } from 'src/utils/provider-limits.mjs';
+
+const limits = getClaudeLimits();
+// 반환:
+// {
+//   fiveHour: { used: 65000, limit: 100000, percent: 65 },
+//   weekly: { used: 450000, limit: 1000000, percent: 45 },
+//   monthly: { used: 300000, limit: 1000000, percent: 30 },  // v2.1.3+
+//   lastUpdated: '2026-02-13T10:30:00Z'
+// }
+```
+
+### 사용 예제
+
+```javascript
+import {
+  updateClaudeLimits,
+  getLimitsForHUD,
+  getClaudeLimits
+} from 'src/utils/provider-limits.mjs';
+
+// HUD에서 사용량 업데이트 (v2.1.3: monthly 포함)
+updateClaudeLimits(67, 48, 32);
+
+// HUD 표시용 요약 가져오기
+const hudLimits = getLimitsForHUD();
+console.log(`Claude 사용량: ${hudLimits.claude.percent}%`);
+console.log(`5시간: ${hudLimits.claude.fiveHour}%`);
+console.log(`주간: ${hudLimits.claude.weekly}%`);
+console.log(`월간: ${hudLimits.claude.monthly}%`);  // v2.1.3+
+
+// 상세 정보 조회
+const details = getClaudeLimits();
+console.log(`마지막 업데이트: ${details.lastUpdated}`);
 ```
 
 ---

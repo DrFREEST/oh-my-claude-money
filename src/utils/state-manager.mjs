@@ -25,7 +25,7 @@ export const STATE_FILES = {
   AUTOPILOT: 'autopilot-state.json',
   ECOMODE: 'ecomode-state.json',
   SWARM: 'swarm-state.json',
-  TEAM: 'team-state.json', // OMC v4.1.16: ultrapilot + swarm 통합
+  TEAM: 'team-state.json', // OMC v4.2.6: ultrapilot + swarm 통합
   PIPELINE: 'pipeline-state.json',
   ULTRAQA: 'ultraqa-state.json',
 

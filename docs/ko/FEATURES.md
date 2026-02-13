@@ -1151,6 +1151,17 @@ buildComplexSystem().catch(console.error);
 - `opencode-server.sh` 스크립트 더 이상 사용하지 않음
 - Codex/Gemini CLI 설치 필요 (`which codex`, `which gemini`로 확인)
 
+### v2.1.3 호환성 업데이트
+
+**새로운 기능:**
+- **z.ai 프로바이더 지원**: ANTHROPIC_BASE_URL이 z.ai 호스트를 가리킬 때 GLM API를 통해 사용량 조회
+- **Monthly 사용량 표시**: HUD에 `mo:XX%` 형식으로 월간 사용량 표시 (OMC v4.2.6+)
+- **provider-limits monthly 필드**: updateClaudeLimits()에 monthlyPercent 3번째 인자 추가
+
+**호환 버전:**
+- OMC v4.2.6 이상 (monthly 사용량 표시 지원)
+- z.ai API 프로바이더 지원
+
 ---
 
 ## 더 보기

@@ -232,7 +232,7 @@ export function mapToOpenCodeAgent(subagentType) {
 export function getTokenSavings(subagentType) {
   var type = subagentType.replace('oh-my-claudecode:', '');
 
-  // 에이전트 타입별 예상 Claude 토큰 절약량 (OMC 4.1.16)
+  // 에이전트 타입별 예상 Claude 토큰 절약량 (OMC 4.2.6)
   var savings = {
     'architect': 2000,
     'executor': 1500,

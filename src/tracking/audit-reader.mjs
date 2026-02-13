@@ -1,5 +1,5 @@
 /**
- * audit-reader.mjs - OMC v4.1.16 감사 로그 리더
+ * audit-reader.mjs - OMC v4.2.6 감사 로그 리더
  *
  * OMC의 .omc/prompts/ 디렉토리에 저장된 감사 로그를 읽어
  * MCP 호출 통계와 비용을 분석합니다.

@@ -16,7 +16,7 @@ import { join } from 'path';
 // 상태 파일 경로 정의
 // =============================================================================
 
-// OMC 4.1.16: 프로젝트 상대 경로 사용 (homedir 아님)
+// OMC 4.2.6: 프로젝트 상대 경로 사용 (homedir 아님)
 // 세션 격리: .omc/state/sessions/{sessionId}/ 우선, 레거시 .omc/state/ 폴백
 const PROJECT_DIR = process.env.PWD || process.cwd();
 const STATE_DIR = join(PROJECT_DIR, '.omc/state');
@@ -91,7 +91,7 @@ function isContextLimitStop(input) {
 function checkActiveStates() {
   const activeModes = [];
 
-  // OMC 4.1.16 세션 격리: 세션별 경로 우선 탐색
+  // OMC 4.2.6 세션 격리: 세션별 경로 우선 탐색
   const sessionDirsPath = join(STATE_DIR, 'sessions');
   const searchPaths = [STATE_DIR];
 
@@ -285,7 +285,7 @@ async function main() {
   }
 }
 
-// Global error handlers (issue #319 - OMC 4.1.16 포트)
+// Global error handlers (issue #319 - OMC 4.2.6 포트)
 process.on('uncaughtException', function(error) {
   try {
     process.stderr.write('[persistent-mode] Uncaught exception: ' + (error && error.message || error) + '\n');

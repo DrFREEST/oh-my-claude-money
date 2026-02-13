@@ -19,7 +19,7 @@ import { loadConfig } from '../utils/config.mjs';
  * 'any': 현재 사용량에 따라 결정
  */
 export const TASK_ROUTING_PREFERENCES = {
-  // Claude Code 선호 (높은 정확도 필요) - OMC 4.1.16
+  // Claude Code 선호 (높은 정확도 필요) - OMC 4.2.6
   architect: 'claude', // 아키텍처 분석
   debugger: 'claude', // 복잡한 디버깅
   critic: 'claude', // 플랜 검토
@@ -52,7 +52,7 @@ export const TASK_ROUTING_PREFERENCES = {
  * OMC 에이전트 → OpenCode 에이전트 매핑
  */
 export const OPENCODE_AGENT_MAPPING = {
-  // OMC 4.1.16 Lane 기반 매핑
+  // OMC 4.2.6 Lane 기반 매핑
   explore: 'Librarian', // 코드베이스 탐색
   'dependency-expert': 'Oracle', // 의존성/문서 조사
   researcher: 'Oracle', // backward-compat alias

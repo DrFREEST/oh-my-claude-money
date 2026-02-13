@@ -1,7 +1,7 @@
 /**
  * OMC State Bridge
  *
- * Integrates OMCM fusion state with OMC v4.0.5+/v4.1.16 state management system.
+ * Integrates OMCM fusion state with OMC v4.0.5+/v4.2.6 state management system.
  * Syncs OMCM state to {worktree}/.omc/state/ for compatibility with OMC cancel skill
  * and other OMC state tools.
  */

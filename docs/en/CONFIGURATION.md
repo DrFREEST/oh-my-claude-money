@@ -282,6 +282,28 @@ Configure the scope of context to pass when switching to OpenCode.
 }
 ```
 
+#### HUD Usage Display (v2.1.3+)
+
+OMCM reads usage information from OMC HUD for fusion routing decisions.
+
+**Display Format (OMC v4.2.6+):**
+- `5h:XX%(reset_time)` - 5-hour usage
+- `wk:XX%(reset_time)` - Weekly usage
+- `mo:XX%(reset_time)` - Monthly usage (v2.1.3+)
+
+**Example:**
+```
+5h:67%(2h30m) wk:48%(3d5h) mo:32%(18d)
+```
+
+**Data Sources:**
+- OMC HUD cache: `~/.claude/plugins/oh-my-claudecode/.usage-cache.json`
+- z.ai provider: Usage retrieved via GLM API (v2.1.3+)
+
+**Notes:**
+- Monthly display requires OMC v4.2.6 or higher
+- For z.ai provider, ANTHROPIC_BASE_URL must point to a z.ai host
+
 ---
 
 ## Agent Mapping

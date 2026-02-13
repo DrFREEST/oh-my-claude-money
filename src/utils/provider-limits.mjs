@@ -56,6 +56,7 @@ function getDefaultLimits() {
     claude: {
       fiveHour: { used: 0, limit: 100, percent: 0 },
       weekly: { used: 0, limit: 100, percent: 0 },
+      monthly: { used: 0, limit: 100, percent: 0 },
       lastUpdated: null
     },
     openai: {
@@ -108,7 +109,7 @@ function saveLimits(limits) {
 /**
  * Claude 리밋 업데이트 (OAuth API 응답에서)
  */
-export function updateClaudeLimits(fiveHourPercent, weeklyPercent) {
+export function updateClaudeLimits(fiveHourPercent, weeklyPercent, monthlyPercent) {
   const limits = loadLimits();
 
   // null/undefined가 아닌 경우에만 업데이트 (HUD 싱크 버그 수정)
@@ -117,6 +118,12 @@ export function updateClaudeLimits(fiveHourPercent, weeklyPercent) {
   }
   if (weeklyPercent !== null && weeklyPercent !== undefined) {
     limits.claude.weekly.percent = weeklyPercent;
+  }
+  if (monthlyPercent !== null && monthlyPercent !== undefined) {
+    if (!limits.claude.monthly) {
+      limits.claude.monthly = { used: 0, limit: 100, percent: 0 };
+    }
+    limits.claude.monthly.percent = monthlyPercent;
   }
   limits.claude.lastUpdated = new Date().toISOString();
 
@@ -421,7 +428,8 @@ export function getLimitsForHUD() {
 
   const claudeFiveHour = all.claude.fiveHour ? all.claude.fiveHour.percent : 0;
   const claudeWeekly = all.claude.weekly ? all.claude.weekly.percent : 0;
-  const claudeMax = Math.max(claudeFiveHour || 0, claudeWeekly || 0);
+  const claudeMonthly = all.claude.monthly ? all.claude.monthly.percent : 0;
+  const claudeMax = Math.max(claudeFiveHour || 0, claudeWeekly || 0, claudeMonthly || 0);
 
   const openaiRequestPercent = all.openai.requests ? all.openai.requests.percent : 0;
   const openaiRequestRemaining = all.openai.requests ? all.openai.requests.remaining : null;
@@ -434,6 +442,7 @@ export function getLimitsForHUD() {
       percent: claudeMax,
       fiveHour: claudeFiveHour,
       weekly: claudeWeekly,
+      monthly: claudeMonthly,
       isLimited: claudeMax >= 100
     },
     openai: {

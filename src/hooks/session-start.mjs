@@ -18,14 +18,16 @@ const __dirname = dirname(__filename);
 // 유틸리티 로드
 // =============================================================================
 
-let getUsageLevel, getUsageSummary, loadConfig;
-let generateSessionId, registerSession, cleanupOldSessions, initializeSession;
+var getUsageLevel, getUsageSummary, loadConfig;
+var generateSessionId, registerSession, cleanupOldSessions, initializeSession;
+var findProjectRootSync;
 
 async function loadUtils() {
+  var utilsPath = join(__dirname, '../utils');
+
   try {
-    const utilsPath = join(__dirname, '../utils');
-    const usageModule = await import(join(utilsPath, 'usage.mjs'));
-    const configModule = await import(join(utilsPath, 'config.mjs'));
+    var usageModule = await import(join(utilsPath, 'usage.mjs'));
+    var configModule = await import(join(utilsPath, 'config.mjs'));
 
     getUsageLevel = usageModule.getUsageLevel;
     getUsageSummary = usageModule.getUsageSummary;
@@ -33,26 +35,87 @@ async function loadUtils() {
 
     // 세션 ID 유틸리티 로드
     try {
-      const sessionModule = await import(join(utilsPath, 'session-id.mjs'));
+      var sessionModule = await import(join(utilsPath, 'session-id.mjs'));
       generateSessionId = sessionModule.generateSessionId;
       registerSession = sessionModule.registerSession;
       cleanupOldSessions = sessionModule.cleanupOldSessions;
       initializeSession = sessionModule.initializeSession;
     } catch (e) {
       // 세션 ID 유틸리티 없으면 기본값
-      generateSessionId = () => null;
-      registerSession = () => {};
-      cleanupOldSessions = () => {};
+      generateSessionId = function() { return null; };
+      registerSession = function() {};
+      cleanupOldSessions = function() {};
+      initializeSession = function() {};
     }
   } catch (e) {
     // 기본값
-    getUsageLevel = () => 'unknown';
-    getUsageSummary = () => 'N/A';
-    loadConfig = () => ({ notifications: { showOnThreshold: true } });
-    generateSessionId = () => null;
-    registerSession = () => {};
-    cleanupOldSessions = () => {};
+    getUsageLevel = function() { return 'unknown'; };
+    getUsageSummary = function() { return 'N/A'; };
+    loadConfig = function() { return { notifications: { showOnThreshold: true } }; };
+    generateSessionId = function() { return null; };
+    registerSession = function() {};
+    cleanupOldSessions = function() {};
+    initializeSession = function() {};
+    findProjectRootSync = null;
   }
+
+  // AGENTS.md 주입을 위한 프로젝트 루트 탐색 유틸
+  try {
+    var projectRootModule = await import(join(utilsPath, 'project-root.mjs'));
+    findProjectRootSync = projectRootModule.findProjectRootSync;
+  } catch (e) {
+    if (!findProjectRootSync) {
+      findProjectRootSync = null;
+    }
+  }
+}
+
+// =============================================================================
+// AGENTS.md 주입
+// =============================================================================
+
+function readRootAgentsContext() {
+  try {
+    if (!findProjectRootSync) return null;
+
+    var rootInfo = findProjectRootSync(process.cwd(), { useGlobal: true });
+    var projectRoot = rootInfo && rootInfo.root ? rootInfo.root : process.cwd();
+    var agentsPath = join(projectRoot, 'AGENTS.md');
+
+    if (!existsSync(agentsPath)) return null;
+
+    var content = readFileSync(agentsPath, 'utf-8');
+    if (!content || !content.trim()) return null;
+
+    if (content.length > 20000) {
+      return content.slice(0, 20000) + '\n\n[AGENTS.md 본문이 너무 길어 20,000자까지만 주입합니다.]';
+    }
+
+    return content;
+  } catch (e) {
+    return null;
+  }
+}
+
+function buildSessionStartOutput(message, agentsContext, suppressOutput) {
+  var output = { continue: true };
+
+  if (message) {
+    output.message = message;
+  }
+
+  if (agentsContext) {
+    output.hookSpecificOutput = {
+      hookEventName: 'SessionStart',
+      additionalContext: '[AGENTS.md]\n\n' + agentsContext
+    };
+  }
+
+  if (suppressOutput && !message && !agentsContext) {
+    output.suppressOutput = true;
+  }
+
+  return output;
 }
 
 // =============================================================================
@@ -65,21 +128,21 @@ async function loadUtils() {
  */
 function syncOmcVersion() {
   try {
-    const home = homedir();
-    const omcPluginJson = join(home, '.claude', 'plugins', 'marketplaces', 'omc', '.claude-plugin', 'plugin.json');
-    const updateCheckPath = join(home, '.claude', '.omc', 'update-check.json');
+    var home = homedir();
+    var omcPluginJson = join(home, '.claude', 'plugins', 'marketplaces', 'omc', '.claude-plugin', 'plugin.json');
+    var updateCheckPath = join(home, '.claude', '.omc', 'update-check.json');
 
     if (!existsSync(omcPluginJson)) return;
 
-    const pluginData = JSON.parse(readFileSync(omcPluginJson, 'utf-8'));
-    const actualVersion = pluginData.version;
+    var pluginData = JSON.parse(readFileSync(omcPluginJson, 'utf-8'));
+    var actualVersion = pluginData.version;
     if (!actualVersion) return;
 
     // 현재 update-check.json 읽기
-    let currentVersion = null;
+    var currentVersion = null;
     if (existsSync(updateCheckPath)) {
       try {
-        const checkData = JSON.parse(readFileSync(updateCheckPath, 'utf-8'));
+        var checkData = JSON.parse(readFileSync(updateCheckPath, 'utf-8'));
         currentVersion = checkData.currentVersion;
       } catch (e) {
         // 파싱 실패 시 갱신 진행
@@ -88,7 +151,7 @@ function syncOmcVersion() {
 
     // 버전 불일치 시 자동 갱신
     if (currentVersion !== actualVersion) {
-      const omcDir = dirname(updateCheckPath);
+      var omcDir = dirname(updateCheckPath);
       if (!existsSync(omcDir)) {
         mkdirSync(omcDir, { recursive: true });
       }
@@ -113,21 +176,21 @@ function syncOmcVersion() {
  * 24시간 쿨다운 내장, detached 백그라운드 실행
  */
 function runAutoUpdate() {
-  const scriptPaths = [
+  var scriptPaths = [
     join(homedir(), '.claude', 'plugins', 'marketplaces', 'omcm', 'scripts', 'auto-update-all.sh'),
     join(__dirname, '..', '..', 'scripts', 'auto-update-all.sh'),
   ];
 
-  let scriptPath = null;
-  for (const p of scriptPaths) {
-    if (existsSync(p)) {
-      scriptPath = p;
+  var scriptPath = null;
+  for (var i = 0; i < scriptPaths.length; i++) {
+    if (existsSync(scriptPaths[i])) {
+      scriptPath = scriptPaths[i];
       break;
     }
   }
 
   if (scriptPath) {
-    const child = spawn('bash', [scriptPath], {
+    var child = spawn('bash', [scriptPath], {
       detached: true,
       stdio: 'ignore',
     });
@@ -147,19 +210,19 @@ function safeOutput(data) {
 
 async function main() {
   // 안전 타임아웃: 7초 내에 완료 못하면 자동 통과
-  const safetyTimer = setTimeout(() => {
+  var safetyTimer = setTimeout(function() {
     safeOutput({ continue: true, suppressOutput: true });
   }, 7000);
 
   try {
     await loadUtils();
 
-    const config = loadConfig();
-    const level = getUsageLevel();
+    var config = loadConfig();
+    var level = getUsageLevel();
 
     // 세션 ID 생성 및 등록
     try {
-      const sessionId = generateSessionId();
+      var sessionId = generateSessionId();
       if (sessionId) {
         registerSession(sessionId);
         if (initializeSession) {
@@ -171,10 +234,12 @@ async function main() {
       // 세션 초기화 실패 시 무시 (기존 기능에 영향 없음)
     }
 
+    var agentsContext = readRootAgentsContext();
+
     // 알림 비활성화 시 통과
-    if (config.notifications && !config.notifications.showOnThreshold) {
+    if (config.notifications && config.notifications.showOnThreshold === false) {
       clearTimeout(safetyTimer);
-      safeOutput({ continue: true, suppressOutput: true });
+      safeOutput(buildSessionStartOutput('', agentsContext, true));
       return;
     }
 
@@ -185,9 +250,9 @@ async function main() {
         join(homedir(), '.claude', 'marketplaces', 'omcm', 'config.json'),
         join(homedir(), '.claude', 'plugins', 'omcm', 'config.json'),
       ];
-      for (var cp = 0; cp < configPaths.length; cp++) {
-        if (existsSync(configPaths[cp])) {
-          mcpConfig = JSON.parse(readFileSync(configPaths[cp], 'utf-8'));
+      for (var c = 0; c < configPaths.length; c++) {
+        if (existsSync(configPaths[c])) {
+          mcpConfig = JSON.parse(readFileSync(configPaths[c], 'utf-8'));
           break;
         }
       }
@@ -196,32 +261,25 @@ async function main() {
     var mcpFirstMessage = '';
     if (mcpConfig && mcpConfig.mcpFirst) {
       var modeLabel = (mcpConfig.mcpFirstMode === 'enforce') ? 'enforce' : 'suggest';
-      mcpFirstMessage = `\n\n🔧 **MCP-First: ${modeLabel}** | 분석→ask_codex, 디자인→ask_gemini`;
+      mcpFirstMessage = '\n\n🔧 **MCP-First: ' + modeLabel + '** | 분석→ask_codex, 디자인→ask_gemini';
     }
 
     // 위험 수준일 때만 경고
     if (level === 'critical') {
-      const summary = getUsageSummary();
+      var summary = getUsageSummary();
 
       clearTimeout(safetyTimer);
-      safeOutput({
-        continue: true,
-        message: `⚠️ **사용량 경고**
-
-현재 사용량이 높습니다: ${summary}
-
-작업 연속성을 위해 MCP-First 모드로 Codex/Gemini를 활용하세요.${mcpFirstMessage}`,
-      });
+      safeOutput(buildSessionStartOutput(
+        '⚠️ **사용량 경고**\n\n현재 사용량이 높습니다: ' + summary + '\n\n작업 연속성을 위해 MCP-First 모드로 Codex/Gemini를 활용하세요.' + mcpFirstMessage,
+        agentsContext
+      ));
       return;
     }
 
     // MCP-First 활성 시 정상 통과에도 메시지 표시
     if (mcpFirstMessage) {
       clearTimeout(safetyTimer);
-      safeOutput({
-        continue: true,
-        message: mcpFirstMessage.trim(),
-      });
+      safeOutput(buildSessionStartOutput(mcpFirstMessage.trim(), agentsContext));
       return;
     }
 
@@ -232,11 +290,11 @@ async function main() {
     syncOmcVersion();
     runAutoUpdate();
 
-    safeOutput({ continue: true, suppressOutput: true });
+    safeOutput(buildSessionStartOutput('', agentsContext, true));
   } catch (e) {
     // 오류 시 정상 통과
     clearTimeout(safetyTimer);
-    safeOutput({ continue: true, suppressOutput: true });
+    safeOutput(buildSessionStartOutput('', null, true));
   }
 }
 

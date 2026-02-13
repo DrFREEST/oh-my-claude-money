@@ -3,6 +3,17 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-enforcer.mjs",
+            "timeout": 5,
+            "statusMessage": "사용자 질문 알림 중..."
+          }
+        ]
+      },
+      {
         "matcher": "Task",
         "hooks": [
           {

@@ -18,6 +18,19 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.1.4] - 2026-02-13
+
+### 호환성 업데이트 (Compatibility)
+- **OMC v4.2.7 호환** — OMC v4.2.7 기준 메타데이터/호환성 표기 동기화
+
+### 변경 (Changed)
+- `package.json` 버전/설명: `2.1.4`, OMC v4.2.7
+- `.claude-plugin` 메타데이터 버전 및 OMC 호환 버전 갱신 (`plugin.json`, `marketplace.json`)
+- `scripts/agent-mapping.json` `omc_version`을 `4.2.7`로 갱신하고 `omcm_version`을 `2.1.4`로 반영
+
+### 호환성 (Compatibility)
+- **OMC**: v4.2.7
+
 ## [2.1.3] - 2026-02-13
 
 ### 호환성 업데이트 (Compatibility)

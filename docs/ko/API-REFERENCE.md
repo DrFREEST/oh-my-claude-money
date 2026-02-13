@@ -12,6 +12,22 @@ OMCM(Oh My Claude Money)의 모든 공개 API와 모듈을 문서화합니다.
 - [CLI 실행기 (CLI Executor)](#cli-실행기-cli-executor)
 - [실시간 추적 (Realtime Tracker)](#실시간-추적-realtime-tracker)
 
+- [OMC 4.2.7 훅 대응](#omc-427-훅-대응)
+
+## OMC 4.2.7 훅 대응
+
+### 세션 시작 훅
+
+- `SessionStart` 훅에서 루트 `AGENTS.md`를 읽어 세션 시작 시 컨텍스트로 주입합니다.
+- 주입 길이가 20,000자 초과하면 초과분은 생략 안내를 붙여 전달합니다.
+- AGENTS 컨텍스트는 `showOnThreshold` 설정과 무관하게 항상 주입 대상입니다.
+- 사용량 경고(`critical`) 및 MCP-First 메시지는 기존 동작을 유지하면서 AGENTS 주입과 함께 반환합니다.
+
+### AskUserQuestion 알림 타이밍
+
+- OMC 4.2.7 패턴에 맞춰 `AskUserQuestion`은 `PreToolUse`에서 메시지 알림을 처리합니다.
+- `hooks/hooks.json`의 `PreToolUse` 매처에 `AskUserQuestion` 블록을 추가해 사용자 확인 시점에 알림을 선행합니다.
+
 ---
 
 ## 사용량 추적 (Usage Tracking)

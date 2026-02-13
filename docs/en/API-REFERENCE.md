@@ -14,6 +14,24 @@ Complete documentation of all public APIs and modules in OMCM (Oh My Claude Mone
 - [ACP Client (Agent Client Protocol)](#acp-client-agent-client-protocol)
 - [Realtime Tracker](#realtime-tracker)
 
+- [OMC 4.2.7 Hook Compatibility](#omc-427-hook-compatibility)
+
+---
+
+## OMC 4.2.7 Hook Compatibility
+
+### Session Start Hook
+
+- Injects root `AGENTS.md` into session context at `SessionStart`.
+- If the file exceeds 20,000 characters, it is truncated with an explicit truncation notice.
+- AGENTS context injection is independent of `showOnThreshold` and works even when threshold notifications are disabled.
+- Existing critical usage warning and MCP-First notices are preserved and returned together with AGENTS context.
+
+### AskUserQuestion Timing
+
+- Aligns with OMC 4.2.7 by handling `AskUserQuestion` notifications in `PreToolUse` instead of post execution.
+- Adds a `PreToolUse` matcher entry for `AskUserQuestion` so user-facing prompts appear before tool use handling.
+
 ---
 
 ## Usage Tracking

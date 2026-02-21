@@ -1106,6 +1106,74 @@ buildComplexSystem().catch(console.error);
 
 ---
 
+## ask_codex / ask_gemini MCP 도구 사용법
+
+### Background 모드 (권장)
+
+Reasoning 모델(xhigh) 사용 및 MCP 서버 7개+ 초기화로 인해 `ask_codex` foreground 호출 시 수 분의 지연이 발생합니다. **Background 모드** 사용이 필수적입니다.
+
+#### Foreground vs Background 비교
+
+| 특성 | Foreground (기본) | Background (비동기) |
+|------|-------------------|---------------------|
+| **입력 방식** | `prompt` (Inline String) | `prompt_file` (File Path) |
+| **실행 방식** | Blocking (응답 올 때까지 대기) | Non-blocking (즉시 Job ID 반환) |
+| **주요 용도** | 간단한 질의 (< 5초) | 복잡한 추론, 긴 컨텍스트 |
+| **제약** | Inline Prompt만 가능 | 반드시 파일 입출력 사용 |
+
+> **주의:** `prompt` (inline)과 `background: true`는 함께 사용 불가. Background 모드는 반드시 `prompt_file`을 사용해야 합니다.
+
+#### Background 사용 단계별 예시
+
+**1단계: 프롬프트 파일 생성**
+
+```bash
+mkdir -p .omc/prompts
+cat <<EOF > .omc/prompts/review.md
+이 코드의 보안 취약점을 분석해주세요.
+EOF
+```
+
+**2단계: ask_codex 호출 (Dispatch)**
+
+```
+ask_codex(
+  agent_role = "code-reviewer",
+  prompt_file = ".omc/prompts/review.md",
+  output_file = ".omc/prompts/review-result.md",
+  background = true
+)
+→ Job ID: abc12345 반환 (즉시)
+```
+
+**3단계: 결과 대기**
+
+```
+wait_for_job(job_id = "abc12345", timeout_ms = 120000)
+→ 완료 시 response_file 내용 확인
+```
+
+### MCP-Direct 사용 가이드라인
+
+#### 모드 선택 기준
+
+**Foreground 사용 시점:**
+- 단순 질의 / 팩트 체크 (예: "pong 응답해줘")
+- Gemini Flash 등 가벼운 모델 사용 시
+
+**Background 사용 시점 (권장):**
+- Reasoning Effort `high` 이상 (Codex 기본값: xhigh)
+- 코드 리뷰, 아키텍처 분석 등 복잡한 작업
+- MCP 서버 7개+ 로드로 초기화 비용이 높은 경우
+
+#### 경로 규칙 (Strict Path Policy)
+
+- `prompt_file` / `output_file` 경로는 **working_directory 내**여야 함
+- `/tmp`, `~/` 등 외부 경로는 차단됨
+- **권장 경로: `.omc/prompts/`** — 프롬프트/결과 파일 일괄 관리
+
+---
+
 ## 성능 벤치마크
 
 ### 토큰 절약

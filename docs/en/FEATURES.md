@@ -1114,6 +1114,74 @@ buildComplexSystem().catch(console.error);
 
 ---
 
+## ask_codex / ask_gemini MCP Tool Usage
+
+### Background Mode (Recommended)
+
+Due to reasoning model (xhigh) usage and 7+ MCP server initializations, `ask_codex` foreground calls can take several minutes. **Background mode is strongly recommended.**
+
+#### Foreground vs Background Comparison
+
+| Feature | Foreground (default) | Background (async) |
+|---------|----------------------|--------------------|
+| **Input** | `prompt` (Inline String) | `prompt_file` (File Path) |
+| **Execution** | Blocking (waits for response) | Non-blocking (returns Job ID immediately) |
+| **Best for** | Simple queries (< 5s) | Complex reasoning, long context |
+| **Constraint** | Inline prompt only | Must use file I/O |
+
+> **Note:** `prompt` (inline) and `background: true` cannot be used together. Background mode requires `prompt_file`.
+
+#### Background Usage Step-by-Step
+
+**Step 1: Create prompt file**
+
+```bash
+mkdir -p .omc/prompts
+cat <<EOF > .omc/prompts/review.md
+Analyze this code for security vulnerabilities.
+EOF
+```
+
+**Step 2: Dispatch ask_codex**
+
+```
+ask_codex(
+  agent_role = "code-reviewer",
+  prompt_file = ".omc/prompts/review.md",
+  output_file = ".omc/prompts/review-result.md",
+  background = true
+)
+→ Returns Job ID: abc12345 (immediately)
+```
+
+**Step 3: Wait for result**
+
+```
+wait_for_job(job_id = "abc12345", timeout_ms = 120000)
+→ Check response_file on completion
+```
+
+### MCP-Direct Usage Guidelines
+
+#### When to Use Each Mode
+
+**Foreground:**
+- Simple queries / fact checks (e.g., "reply pong")
+- Lightweight models like Gemini Flash
+
+**Background (recommended):**
+- Reasoning Effort `high` or above (Codex default: xhigh)
+- Code reviews, architecture analysis, complex tasks
+- When 7+ MCP servers are loaded (high initialization cost)
+
+#### Path Policy (Strict)
+
+- `prompt_file` / `output_file` must be **within working_directory**
+- External paths (`/tmp`, `~/`) are blocked
+- **Recommended path: `.omc/prompts/`** — centralized prompt/result management
+
+---
+
 ## Performance Benchmarks
 
 ### Token Savings

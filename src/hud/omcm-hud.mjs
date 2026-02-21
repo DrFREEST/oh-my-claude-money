@@ -299,15 +299,20 @@ function renderToolStats(sessionId) {
     var e = stats.Edit || 0;
     var b = stats.Bash || 0;
     var t = stats.Task || 0;
+    var m = stats.OmcmMcp || 0;
     var total = r + e + b + t;
 
-    if (total === 0) return null;
+    if (total === 0 && m === 0) return null;
 
     // Task 비율이 10% 미만이면 경고색
     var taskRatio = total > 0 ? (t / total) * 100 : 0;
     var taskColor = taskRatio < 10 ? YELLOW : GREEN;
 
-    return DIM + 'R:' + r + ' E:' + e + ' B:' + b + RESET + ' ' + taskColor + 'T:' + t + RESET;
+    var base = DIM + 'R:' + r + ' E:' + e + ' B:' + b + RESET + ' ' + taskColor + 'T:' + t + RESET;
+    if (m > 0) {
+      base = base + ' ' + CYAN + 'M:' + m + RESET;
+    }
+    return base;
   } catch (e) {
     return null;
   }

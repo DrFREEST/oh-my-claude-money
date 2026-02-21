@@ -58,7 +58,7 @@ export function getToolUsageStats(sessionId) {
   var logFile = join(SESSIONS_DIR, sessionId, 'tool-usage.jsonl');
   if (!existsSync(logFile)) return null;
 
-  var result = { Read: 0, Edit: 0, Bash: 0, Grep: 0, Glob: 0, Task: 0, total: 0 };
+  var result = { Read: 0, Edit: 0, Bash: 0, Grep: 0, Glob: 0, Task: 0, OmcmMcp: 0, total: 0 };
 
   try {
     var content = readFileSync(logFile, 'utf-8');
@@ -70,7 +70,9 @@ export function getToolUsageStats(sessionId) {
         var entry = JSON.parse(lines[i]);
         var name = entry.tool_name || '';
 
-        if (result[name] !== undefined) {
+        if (name.startsWith('mcp__omcm-mcp__')) {
+          result.OmcmMcp++;
+        } else if (result[name] !== undefined) {
           result[name]++;
         }
         result.total++;

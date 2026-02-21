@@ -24,9 +24,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **독립 MCP 서버** (`packages/mcp-server/`) — B-Direction 3개 무기 구현
-  - **무기 1: True Multi-model Fusion** (`servers/fusion/`) — Codex/Gemini 병렬 호출 + 결과 합성 (3개 도구: `omcm_fusion_call`, `omcm_fusion_parallel`, `omcm_fusion_status`)
+  - **무기 1: True Multi-model Fusion** (`servers/fusion/`) — Codex/Gemini 병렬 호출 + 결과 합성 (3개 도구: `omcm_fusion_analyze`, `omcm_fusion_ask_codex`, `omcm_fusion_ask_gemini`)
   - **무기 2: Semantic Code Index** (`servers/index/`) — SQLite FTS5 기반 시맨틱 코드 검색 (4개 도구: `omcm_index_build`, `omcm_index_search`, `omcm_index_update`, `omcm_index_status`)
-  - **무기 3: Cross-session Learning** (`servers/memory/`) — SQLite+FTS5 지식 영속화 (5개 도구: `omcm_memory_store`, `omcm_memory_search`, `omcm_memory_list`, `omcm_memory_delete`, `omcm_memory_summarize`)
+  - **무기 3: Cross-session Learning** (`servers/memory/`) — SQLite+FTS5 지식 영속화 (5개 도구: `omcm_memory_remember`, `omcm_memory_recall`, `omcm_memory_forget`, `omcm_memory_summarize_session`, `omcm_memory_project_knowledge`)
 - **MCP 서버 등록** — `.mcp.json`에 `omcm-mcp` 항목 추가
 
 ### Architecture

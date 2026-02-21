@@ -1,11 +1,11 @@
 {
   "description": "OMC 에이전트 → OMO 에이전트 퓨전 매핑 (퓨전/폴백 모드 전용)",
   "version": "4.1.0",
-  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.3.0 + OMO v3.4.0 호환 (30 에이전트 + backward-compat aliases)",
+  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.3.3 호환 (21 canonical 에이전트 + backward-compat aliases)",
   "metadata": {
-    "omc_version": "4.3.0",
-    "omcm_version": "2.1.9",
-    "last_updated": "2026-02-21"
+    "omc_version": "4.3.3",
+    "omcm_version": "2.2.0",
+    "last_updated": "2026-02-22"
   },
   "models": {
     "opus": {
@@ -345,16 +345,16 @@
     ]
   },
   "statistics": {
-    "total_agents": 30,
+    "total_agents": 21,
     "total_with_aliases": 32,
-    "build_analysis_lane": 7,
-    "review_lane": 6,
+    "build_analysis_lane": 8,
+    "review_lane": 3,
     "testing_lane": 2,
     "refactoring_lane": 1,
-    "domain_specialists": 7,
-    "product_lane": 5,
-    "backward_compat_aliases": 2,
-    "mcp_direct_agents": 20,
-    "claude_only_agents": 10
+    "domain_specialists": 4,
+    "product_lane": 3,
+    "backward_compat_aliases": 11,
+    "mcp_direct_agents": 18,
+    "claude_only_agents": 3
   }
 }

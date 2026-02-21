@@ -58,6 +58,25 @@ src/ 수정 시 `docs/ko/` + `docs/en/` 관련 문서 동시 업데이트 필수
 | 새 기능 | CHANGELOG.md + 해당 문서 |
 | 버그 수정 | TROUBLESHOOTING.md |
 
+## MCP-Direct Rules (OMC v4.3.3)
+
+OMCM MCP-First v3.0 기준 에이전트 → MCP 도구 매핑:
+
+| MCP 도구 | 에이전트 역할 (agent_role) |
+|----------|--------------------------|
+| `ask_codex` | architect, debugger, verifier, code-reviewer, quality-reviewer, security-reviewer, test-engineer, planner, critic, analyst, scientist, code-simplifier, build-fixer, explorer |
+| `ask_gemini` | designer, writer, document-specialist |
+
+**Task(subagent_type)로 스폰해야 하는 에이전트** (도구 접근 필요):
+`executor`, `deep-executor`, `explore`, `build-fixer`, `qa-tester`, `git-master`
+
+**Deprecated aliases (자동 라우팅됨)**:
+`api-reviewer`→`code-reviewer`, `style-reviewer`→`quality-reviewer`,
+`performance-reviewer`→`quality-reviewer`, `dependency-expert`→`document-specialist`,
+`quality-strategist`→`quality-reviewer`, `vision`→`document-specialist`,
+`product-manager`→`planner`, `ux-researcher`→`designer`,
+`information-architect`→`analyst`, `product-analyst`→`analyst`
+
 ## 퓨전 설정 (글로벌)
 
 - **설정 파일**: `~/.claude/plugins/omcm/config.json`

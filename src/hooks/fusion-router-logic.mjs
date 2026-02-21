@@ -124,6 +124,7 @@ export function logRouting(decision) {
  *   Build/Analysis: architect, executor, explore, debugger, verifier, deep-executor, git-master, build-fixer
  *   Review: security-reviewer, code-reviewer, quality-reviewer
  *   Testing: qa-tester, test-engineer
+ *   Refactoring: code-simplifier
  *   Domain: scientist, designer, writer, document-specialist
  *   Product: planner, critic, analyst
  *
@@ -152,6 +153,9 @@ export function mapAgentToMcp(agentType) {
     // Testing Lane → ask_codex
     'qa-tester': 'codex-build',        // QA 테스팅
     'test-engineer': 'codex-build',    // TDD/테스트 작성 (was tdd-guide)
+
+    // Refactoring Lane → ask_codex
+    'code-simplifier': 'codex-build',  // 코드 단순화/리팩토링
 
     // Domain Lane
     'scientist': 'codex-oracle',           // 데이터 분석 → ask_codex

@@ -20,6 +20,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## v2.3.0 (2026-02-22)
+
+### Added
+- **독립 MCP 서버** (`packages/mcp-server/`) — B-Direction 3개 무기 구현
+  - **무기 1: True Multi-model Fusion** (`servers/fusion/`) — Codex/Gemini 병렬 호출 + 결과 합성 (3개 도구: `omcm_fusion_call`, `omcm_fusion_parallel`, `omcm_fusion_status`)
+  - **무기 2: Semantic Code Index** (`servers/index/`) — SQLite FTS5 기반 시맨틱 코드 검색 (4개 도구: `omcm_index_build`, `omcm_index_search`, `omcm_index_update`, `omcm_index_status`)
+  - **무기 3: Cross-session Learning** (`servers/memory/`) — SQLite+FTS5 지식 영속화 (5개 도구: `omcm_memory_store`, `omcm_memory_search`, `omcm_memory_list`, `omcm_memory_delete`, `omcm_memory_summarize`)
+- **MCP 서버 등록** — `.mcp.json`에 `omcm-mcp` 항목 추가
+
+### Architecture
+- MCP SDK (`@modelcontextprotocol/sdk ^1.26.0`) 직접 의존
+- `@huggingface/transformers v3.x` 준비 (현재 FTS5 기반으로 동작, 임베딩 예정)
+- `better-sqlite3` + FTS5 for 영속 저장
+
+### Compatibility
+- **OMC**: v4.3.3
+- **Claude Code**: v1.0.33+
+
 ## v2.2.0 (2026-02-22)
 
 ### Changed

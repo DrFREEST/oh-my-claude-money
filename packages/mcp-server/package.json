@@ -1,0 +1,16 @@
+{
+  "name": "@omcm/mcp-server",
+  "version": "0.1.0",
+  "description": "OMCM independent MCP server — Fusion, Semantic Index, Cross-session Learning",
+  "type": "module",
+  "main": "index.mjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "better-sqlite3": "^11.0.0",
+    "glob": "^11.0.0",
+    "zod": "^3.24.0"
+  }
+}

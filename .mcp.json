@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "eau-bus": {
+      "command": "node",
+      "args": ["/opt/claude-enterprise-universe/dist/mcp/bus-server.js"],
+      "env": {
+        "EAU_DB_PATH": "/root/.claude/enterprise/bus.db",
+        "EAU_SESSION_TYPE": "project"
+      }
+    },
+    "omcm-mcp": {
+      "command": "node",
+      "args": ["/opt/oh-my-claude-money/packages/mcp-server/index.mjs"]
+    }
+  }
+}

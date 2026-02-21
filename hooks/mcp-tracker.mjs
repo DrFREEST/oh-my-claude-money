@@ -312,6 +312,14 @@ async function main() {
       // 무시
     }
 
+    // call-logger 동적 로드 (best-effort)
+    var callLoggerModule = null;
+    try {
+      callLoggerModule = await import('../src/tracking/call-logger.mjs');
+    } catch (e) {
+      // 로드 실패 무시
+    }
+
     var workingDir = process.env.PWD || process.cwd();
     var tokenData = null;
 
@@ -384,6 +392,53 @@ async function main() {
     }
 
     logMcpCall(logEntry);
+
+    // call-logger 연동: ask_codex/ask_gemini foreground + wait_for_job
+    if (callLoggerModule && sessionId) {
+      var shouldLogToCallLogger = false;
+      var callLogData = null;
+
+      if ((classification.action === 'ask_codex' || classification.action === 'ask_gemini') && !toolInput.background) {
+        // Foreground 호출: 즉시 기록
+        shouldLogToCallLogger = true;
+        var mappedProvider = classification.provider === 'google' ? 'google' : 'openai';
+        callLogData = {
+          provider: mappedProvider,
+          model: toolInput.model || '',
+          agent: toolInput.agent_role || '',
+          inputTokens: tokenData ? (tokenData.inputTokens || 0) : 0,
+          outputTokens: tokenData ? (tokenData.outputTokens || 0) : 0,
+          reasoningTokens: tokenData ? (tokenData.reasoningTokens || 0) : 0,
+          cost: tokenData ? (tokenData.cost || 0) : 0,
+          success: true,
+          source: 'mcp-direct'
+        };
+      } else if (classification.action === 'wait_for_job') {
+        // Background 완료: wait_for_job에서 기록 (토큰 포함)
+        shouldLogToCallLogger = true;
+        var mappedProvider2 = classification.provider === 'google' ? 'google' : 'openai';
+        callLogData = {
+          provider: mappedProvider2,
+          model: tokenData ? (tokenData.model || '') : '',
+          agent: '',
+          inputTokens: tokenData ? (tokenData.inputTokens || 0) : 0,
+          outputTokens: tokenData ? (tokenData.outputTokens || 0) : 0,
+          reasoningTokens: tokenData ? (tokenData.reasoningTokens || 0) : 0,
+          cost: tokenData ? (tokenData.cost || 0) : 0,
+          success: true,
+          source: 'mcp-direct-complete'
+        };
+      }
+
+      if (shouldLogToCallLogger && callLogData) {
+        try {
+          callLoggerModule.logMcpCall(sessionId, callLogData);
+        } catch (e) {
+          // call-logger 기록 실패 무시
+        }
+      }
+    }
+
     updateMcpTracking(classification, tokenData);
 
     // Flow Tracer 결과 기록

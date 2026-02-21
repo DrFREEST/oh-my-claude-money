@@ -20,6 +20,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## v2.1.10 (2026-02-22)
+
+### Fixed
+- **mcp-tracker → call-logger 연동** (`hooks/mcp-tracker.mjs`) — HUD O/G 카운트 0 표시 버그 수정
+  - `ask_codex`/`ask_gemini` foreground 호출 시 call-logger에 즉시 기록
+  - `wait_for_job` 완료 시 call-logger에 토큰 데이터 포함 기록
+  - HUD `O:N|G:N` 카운터가 실제 MCP 호출 횟수를 반영하게 됨
+  - 기존 mcp-tracking.json 집계와 독립적으로 동작 (중복 없음)
+
+### Compatibility
+- **OMC**: v4.3.0
+- **Claude Code**: v1.0.33+
+
 ## v2.1.9 (2026-02-21)
 
 ### Added

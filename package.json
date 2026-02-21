@@ -1,6 +1,6 @@
 {
   "name": "omcm",
-  "version": "2.1.9",
+  "version": "2.1.10",
   "description": "Claude Code ↔ Codex/Gemini CLI 퓨전 오케스트레이터 - OMC v4.3.0 호환",
   "author": "DrFREEST",
   "license": "MIT",

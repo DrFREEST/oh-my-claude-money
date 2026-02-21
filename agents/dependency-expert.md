@@ -1,19 +1,18 @@
 ---
-description: OMC v4.2.9 호환 에이전트 래퍼 - `dependency-expert`
+description: "[DEPRECATED] OMC v4.3.1에서 제거됨 - document-specialist를 사용하세요"
 ---
 
-# OMC Compatibility Agent Wrapper: dependency-expert
+# [DEPRECATED] dependency-expert
 
-이 파일은 OMC v4.2.9의 에이전트 인벤토리와의 호환성을 위해 자동 생성되었습니다.
+> **OMC v4.3.1에서 제거되었습니다.**
+> `document-specialist` 에이전트를 사용하세요.
+> OMCM은 이 이름을 자동으로 `document-specialist`로 라우팅합니다.
 
-- OMC 에이전트: `dependency-expert`
-- OMCM 런타임 라우팅: `scripts/agent-mapping.json` + `mapAgentToOpenCode()`
+이 에이전트는 OMC v4.3.1 Agent Registry Consolidation에서 제거되었습니다.
 
-## 목적
+## 마이그레이션
 
-- 에이전트 누락 검수 리포트에서 false positive 방지
-- 레거시 문서/도구가 `agents/*.md` 인벤토리를 참조할 때 호환성 유지
+- **이전**: `subagent_type: "dependency-expert"` 또는 `agent_role: "dependency-expert"`
+- **이후**: `subagent_type: "document-specialist"` 또는 `agent_role: "document-specialist"`
 
-## 참고
-
-실제 실행 라우팅은 코드 레벨 매핑을 기준으로 동작합니다.
+OMC v4.3.1+의 `normalizeDelegationRole()`이 자동으로 라우팅합니다.

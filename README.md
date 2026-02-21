@@ -44,6 +44,56 @@ OMCM fuses 30 Claude Code agents with OpenCode's multi-provider agents, enabling
 3. **Real-time Tracking** - HUD integration shows usage and fusion status
 4. **Hybrid Ultrawork (`hulw`)** - Instant fusion mode with maximum parallelism
 5. **Token Savings** - 18 agents offloaded to other providers automatically
+6. **Independent MCP Server** - 12 specialized tools for Fusion, Code Index, and Cross-session Memory
+
+### v2.3.0: Independent MCP Server (B-Direction)
+
+OMCM now ships a standalone MCP server with **12 tools** across 3 categories:
+
+#### Weapon 1: True Multi-model Fusion
+| Tool | Description |
+|------|-------------|
+| `omcm_fusion_analyze` | Parallel Codex + Gemini analysis with synthesis |
+| `omcm_fusion_ask_codex` | Direct Codex CLI query (code/security/perf) |
+| `omcm_fusion_ask_gemini` | Direct Gemini CLI query (design/docs/UX) |
+
+#### Weapon 2: Semantic Code Index
+| Tool | Description |
+|------|-------------|
+| `omcm_index_build` | Index a project codebase (run once) |
+| `omcm_index_search` | Full-text symbol/keyword/natural-language search |
+| `omcm_index_update` | Incremental re-index of changed files |
+| `omcm_index_status` | Check index freshness |
+
+#### Weapon 3: Cross-session Learning
+| Tool | Description |
+|------|-------------|
+| `omcm_memory_remember` | Persist knowledge across sessions |
+| `omcm_memory_recall` | Full-text search over stored knowledge |
+| `omcm_memory_forget` | Delete knowledge items |
+| `omcm_memory_summarize_session` | Auto-extract session learnings |
+| `omcm_memory_project_knowledge` | Retrieve all project-scoped knowledge |
+
+**MCP Server Registration** (`~/.claude/mcp-config.json` — global):
+```json
+{
+  "mcpServers": {
+    "omcm-mcp": {
+      "command": "node",
+      "args": ["/path/to/oh-my-claude-money/packages/mcp-server/index.mjs"],
+      "env": { "OMCM_DATA_DIR": "~/.omcm" }
+    }
+  }
+}
+```
+
+**Recommended workflow:**
+```
+1. New project  → omcm_index_build
+2. Session start → omcm_memory_recall
+3. Complex decision → omcm_fusion_analyze
+4. Before session end → omcm_memory_summarize_session
+```
 
 ### Quick Start
 
@@ -269,6 +319,55 @@ Claude Code에서 OpenCode를 MCP로 호출할 수 있습니다.
   - 의존성 기반 작업 그룹화
   - 자동 프로바이더 라우팅
 - **ExecutionStrategy**: 작업 유형별 전략 선택 (run/serve/acp)
+
+### 11. 🔌 독립 MCP 서버 (v2.3.0)
+
+OMCM은 이제 **12개 도구**를 포함한 독립 MCP 서버를 내장합니다 (3가지 카테고리):
+
+#### 무기 1: 진정한 멀티모델 퓨전
+| 도구 | 설명 |
+|------|------|
+| `omcm_fusion_analyze` | Codex + Gemini 병렬 분석 후 종합 |
+| `omcm_fusion_ask_codex` | Codex CLI 직접 쿼리 (코드/보안/성능) |
+| `omcm_fusion_ask_gemini` | Gemini CLI 직접 쿼리 (디자인/문서/UX) |
+
+#### 무기 2: 시맨틱 코드 인덱스
+| 도구 | 설명 |
+|------|------|
+| `omcm_index_build` | 프로젝트 코드베이스 인덱싱 (최초 1회) |
+| `omcm_index_search` | 심볼/키워드/자연어 전문 검색 |
+| `omcm_index_update` | 변경된 파일 증분 재인덱싱 |
+| `omcm_index_status` | 인덱스 최신 상태 확인 |
+
+#### 무기 3: 크로스 세션 학습
+| 도구 | 설명 |
+|------|------|
+| `omcm_memory_remember` | 세션 간 지식 영속 저장 |
+| `omcm_memory_recall` | 저장된 지식 전문 검색 |
+| `omcm_memory_forget` | 지식 항목 삭제 |
+| `omcm_memory_summarize_session` | 세션 학습 내용 자동 추출 |
+| `omcm_memory_project_knowledge` | 프로젝트 범위 지식 전체 조회 |
+
+**MCP 서버 등록** (`~/.claude/mcp-config.json` — 글로벌):
+```json
+{
+  "mcpServers": {
+    "omcm-mcp": {
+      "command": "node",
+      "args": ["/path/to/oh-my-claude-money/packages/mcp-server/index.mjs"],
+      "env": { "OMCM_DATA_DIR": "~/.omcm" }
+    }
+  }
+}
+```
+
+**권장 워크플로우:**
+```
+1. 새 프로젝트   → omcm_index_build
+2. 세션 시작     → omcm_memory_recall
+3. 복잡한 결정   → omcm_fusion_analyze
+4. 세션 종료 전  → omcm_memory_summarize_session
+```
 
 ## 빠른 시작 (30초)
 

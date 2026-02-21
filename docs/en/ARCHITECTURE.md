@@ -33,6 +33,55 @@ OMCM is a Fusion Orchestrator that integrates Claude Code and OpenCode. A single
 
 ---
 
+## 2. v2.3.0 Independent MCP Server Layer
+
+v2.3.0 adds a new MCP server layer alongside the existing hook-based architecture:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Claude Code (User)                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Legacy Layer (Hook-based)      │  New Layer (MCP Server)        │
+│  • fusion-router (Task block)   │  • omcm_fusion_analyze          │
+│  • HUD (usage tracking)         │  • omcm_index_build/search      │
+│  • skill/agent wrappers         │  • omcm_memory_remember/recall  │
+│                                 │  (global: mcp-config.json)      │
+└─────────────────────────────────────────────────────────────────┘
+         ↓                              ↓
+  Codex/Gemini CLI              SQLite FTS5 (local)
+  (ask_codex/ask_gemini)        (~/.omcm/index.db, memory.db)
+```
+
+### Data Flow (MCP Server)
+
+```
+User → omcm_fusion_analyze
+     → merger.mjs (buildCodexPrompt + buildGeminiPrompt)
+     → cli-runner.mjs (Promise.allSettled — parallel)
+         ├→ codex exec (OpenAI)
+         └→ gemini CLI (Google)
+     → mergeResults() → synthesized response
+
+User → omcm_index_search
+     → indexer.mjs → SQLite FTS5 query
+     → file locations + code snippets returned
+
+User → omcm_memory_remember
+     → db.mjs → ~/.omcm/memory.db stored
+     → next session: restored via omcm_memory_recall
+```
+
+### Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| MCP Protocol | `@modelcontextprotocol/sdk ^1.26.0` |
+| Storage | `better-sqlite3` + FTS5 |
+| Validation | `zod ^3.24.0` |
+| Embeddings | FTS5 (current) → `@huggingface/transformers v3.x` (planned) |
+
+---
+
 ## 1. Core Components
 
 ### 1.1 Fusion Router (src/hooks/fusion-router-logic.mjs)

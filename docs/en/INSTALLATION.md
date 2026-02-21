@@ -461,6 +461,43 @@ EOF
 
 ---
 
+## MCP Server Global Registration (v2.3.0+)
+
+To use OMCM MCP tools across all projects, register the server globally.
+
+### Add to ~/.claude/mcp-config.json
+
+```json
+{
+  "mcpServers": {
+    "omcm-mcp": {
+      "command": "node",
+      "args": ["/opt/oh-my-claude-money/packages/mcp-server/index.mjs"],
+      "env": {
+        "OMCM_DATA_DIR": "/root/.omcm"
+      }
+    }
+  }
+}
+```
+
+### Verify Dependencies
+
+```bash
+cd /opt/oh-my-claude-money/packages/mcp-server
+node --version  # v20+ required
+ls node_modules  # confirm deps installed (if missing: npm install)
+```
+
+### Verify Server
+
+```bash
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' | timeout 10 node /opt/oh-my-claude-money/packages/mcp-server/index.mjs 2>/dev/null
+# → Expect 12 tools in response
+```
+
+---
+
 ## Installation Verification
 
 ### 1. Check All Component Versions

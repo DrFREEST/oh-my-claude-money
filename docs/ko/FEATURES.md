@@ -1106,6 +1106,44 @@ buildComplexSystem().catch(console.error);
 
 ---
 
+## v2.3.0 독립 MCP 서버 (3종 무기) {#mcp-server}
+
+OMCM v2.3.0부터 Claude Code에 등록 가능한 독립 MCP 서버(`packages/mcp-server/`)를 제공합니다.
+글로벌 등록(`~/.claude/mcp-config.json`) 후 모든 프로젝트에서 12개 도구를 사용할 수 있습니다.
+
+### 무기 1: True Multi-model Fusion (`servers/fusion/`)
+
+| 도구 | 설명 |
+|------|------|
+| `omcm_fusion_analyze` | Codex + Gemini 병렬 호출 후 결과 합성 (focus: code/design/both) |
+| `omcm_fusion_ask_codex` | Codex CLI 직접 쿼리 (role: oracle/build) |
+| `omcm_fusion_ask_gemini` | Gemini CLI 직접 쿼리 (설계/문서/UX) |
+
+### 무기 2: Semantic Code Index (`servers/index/`)
+
+| 도구 | 설명 |
+|------|------|
+| `omcm_index_build` | 프로젝트 코드베이스 인덱싱 (FTS5 기반) |
+| `omcm_index_search` | 심볼/키워드/자연어로 코드 검색 |
+| `omcm_index_update` | 변경된 파일만 증분 업데이트 |
+| `omcm_index_status` | 인덱스 신선도 확인 |
+
+### 무기 3: Cross-session Learning (`servers/memory/`)
+
+| 도구 | 설명 |
+|------|------|
+| `omcm_memory_remember` | 지식/패턴을 세션 간 영속 저장 |
+| `omcm_memory_recall` | 저장된 지식 전문 검색 |
+| `omcm_memory_forget` | 지식 항목 삭제 |
+| `omcm_memory_summarize_session` | 현재 세션 학습 자동 추출+저장 |
+| `omcm_memory_project_knowledge` | 프로젝트 전체 지식 조회 |
+
+### HUD 통합
+
+새 MCP 도구 호출은 HUD에서 `M:N` (cyan)으로 표시됩니다.
+
+---
+
 ## ask_codex / ask_gemini MCP 도구 사용법
 
 ### Background 모드 (권장)

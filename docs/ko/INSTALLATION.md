@@ -818,6 +818,43 @@ rm -rf ~/.claude/plugins/local/oh-my-claude-money
 
 ---
 
+## MCP 서버 글로벌 등록 (v2.3.0+)
+
+OMCM MCP 서버를 모든 프로젝트에서 사용하려면 글로벌 등록이 필요합니다.
+
+### ~/.claude/mcp-config.json에 추가
+
+```json
+{
+  "mcpServers": {
+    "omcm-mcp": {
+      "command": "node",
+      "args": ["/opt/oh-my-claude-money/packages/mcp-server/index.mjs"],
+      "env": {
+        "OMCM_DATA_DIR": "/root/.omcm"
+      }
+    }
+  }
+}
+```
+
+### 의존성 확인
+
+```bash
+cd /opt/oh-my-claude-money/packages/mcp-server
+node --version  # v20+ 필요
+ls node_modules  # 의존성 설치 확인 (없으면: npm install)
+```
+
+### 동작 확인
+
+```bash
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' | timeout 10 node /opt/oh-my-claude-money/packages/mcp-server/index.mjs 2>/dev/null
+# → 12개 도구 목록 응답 확인
+```
+
+---
+
 ## 다음 단계
 
 설치 완료 후:

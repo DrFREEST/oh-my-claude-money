@@ -1234,6 +1234,43 @@ wait_for_job(job_id = "abc12345", timeout_ms = 120000)
 
 ---
 
+## v2.3.0 Independent MCP Server (3 Weapons) {#mcp-server}
+
+Starting from v2.3.0, OMCM ships a standalone MCP server (`packages/mcp-server/`) that can be registered globally in `~/.claude/mcp-config.json`, making all 12 tools available across every project.
+
+### Weapon 1: True Multi-model Fusion (`servers/fusion/`)
+
+| Tool | Description |
+|------|-------------|
+| `omcm_fusion_analyze` | Parallel Codex + Gemini analysis with structured synthesis (focus: code/design/both) |
+| `omcm_fusion_ask_codex` | Direct Codex CLI query (role: oracle/build) |
+| `omcm_fusion_ask_gemini` | Direct Gemini CLI query (design/docs/UX) |
+
+### Weapon 2: Semantic Code Index (`servers/index/`)
+
+| Tool | Description |
+|------|-------------|
+| `omcm_index_build` | Index a project codebase using SQLite FTS5 |
+| `omcm_index_search` | Full-text search by symbol, keyword, or natural language |
+| `omcm_index_update` | Incremental re-index of changed files only |
+| `omcm_index_status` | Check index freshness and stale file list |
+
+### Weapon 3: Cross-session Learning (`servers/memory/`)
+
+| Tool | Description |
+|------|-------------|
+| `omcm_memory_remember` | Persist knowledge/patterns across sessions |
+| `omcm_memory_recall` | Full-text search over stored knowledge |
+| `omcm_memory_forget` | Delete knowledge items |
+| `omcm_memory_summarize_session` | Auto-extract session learnings and store |
+| `omcm_memory_project_knowledge` | Retrieve all project-scoped knowledge |
+
+### HUD Integration
+
+New MCP tool calls are visible in HUD as `M:N` (cyan color), tracking `mcp__omcm-mcp__*` calls.
+
+---
+
 ## See Also
 
 - [README.md](../../README.md) - Project overview and quick start

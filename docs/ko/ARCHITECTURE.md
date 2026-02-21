@@ -299,7 +299,56 @@ tracker.getRecent(10)  // 최근 10개 반환
 
 ---
 
-## 2. 데이터 흐름
+## 2. v2.3.0 독립 MCP 서버 레이어
+
+기존 훅 기반 아키텍처에 독립 MCP 서버 레이어 추가:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Claude Code (사용자)                        │
+├─────────────────────────────────────────────────────────────────┤
+│  기존 레이어 (훅 기반)          │  새 레이어 (MCP 서버)            │
+│  • fusion-router (Task 차단)   │  • omcm_fusion_analyze          │
+│  • HUD (사용량 추적)            │  • omcm_index_build/search      │
+│  • 스킬/에이전트 래퍼           │  • omcm_memory_remember/recall   │
+│                                │  (글로벌: ~/.claude/mcp-config) │
+└─────────────────────────────────────────────────────────────────┘
+         ↓                              ↓
+  Codex/Gemini CLI              SQLite FTS5 (로컬)
+  (ask_codex/ask_gemini)        (~/.omcm/index.db, memory.db)
+```
+
+### 데이터 흐름 (MCP 서버)
+
+```
+사용자 → omcm_fusion_analyze
+       → merger.mjs (buildCodexPrompt + buildGeminiPrompt)
+       → cli-runner.mjs (Promise.allSettled 병렬)
+           ├→ codex exec (OpenAI)
+           └→ gemini CLI (Google)
+       → mergeResults() → 합성 응답
+
+사용자 → omcm_index_search
+       → indexer.mjs → SQLite FTS5 쿼리
+       → 파일 위치 + 코드 스니펫 반환
+
+사용자 → omcm_memory_remember
+       → db.mjs → ~/.omcm/memory.db 저장
+       → 다음 세션에서 omcm_memory_recall로 복원
+```
+
+### 스택
+
+| 컴포넌트 | 기술 |
+|----------|------|
+| MCP 프로토콜 | `@modelcontextprotocol/sdk ^1.26.0` |
+| 데이터 저장 | `better-sqlite3` + FTS5 |
+| 검증 | `zod ^3.24.0` |
+| 임베딩 | FTS5 (현재) → `@huggingface/transformers v3.x` (예정) |
+
+---
+
+## 3. 데이터 흐름
 
 ### 2.1 작업 요청부터 실행까지
 
@@ -398,7 +447,7 @@ Claude 리밋 체크 (5시간/주간 사용량)
 
 ---
 
-## 3. 프로바이더 밸런싱
+## 4. 프로바이더 밸런싱
 
 ### 3.1 밸런서 전략 (src/router/balancer.mjs)
 
@@ -493,7 +542,7 @@ const stats = balancer.getStats();
 
 ---
 
-## 4. OMC 통합
+## 5. OMC 통합
 
 ### 4.1 훅 시스템 (src/hooks/)
 
@@ -607,7 +656,7 @@ FUSION_STATE_FILE (5초마다 갱신)
 
 ---
 
-## 5. 설정
+## 6. 설정
 
 ### 5.1 설정 파일 위치
 
@@ -670,7 +719,7 @@ FUSION_STATE_FILE (5초마다 갱신)
 
 ---
 
-## 6. 실행 전략
+## 7. 실행 전략
 
 ### 6.1 ExecutionStrategy (src/orchestrator/execution-strategy.mjs)
 
@@ -710,7 +759,7 @@ routeTask(type)
 
 ---
 
-## 7. 파일 구조
+## 8. 파일 구조
 
 ```
 oh-my-claude-money/
@@ -810,7 +859,7 @@ oh-my-claude-money/
 
 ---
 
-## 8. 성능 고려사항
+## 9. 성능 고려사항
 
 ### 8.1 Cold Boot 최소화
 
@@ -868,7 +917,7 @@ Balancer 선택 (각 호출 시):
 
 ---
 
-## 9. 오류 처리
+## 10. 오류 처리
 
 ### 9.1 라우팅 결정 실패
 
@@ -900,7 +949,7 @@ errorRate = (errorCount / requestCount) × 100
 
 ---
 
-## 10. 테스트 전략
+## 11. 테스트 전략
 
 ### 10.1 테스트 범위 (361개 테스트)
 
@@ -923,7 +972,7 @@ npm test -- --grep "parallel" # 병렬 실행 테스트만
 
 ---
 
-## 11. 향후 개선사항
+## 12. 향후 개선사항
 
 - [ ] 분산 추적 (Distributed tracing)
 - [ ] ML 기반 동적 가중치 조정

@@ -313,7 +313,7 @@
       "model": "claude-opus-4-6-20260205",
       "thinking": true,
       "description": "코드 단순화 및 리팩토링 전문가 - 기능 보존하며 가독성/일관성/유지보수성 개선",
-      "mcp_direct": null
+      "mcp_direct": "ask_codex"
     },
 
     "_comment_aliases": "=== Backward-Compat Aliases (OMC 4.0.x → 4.1.x 호환) ===",
@@ -346,14 +346,14 @@
   },
   "statistics": {
     "total_agents": 21,
-    "total_with_aliases": 32,
+    "total_with_aliases": 23,
     "build_analysis_lane": 8,
     "review_lane": 3,
     "testing_lane": 2,
     "refactoring_lane": 1,
     "domain_specialists": 4,
     "product_lane": 3,
-    "backward_compat_aliases": 11,
+    "backward_compat_aliases": 2,
     "mcp_direct_agents": 18,
     "claude_only_agents": 3
   }

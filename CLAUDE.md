@@ -64,7 +64,7 @@ OMCM MCP-First v3.0 기준 에이전트 → MCP 도구 매핑:
 
 | MCP 도구 | 에이전트 역할 (agent_role) |
 |----------|--------------------------|
-| `ask_codex` | architect, debugger, verifier, code-reviewer, quality-reviewer, security-reviewer, test-engineer, planner, critic, analyst, scientist, code-simplifier, build-fixer, explorer |
+| `ask_codex` | architect, debugger, verifier, code-reviewer, quality-reviewer, security-reviewer, test-engineer, planner, critic, analyst, scientist, code-simplifier, build-fixer, explore |
 | `ask_gemini` | designer, writer, document-specialist |
 
 **Task(subagent_type)로 스폰해야 하는 에이전트** (도구 접근 필요):

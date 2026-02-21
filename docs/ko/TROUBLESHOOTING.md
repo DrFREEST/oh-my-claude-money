@@ -1,5 +1,7 @@
 # 문제 해결 가이드
 
+> **버전 기준 (OMC 4.2.15):** 본 문서는 `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, `gemini-3-pro`를 기본으로 설명합니다. `researcher`, `tdd-guide`, `*-low`/`*-medium` 표기는 하위호환(legacy) 맥락에서만 유지됩니다.
+
 **oh-my-claude-money (OMCM)** 사용 중 발생할 수 있는 모든 일반적인 문제와 해결책을 제공하는 종합 가이드입니다.
 
 ---
@@ -7,7 +9,7 @@
 ## 목차
 
 1. [설치 관련 문제](#1-설치-관련-문제)
-2. [OpenCode 연결 문제](#2-opencode-연결-문제)
+2. [MCP CLI 연결 문제](#2-mcp-cli-연결-문제)
 3. [퓨전 라우팅 문제](#3-퓨전-라우팅-문제)
 4. [HUD 및 표시 문제](#4-hud-및-표시-문제)
 5. [CLI 실행 문제](#5-cli-실행-문제)
@@ -51,9 +53,9 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 ---
 
-### 1.2 OpenCode를 찾을 수 없음
+### 1.2 Codex/Gemini CLI를 찾을 수 없음
 
-**증상**: `opencode: command not found`
+**증상**: `codex: command not found` 또는 `gemini: command not found`
 
 **해결 단계**:
 
@@ -62,20 +64,22 @@ curl -fsSL https://claude.ai/install.sh | bash
 hash -r
 
 # 2단계: 설치 확인
-opencode --version
+codex --version
+gemini --version
 
 # 설치되지 않았으면 재설치
-npm uninstall -g opencode-ai
-npm install -g opencode-ai@latest
+npm install -g @openai/codex
+npm install -g @google/gemini-cli
 
 # 3단계: 새 터미널 열기 후 확인
-opencode --version
+codex --version
+gemini --version
 ```
 
-**macOS Homebrew 사용자**:
+**환경 변수로 인증**:
 ```bash
-brew install opencode
-opencode --version
+export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="AIza..."
 ```
 
 ---
@@ -168,9 +172,9 @@ cat ~/.omcm/install.log  # 있다면
 
 ---
 
-## 2. OpenCode 연결 문제
+## 2. MCP CLI 연결 문제
 
-### 2.1 OpenCode 프로바이더 인증 실패
+### 2.1 MCP CLI 프로바이더 인증 실패
 
 **증상**: `Authentication failed` 또는 `Invalid credentials`
 
@@ -178,20 +182,21 @@ cat ~/.omcm/install.log  # 있다면
 
 ```bash
 # 1단계: 인증 상태 확인
-opencode auth status
+codex auth status
+gemini auth status
 
 # 2단계: 프로바이더 재인증
-opencode auth login
+codex auth login    # OpenAI
+gemini auth login   # Google
 
-# 3단계: 특정 프로바이더만 인증 필요 시
-opencode auth login openai   # OpenAI
-opencode auth login google   # Google
-opencode auth login anthropic # Anthropic
+# 3단계: 환경 변수로 인증 (대안)
+export OPENAI_API_KEY="sk-proj-..."
+export GOOGLE_API_KEY="AIza..."
 ```
 
 **인증 상태 해석**:
 ```
-✅ OpenAI (gpt-5.2, gpt-5.2-codex)      # 정상
+✅ OpenAI (gpt-5.3, gpt-5.3-codex)      # 정상
 ❌ Google (not configured)               # 미설정
 ⚠️ Anthropic (expired)                   # 만료됨
 ```
@@ -235,7 +240,7 @@ source ~/.bashrc
 
 ### 2.3 특정 모델 사용 불가능
 
-**증상**: `Model gpt-5.2 not available for your API key` 또는 비슷한 메시지
+**증상**: `Model gpt-5.3 not available for your API key` 또는 비슷한 메시지
 
 **원인**: API 키에 해당 모델 접근 권한이 없음
 
@@ -252,9 +257,9 @@ source ~/.bashrc
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "preferOpencode": ["explore", "designer"],
+    "preferMcp": ["explore", "designer"],
     "models": {
-      "openai": "gpt-4o",          # gpt-5.2 대신 사용
+      "openai": "gpt-4o",          # gpt-5.3 대신 사용
       "google": "gemini-2.0-flash"  # gemini-pro 대신 사용
     }
   }
@@ -264,9 +269,9 @@ EOF
 
 ---
 
-### 2.4 OpenCode 서버 연결 실패
+### 2.4 MCP CLI 연결 실패
 
-**증상**: `Failed to connect to OpenCode server` 또는 타임아웃
+**증상**: CLI 실행 실패 또는 타임아웃
 
 **해결 단계**:
 
@@ -295,7 +300,7 @@ echo $PATH
 
 ## 3. 퓨전 라우팅 문제
 
-### 3.1 hulw 사용해도 OpenCode로 라우팅 안됨
+### 3.1 hulw 사용해도 MCP CLI로 라우팅 안됨
 
 **증상**: `hulw` 키워드 사용하는데도 Claude만 사용됨
 
@@ -376,9 +381,9 @@ EOF
 
 ---
 
-### 3.3 OpenCode 타임아웃
+### 3.3 MCP CLI 타임아웃
 
-**증상**: `OpenCode request timeout after 300000ms`
+**증상**: `MCP CLI request timeout after 300000ms`
 
 **원인**: 작업이 너무 크거나 네트워크 느림
 
@@ -388,9 +393,8 @@ EOF
 # 1단계: 타임아웃 시간 증가
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
-  "opencode": {
-    "timeout": 600000,  # 10분으로 증가 (기본 5분)
-    "command": "opencode"
+  "mcp": {
+    "timeout": 600000  # 10분으로 증가 (기본 5분)
   }
 }
 EOF
@@ -560,7 +564,7 @@ ping -c 3 8.8.8.8
 # 2단계: 타임아웃 시간 증가 (config.json)
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
-  "opencode": {
+  "mcp": {
     "timeout": 600000
   }
 }
@@ -660,7 +664,7 @@ chmod +x ~/.claude/plugins/omcm/src/hooks/*.mjs
 
 ### 7.1 응답 속도 개선
 
-**문제**: OpenCode 호출이 느림
+**문제**: MCP CLI 호출이 느림
 
 **최적화**:
 
@@ -701,7 +705,7 @@ cat > ~/.claude/plugins/omcm/config.json << 'EOF'
   "context": {
     "maxContextLength": 100000
   },
-  "opencode": {
+  "mcp": {
     "timeout": 600000
   }
 }
@@ -756,23 +760,25 @@ claude --version
 claude
 /oh-my-claudecode:version
 
-# OpenCode
-opencode --version
+# MCP CLI (Codex/Gemini)
+codex --version
+gemini --version
 
-# OpenCode 프로바이더
-opencode auth status
+# MCP CLI 인증 상태
+codex auth status
+gemini auth status
 ```
 
 ---
 
 ## 9. 자주 묻는 질문
 
-### Q1: OpenCode가 정확히 무엇인가요?
+### Q1: MCP CLI(ask_codex/ask_gemini)가 정확히 무엇인가요?
 
-**A**: OpenCode는 여러 LLM 프로바이더(OpenAI, Google, Anthropic 등)를 하나의 인터페이스로 사용할 수 있게 해주는 오픈소스 AI 코딩 에이전트입니다.
+**A**: MCP(Model Context Protocol) 도구를 통해 Codex CLI(OpenAI)와 Gemini CLI(Google)를 Claude Code에서 직접 호출하는 방식입니다.
 
-OMCM은 OpenCode를 Claude Code와 연결하여:
-- 검색, 탐색, 분석 작업은 **OpenCode(GPT/Gemini)**로 처리
+OMCM은 MCP 도구를 활용하여:
+- 검색, 탐색, 분석 작업은 **ask_codex/ask_gemini(GPT/Gemini)**로 처리
 - 복잡한 추론과 구현은 **Claude Code**가 담당
 - 결과적으로 **Claude 토큰 62% 절약**
 
@@ -790,7 +796,7 @@ OMCM은 OpenCode를 Claude Code와 연결하여:
 **예시**:
 ```
 100시간 작업
-├─ 62시간: OpenCode(GPT/Gemini) 사용 → 저비용
+├─ 62시간: MCP CLI(GPT/Gemini) 사용 → 저비용
 └─ 38시간: Claude Opus 사용 → 고품질
 
 결과: Claude 사용량 62% 감소!
@@ -818,17 +824,18 @@ OMCM은 OpenCode를 Claude Code와 연결하여:
 
 ### Q4: 어떤 에이전트가 어디로 라우팅되나요?
 
-**A**: 기본 라우팅 규칙:
+**A**: OMC 4.2.15 기준에서 라우팅은 퓨전 모드/사용량에 따라 달라지며, 기본 경향은 다음과 같습니다.
 
-**Claude (고품질)**:
-- `architect`, `executor-high`
-- `critic`, `planner`
-- `security-reviewer`
+**Claude 우선 (실행/결정 중요 작업)**:
+- `planner`, `critic`, `product-manager`
+- `executor`, `deep-executor`, `verifier`
+- `qa-tester`, `test-engineer`, `build-fixer`, `git-master`
 
-**OpenCode (빠름, 저비용)**:
-- `explore`, `explore-medium`
-- `researcher`, `designer`
-- `writer`, `vision`
+**MCP CLI 우선 (분석/리뷰/문서 중심 작업)**:
+- `architect`, `debugger`, `explore`
+- `code-reviewer`, `security-reviewer`, `api-reviewer`, `performance-reviewer`
+- `dependency-expert`, `designer`, `writer`, `document-specialist`, `vision`
+- `analyst`, `ux-researcher`, `information-architect`, `product-analyst`
 
 커스텀 설정: `~/.omcm/agent-mapping.json`
 
@@ -839,11 +846,12 @@ OMCM은 OpenCode를 Claude Code와 연결하여:
 **A**: 각 프로바이더는 한 번만 인증하면 됩니다:
 
 ```bash
-opencode auth login openai   # 한 번만 실행
-opencode auth login google   # 한 번만 실행
+codex auth login    # OpenAI - 한 번만 실행
+gemini auth login   # Google - 한 번만 실행
 
 # 이후 반복 사용 가능
-opencode auth status        # 확인용
+codex auth status   # 확인용
+gemini auth status  # 확인용
 ```
 
 **재인증이 필요한 경우**:
@@ -858,7 +866,7 @@ opencode auth status        # 확인용
 **A**:
 | 기능 | ulw (울트라워크) | fusion (퓨전) |
 |------|-------------------|---------------|
-| **목적** | Claude 내 병렬화 | OMC + OpenCode 혼합 |
+| **목적** | Claude 내 병렬화 | OMC + MCP CLI 혼합 |
 | **사용 시기** | 빠른 처리 필요 | 토큰 절약 필요 |
 | **모델** | Claude만 사용 | Claude + GPT/Gemini |
 | **비용** | 높음 | 낮음 |
@@ -910,7 +918,7 @@ cat ~/.omcm/provider-limits.json | jq '.providers'
 
 ---
 
-### Q9: OpenCode가 응답을 안 줄 때는?
+### Q9: MCP CLI가 응답을 안 줄 때는?
 
 **A**: 단계별 확인:
 
@@ -964,7 +972,7 @@ rm -rf ~/.omcm
 
 | 에러 | 원인 | 해결책 |
 |------|------|--------|
-| `OpenCode not found` | OpenCode CLI 미설치 | `npm i -g opencode-ai@latest` |
+| `CLI not found` | Codex/Gemini CLI 미설치 | `npm i -g @openai/codex @google/gemini-cli` |
 | `claude: command not found` | Claude Code 미설치 | `npm i -g @anthropic-ai/claude-code` |
 | `Plugin not found: omcm` | OMCM 플러그인 미설치 | `git clone` 또는 설치 스크립트 재실행 |
 
@@ -972,8 +980,8 @@ rm -rf ~/.omcm
 
 | 에러 | 원인 | 해결책 |
 |------|------|--------|
-| `Authentication failed` | 프로바이더 인증 안됨 | `opencode auth login` |
-| `Invalid API key` | API 키 오류 | `opencode auth status` 확인 후 재인증 |
+| `Authentication failed` | 프로바이더 인증 안됨 | `codex auth login` 또는 환경변수 설정 |
+| `Invalid API key` | API 키 오류 | `codex auth status` 확인 후 재인증 |
 | `Model not available` | 모델 권한 없음 | API 키의 모델 접근 권한 확인 |
 
 ### 라우팅 관련
@@ -981,7 +989,7 @@ rm -rf ~/.omcm
 | 에러 | 원인 | 해결책 |
 |------|------|--------|
 | `Routing failed` | 라우팅 설정 오류 | `config.json` 문법 확인 |
-| `Task timeout` | 작업 시간 초과 | `opencode.timeout` 증가 |
+| `Task timeout` | 작업 시간 초과 | `mcp.timeout` 증가 |
 | `Context too long` | 컨텍스트 초과 | `maxContextLength` 감소 |
 
 ### CLI 실행 관련
@@ -1012,10 +1020,29 @@ rm -rf ~/.omcm
    ```bash
    node --version
    claude --version
-   opencode --version
+   codex --version
+   gemini --version
    cat ~/.claude/plugins/omcm/config.json
    ```
 
 ---
 
-**마지막 업데이트**: 2026-01-28 | **OMCM v1.0.0**
+## OMC 4.2.15 호환성 드리프트 점검
+
+OMC 업데이트 이후 동작이 달라졌다면 아래를 실행하세요:
+
+```bash
+# strict 호환성 점검
+node scripts/check-omc-compat.mjs --source /tmp/omc_4212_clone --strict
+
+# 누락 래퍼 자동 동기화 (agents/skills/commands)
+node scripts/sync-omc-compat.mjs --source /tmp/omc_4212_clone
+```
+
+CI 단축:
+
+```bash
+npm run check:compat
+```
+
+**마지막 업데이트**: 2026-02-15 | **OMCM v2.1.5**

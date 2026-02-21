@@ -130,13 +130,11 @@ describe('state-manager 유틸리티', () => {
     test('활성 모드 목록을 반환해야 함', () => {
       writeState('ULTRAWORK', { active: true }, { startDir: subDir });
       writeState('RALPH', { active: true }, { startDir: subDir });
-      writeState('ECOMODE', { active: false }, { startDir: subDir });
 
       const activeModes = getActiveModes({ startDir: subDir });
 
       assert.ok(activeModes.includes('ultrawork'));
       assert.ok(activeModes.includes('ralph'));
-      assert.ok(!activeModes.includes('ecomode'));
     });
 
     test('활성 모드가 없으면 빈 배열 반환', () => {

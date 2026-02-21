@@ -1,7 +1,7 @@
 {
   "name": "omcm",
-  "version": "2.1.4",
-  "description": "Claude Code ↔ Codex/Gemini CLI 퓨전 오케스트레이터 - OMC v4.2.7 호환",
+  "version": "2.1.9",
+  "description": "Claude Code ↔ Codex/Gemini CLI 퓨전 오케스트레이터 - OMC v4.3.0 호환",
   "author": "DrFREEST",
   "license": "MIT",
   "type": "module",
@@ -23,7 +23,9 @@
     "lint": "eslint src/",
     "install-local": "claude plugins install --local .",
     "export-context": "bash scripts/export-context.sh",
-    "handoff": "bash scripts/handoff-to-opencode.sh"
+    "handoff": "bash scripts/handoff-to-opencode.sh",
+    "check:compat": "node scripts/check-omc-compat.mjs",
+    "sync:compat": "node scripts/sync-omc-compat.mjs"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -11,7 +11,6 @@
  * - autopilot: Full autonomous execution
  * - ultrapilot: Parallel autopilot
  * - ultraqa: QA cycling
- * - ecomode: Token-efficient mode
  * - swarm: N coordinated agents
  * - pipeline: Sequential agent chaining
  * - team: Team coordination system
@@ -68,13 +67,6 @@ const MODE_DEFINITIONS = [
     name: 'ultraqa',
     abbrev: 'UQA',
     files: ['ultraqa-state.json'],
-    activeKey: 'active',
-    color: '\x1b[32m', // Green
-  },
-  {
-    name: 'ecomode',
-    abbrev: 'ECO',
-    files: ['ecomode-state.json'],
     activeKey: 'active',
     color: '\x1b[32m', // Green
   },

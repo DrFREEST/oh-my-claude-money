@@ -1,6 +1,8 @@
-# OMCM v1.0.0 Features Guide
+# OMCM v2.1.5 Features Guide
 
-Complete technical reference for all OMCM (oh-my-claude-money) v1.0.0 features with API documentation and usage examples.
+> **Version Baseline (OMC 4.2.15):** This document uses `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, and `gemini-3-pro` as defaults. Legacy aliases such as `researcher`, `tdd-guide`, and `*-low`/`*-medium` appear only for backward compatibility.
+
+Complete technical reference for all OMCM (oh-my-claude-money) v2.1.5 features with API documentation and usage examples.
 
 ## Table of Contents
 
@@ -25,15 +27,15 @@ Fusion Mode intelligently routes work between Claude (OMC) and external provider
 - Zero-configuration activation via `hulw` and `ulw` keywords
 - Three activation modes for different use cases
 
-### Agent-Provider Mapping (v1.0.0)
+### Agent-Provider Mapping (v2.1.5)
 
 All 32 OMC agents are intelligently mapped to optimal providers:
 
 | Tier | Count | Original Model | Fusion Model | Token Savings |
 |------|-------|---|---|---|
-| **HIGH** | 11 | Claude Opus 4.5 | Claude Opus 4.5 | - |
-| **MEDIUM** | 10 | Claude Sonnet | GPT-5.2-Codex (with thinking) | 40% |
-| **LOW** | 8 | Claude Haiku | Gemini 3.0 Flash (with thinking) | 70% |
+| **HIGH** | 11 | Claude Opus 4.6 | Claude Opus 4.6 | - |
+| **MEDIUM** | 10 | Claude Sonnet | GPT-5.3-Codex (with thinking) | 40% |
+| **LOW** | 8 | Claude Haiku | Gemini 3 Flash (with thinking) | 70% |
 
 **Key agents by tier:**
 
@@ -43,13 +45,13 @@ HIGH (Claude Opus - Retained, 11 agents):
 - `qa-tester-high`, `security-reviewer`, `code-reviewer`
 - `scientist-high`
 
-MEDIUM → GPT-5.2-Codex (10 agents):
+MEDIUM → GPT-5.3-Codex (10 agents):
 - `architect-medium`, `executor`, `explore-medium`
 - `researcher`, `designer`, `vision`
 - `qa-tester`, `build-fixer`, `tdd-guide`
 - `scientist`
 
-LOW → Gemini 3.0 Flash (8+ agents):
+LOW → Gemini 3 Flash (8+ agents):
 - `architect-low`, `executor-low`, `explore`
 - `writer`, `designer-low`, `researcher-low`
 - `security-reviewer-low`, `build-fixer-low`
@@ -72,7 +74,7 @@ hulw: <task description>
 **Characteristics:**
 - Always uses fusion routing (no usage threshold)
 - Enables parallel execution of compatible subtasks
-- Combines OMC + OpenCode workers simultaneously
+- Combines OMC + MCP(Codex/Gemini CLI) workers simultaneously
 - Best for: Large refactoring, multi-component builds
 
 **Usage Examples:**
@@ -93,7 +95,7 @@ Let's implement a new dashboard hulw
 2. Enables `fusionRouter` with mode='always'
 3. Dispatches tasks to parallel executor
 4. Verifies Codex/Gemini CLI availability
-5. Distributes work: Claude handles architecture, OpenCode handles exploration
+5. Distributes work: Claude handles architecture, MCP CLI handles exploration
 
 #### 2. Auto Fusion Ultrawork (ulw)
 
@@ -109,8 +111,8 @@ ulw: <task description>
 
 **Mode Switching Logic:**
 - **< 70% usage:** Claude agents only (highest quality)
-- **70-90% usage:** Hybrid mode (gradual OpenCode increase)
-- **> 90% usage:** OpenCode-heavy (cost optimization)
+- **70-90% usage:** Hybrid mode (gradual MCP CLI increase)
+- **> 90% usage:** MCP CLI-heavy (cost optimization)
 
 **Usage Examples:**
 
@@ -169,8 +171,8 @@ autopilot hulw Create a dashboard with real-time data
   "routing": {
     "enabled": true,
     "usageThreshold": 70,
-    "maxOpencodeWorkers": 3,
-    "preferOpencode": ["explore", "researcher", "writer"],
+    "maxMcpWorkers": 3,
+    "preferMcp": ["explore", "researcher", "writer"],
     "preferClaude": ["architect", "executor-high", "critic"],
     "autoDelegate": true
   }
@@ -183,8 +185,8 @@ autopilot hulw Create a dashboard with real-time data
 |---------|------|---------|---|
 | `fusionDefault` | boolean | false | Enable fusion for all operations |
 | `usageThreshold` | number | 70 | % at which hybrid mode activates (ulw only) |
-| `maxOpencodeWorkers` | number | 3 | Max parallel CLI calls (1-10 recommended) |
-| `preferOpencode` | array | [...] | Agents always route to OpenCode |
+| `maxMcpWorkers` | number | 3 | Max parallel CLI calls (1-10 recommended) |
+| `preferMcp` | array | [...] | Agents always route to MCP CLI |
 | `preferClaude` | array | [...] | Agents always route to Claude |
 | `autoDelegate` | boolean | true | Auto-route based on task type |
 
@@ -231,7 +233,7 @@ import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 var result = await executeViaCLI({
   prompt: 'task instructions',
   provider: 'openai',     // or 'google'
-  model: 'gpt-5.2-codex', // optional
+  model: 'gpt-5.3-codex', // optional
   agent: 'oracle',        // for logging
   timeout: 300000,        // 5min default
   cwd: '/path/to/project'
@@ -284,7 +286,7 @@ var hasGemini = detectCLI('gemini'); // boolean
 
 **Codex CLI (OpenAI):**
 ```javascript
-// Command: codex exec -m gpt-5.2-codex --json --full-auto
+// Command: codex exec -m gpt-5.3-codex --json --full-auto
 // Output: JSONL format with token counts
 // Parsing: Extract tokens from JSON lines
 ```
@@ -475,7 +477,7 @@ setInterval(() => {
 
 ### Overview
 
-Automatically captures session state and enables seamless handoffs between Claude Code and OpenCode providers.
+Automatically captures session state and enables seamless handoffs between Claude Code and MCP(Codex/Gemini CLI) providers.
 
 **Captured Context:**
 - Current task description
@@ -542,13 +544,13 @@ import { ContextSynchronizer } from 'src/context/index.mjs';
 
 const sync = new ContextSynchronizer({
   localPath: '/project/.omcm',
-  remotePath: 'opencode://context'
+  remotePath: 'mcp://context'
 });
 
-// Push context to OpenCode
+// Push context to MCP CLI
 await sync.pushContext(context);
 
-// Pull updates from OpenCode
+// Pull updates from MCP CLI
 const updated = await sync.pullContext();
 
 // Subscribe to changes
@@ -564,7 +566,7 @@ sync.on('contextChanged', (newContext) => {
 ```markdown
 # Task Handoff Context
 
-> Switched from Claude Code to OpenCode
+> Switched from Claude Code to MCP CLI (Codex/Gemini)
 > Generated: 2026-01-28T15:30:00+09:00
 
 ---
@@ -606,7 +608,7 @@ import { buildContext, serializeContextToMarkdown } from 'src/context/index.mjs'
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-async function handoffToOpenCode() {
+async function handoffToMcp() {
   // Build current context
   const context = buildContext({
     sessionId: crypto.randomUUID(),
@@ -629,7 +631,7 @@ async function handoffToOpenCode() {
   );
 
   console.log('Context saved to .omcm/handoff/context.md');
-  console.log('Ready for OpenCode handoff');
+  console.log('Ready for MCP CLI handoff');
 }
 ```
 
@@ -749,12 +751,12 @@ const provider = balancer.selectWithContext(context);
     "openai": {
       "weight": 2,
       "priority": 2,
-      "models": ["gpt-5.2", "gpt-5.2-codex"]
+      "models": ["gpt-5.3", "gpt-5.3-codex"]
     },
     "gemini": {
       "weight": 2,
       "priority": 2,
-      "models": ["gemini-3.0-pro", "gemini-3.0-flash"]
+      "models": ["gemini-3-pro", "gemini-3-flash"]
     }
   }
 }
@@ -799,7 +801,7 @@ console.log(`Average latencies:`, stats.latencies);
 
 ### Overview
 
-Execute multiple tasks in parallel while respecting dependencies and file conflicts. Automatically routes tasks to optimal providers (Claude or OpenCode).
+Execute multiple tasks in parallel while respecting dependencies and file conflicts. Automatically routes tasks to optimal providers (Claude or MCP CLI).
 
 **Features:**
 - Parallel execution for independent tasks
@@ -933,7 +935,7 @@ console.log(strategy);
 // {
 //   mode: 'run',              // 'run' | 'serve' | 'acp'
 //   parallelizable: true,
-//   routeToOpenCode: false,
+//   routeToMcp: false,
 //   options: { ... }
 // }
 ```
@@ -942,9 +944,9 @@ console.log(strategy);
 
 | Mode | Use Case | Provider | Speed |
 |------|----------|----------|-------|
-| `run` | One-off commands | Claude/OpenCode | Fast |
-| `serve` | Long-running services | OpenCode | Slower start, persistent |
-| `acp` | Agent-to-provider protocol | OpenCode | Flexible, feature-rich |
+| `run` | One-off commands | Claude/MCP CLI | Fast |
+| `serve` | Long-running services | MCP CLI | Slower start, persistent |
+| `acp` | Agent-to-provider protocol | MCP CLI | Flexible, feature-rich |
 
 ### Usage Example
 
@@ -1053,7 +1055,7 @@ async function buildComplexSystem() {
       description: 'Build React dashboard',
       files: ['src/ui/**'],
       type: 'implementation',
-      agent: 'designer'  // Will route to OpenCode (Gemini)
+      agent: 'designer'  // Will route to MCP (ask_gemini, Gemini)
     },
     {
       id: 'devops-docker',
@@ -1139,15 +1141,15 @@ buildComplexSystem().catch(console.error);
 
 **v2.1.0 Features:**
 - ✅ CLI Direct Execution (v2.1.0 new)
-- ✅ Realtime Tracking (v1.0.0)
-- ✅ Context Transfer (v1.0.0)
-- ✅ Multi-Provider Balancing (v1.0.0)
-- ✅ Parallel Executor (v1.0.0)
+- ✅ Realtime Tracking (v2.1.5)
+- ✅ Context Transfer (v2.1.5)
+- ✅ Multi-Provider Balancing (v2.1.5)
+- ✅ Parallel Executor (v2.1.5)
 - ✅ Fusion Mode (v0.3.0+)
 - ✅ Agent Mapping (v0.5.0+)
 - ✅ Dynamic Routing (v0.8.0+)
 
-**Breaking Changes:** None. v1.0.0 is fully backward compatible with v0.8.0.
+**Breaking Changes:** None. v2.1.5 is fully backward compatible with v0.8.0.
 
 **Migration:** No migration needed. Existing setups work unchanged.
 
@@ -1155,11 +1157,11 @@ buildComplexSystem().catch(console.error);
 
 **New Features:**
 - **z.ai Provider Support**: When ANTHROPIC_BASE_URL points to a z.ai host, usage is retrieved via GLM API
-- **Monthly Usage Display**: HUD shows monthly usage in `mo:XX%` format (OMC v4.2.6+)
+- **Monthly Usage Display**: HUD shows monthly usage in `mo:XX%` format (OMC v4.2.15+)
 - **provider-limits monthly field**: Added monthlyPercent as 3rd argument to updateClaudeLimits()
 
 **Compatible Versions:**
-- OMC v4.2.6 or higher (monthly usage display support)
+- OMC v4.2.15 or higher (monthly usage display support)
 - z.ai API provider support
 
 ---

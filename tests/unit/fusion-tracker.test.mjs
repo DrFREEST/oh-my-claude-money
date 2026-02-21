@@ -44,7 +44,7 @@ describe('fusion-tracker', () => {
         enabled: true,
         mode: 'balanced',
         totalTasks: 10,
-        routedToOpenCode: 5
+        routedToMcp: 5
       };
       writeFusionState(testState);
 
@@ -53,7 +53,7 @@ describe('fusion-tracker', () => {
       assert.strictEqual(state.enabled, true);
       assert.strictEqual(state.mode, 'balanced');
       assert.strictEqual(state.totalTasks, 10);
-      assert.strictEqual(state.routedToOpenCode, 5);
+      assert.strictEqual(state.routedToMcp, 5);
     });
 
     it('잘못된 JSON 파일이면 null 반환', () => {
@@ -70,7 +70,7 @@ describe('fusion-tracker', () => {
         enabled: true,
         mode: 'aggressive',
         totalTasks: 20,
-        routedToOpenCode: 15
+        routedToMcp: 15
       };
 
       writeFusionState(testState);
@@ -80,7 +80,7 @@ describe('fusion-tracker', () => {
       assert.strictEqual(savedState.enabled, true);
       assert.strictEqual(savedState.mode, 'aggressive');
       assert.strictEqual(savedState.totalTasks, 20);
-      assert.strictEqual(savedState.routedToOpenCode, 15);
+      assert.strictEqual(savedState.routedToMcp, 15);
       assert.ok(savedState.lastUpdated); // lastUpdated 자동 추가됨
     });
 
@@ -90,7 +90,7 @@ describe('fusion-tracker', () => {
       }
       const dir = dirname(STATE_FILE);
       if (existsSync(dir)) {
-        rmSync(dir, { recursive: true });
+        rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
       }
 
       const testState = { enabled: true, mode: 'balanced' };
@@ -104,10 +104,10 @@ describe('fusion-tracker', () => {
     it('opencode로 라우팅 기록 (gemini 프로바이더)', () => {
       resetFusionStats();
 
-      const state = recordRouting('opencode', 'gemini', 1500);
+      const state = recordRouting('mcp', 'gemini', 1500);
 
       assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 1);
+      assert.strictEqual(state.routedToMcp, 1);
       assert.strictEqual(state.estimatedSavedTokens, 1500);
       assert.strictEqual(state.byProvider.gemini, 1);
       assert.strictEqual(state.byProvider.anthropic, 0);
@@ -117,10 +117,10 @@ describe('fusion-tracker', () => {
     it('opencode로 라우팅 기록 (google 프로바이더)', () => {
       resetFusionStats();
 
-      const state = recordRouting('opencode', 'google', 1000);
+      const state = recordRouting('mcp', 'google', 1000);
 
       assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 1);
+      assert.strictEqual(state.routedToMcp, 1);
       assert.strictEqual(state.estimatedSavedTokens, 1000);
       assert.strictEqual(state.byProvider.gemini, 1);
     });
@@ -128,10 +128,10 @@ describe('fusion-tracker', () => {
     it('opencode로 라우팅 기록 (openai 프로바이더)', () => {
       resetFusionStats();
 
-      const state = recordRouting('opencode', 'openai', 2000);
+      const state = recordRouting('mcp', 'openai', 2000);
 
       assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 1);
+      assert.strictEqual(state.routedToMcp, 1);
       assert.strictEqual(state.estimatedSavedTokens, 2000);
       assert.strictEqual(state.byProvider.openai, 1);
     });
@@ -139,10 +139,10 @@ describe('fusion-tracker', () => {
     it('opencode로 라우팅 기록 (gpt 프로바이더)', () => {
       resetFusionStats();
 
-      const state = recordRouting('opencode', 'gpt', 1500);
+      const state = recordRouting('mcp', 'gpt', 1500);
 
       assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 1);
+      assert.strictEqual(state.routedToMcp, 1);
       assert.strictEqual(state.byProvider.openai, 1);
     });
 
@@ -152,7 +152,7 @@ describe('fusion-tracker', () => {
       const state = recordRouting('claude', 'anthropic', 0);
 
       assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 0);
+      assert.strictEqual(state.routedToMcp, 0);
       assert.strictEqual(state.estimatedSavedTokens, 0);
       assert.strictEqual(state.byProvider.anthropic, 1);
       assert.strictEqual(state.routingRate, 0);
@@ -161,21 +161,21 @@ describe('fusion-tracker', () => {
     it('라우팅 비율 계산', () => {
       resetFusionStats();
 
-      recordRouting('opencode', 'gemini', 1000);
-      recordRouting('opencode', 'openai', 1000);
+      recordRouting('mcp', 'gemini', 1000);
+      recordRouting('mcp', 'openai', 1000);
       recordRouting('claude', 'anthropic', 0);
       recordRouting('claude', 'anthropic', 0);
-      const state = recordRouting('opencode', 'gemini', 1000);
+      const state = recordRouting('mcp', 'gemini', 1000);
 
       assert.strictEqual(state.totalTasks, 5);
-      assert.strictEqual(state.routedToOpenCode, 3);
+      assert.strictEqual(state.routedToMcp, 3);
       assert.strictEqual(state.routingRate, 60); // 3/5 * 100 = 60%
     });
 
     it('savedTokens가 없으면 0으로 처리', () => {
       resetFusionStats();
 
-      const state = recordRouting('opencode', 'gemini');
+      const state = recordRouting('mcp', 'gemini');
 
       assert.strictEqual(state.estimatedSavedTokens, 0);
     });
@@ -185,10 +185,10 @@ describe('fusion-tracker', () => {
         unlinkSync(STATE_FILE);
       }
 
-      const state = recordRouting('opencode', 'gemini', 1000);
+      const state = recordRouting('mcp', 'gemini', 1000);
 
       assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 1);
+      assert.strictEqual(state.routedToMcp, 1);
     });
   });
 
@@ -244,14 +244,14 @@ describe('fusion-tracker', () => {
   describe('resetFusionStats()', () => {
     it('통계 초기화', () => {
       // 먼저 데이터 추가
-      recordRouting('opencode', 'gemini', 1000);
-      recordRouting('opencode', 'openai', 2000);
+      recordRouting('mcp', 'gemini', 1000);
+      recordRouting('mcp', 'openai', 2000);
 
       // 초기화
       const state = resetFusionStats();
 
       assert.strictEqual(state.totalTasks, 0);
-      assert.strictEqual(state.routedToOpenCode, 0);
+      assert.strictEqual(state.routedToMcp, 0);
       assert.strictEqual(state.routingRate, 0);
       assert.strictEqual(state.estimatedSavedTokens, 0);
       assert.strictEqual(state.byProvider.gemini, 0);

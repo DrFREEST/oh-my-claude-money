@@ -1,4 +1,6 @@
-# OMCM v1.0.0 Configuration Guide
+# OMCM v2.1.5 Configuration Guide
+
+> **Version Baseline (OMC 4.2.15):** This document uses `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, and `gemini-3-pro` as defaults. Legacy aliases such as `researcher`, `tdd-guide`, and `*-low`/`*-medium` appear only for backward compatibility.
 
 Complete configuration guide for OMCM (oh-my-claude-money). This document details configuration files, schemas, environment variables, and the hook system.
 
@@ -286,7 +288,7 @@ Configure the scope of context to pass when switching to OpenCode.
 
 OMCM reads usage information from OMC HUD for fusion routing decisions.
 
-**Display Format (OMC v4.2.6+):**
+**Display Format (OMC v4.2.15+):**
 - `5h:XX%(reset_time)` - 5-hour usage
 - `wk:XX%(reset_time)` - Weekly usage
 - `mo:XX%(reset_time)` - Monthly usage (v2.1.3+)
@@ -301,7 +303,7 @@ OMCM reads usage information from OMC HUD for fusion routing decisions.
 - z.ai provider: Usage retrieved via GLM API (v2.1.3+)
 
 **Notes:**
-- Monthly display requires OMC v4.2.6 or higher
+- Monthly display requires OMC v4.2.15 or higher
 - For z.ai provider, ANTHROPIC_BASE_URL must point to a z.ai host
 
 ---
@@ -360,7 +362,7 @@ Production: `~/.omcm/agent-mapping.json` for custom configuration
       "source": ["architect-medium"],
       "target": "build",
       "provider": "opencode",
-      "model": "gpt-5.2-codex",
+      "model": "gpt-5.3-codex",
       "tier": "MEDIUM",
       "reason": "Delegate medium architecture analysis to Codex"
     },
@@ -368,7 +370,7 @@ Production: `~/.omcm/agent-mapping.json` for custom configuration
       "source": ["architect-low"],
       "target": "build",
       "provider": "opencode",
-      "model": "gemini-3.0-flash",
+      "model": "gemini-3-flash",
       "tier": "LOW",
       "reason": "Delegate quick architecture checks to Flash"
     },
@@ -376,7 +378,7 @@ Production: `~/.omcm/agent-mapping.json` for custom configuration
       "source": ["designer"],
       "target": "build",
       "provider": "opencode",
-      "model": "gpt-5.2-codex",
+      "model": "gpt-5.3-codex",
       "tier": "MEDIUM",
       "reason": "Delegate UI/UX work to Codex"
     },
@@ -384,7 +386,7 @@ Production: `~/.omcm/agent-mapping.json` for custom configuration
       "source": ["researcher", "researcher-low"],
       "target": "general",
       "provider": "opencode",
-      "model": "gpt-5.2-codex",
+      "model": "gpt-5.3-codex",
       "tier": "MEDIUM",
       "reason": "Delegate research work to general agent"
     },
@@ -392,7 +394,7 @@ Production: `~/.omcm/agent-mapping.json` for custom configuration
       "source": ["explore"],
       "target": "explore",
       "provider": "opencode",
-      "model": "gemini-3.0-flash",
+      "model": "gemini-3-flash",
       "tier": "LOW",
       "reason": "Delegate quick exploration to Flash"
     },
@@ -400,7 +402,7 @@ Production: `~/.omcm/agent-mapping.json` for custom configuration
       "source": ["writer"],
       "target": "general",
       "provider": "opencode",
-      "model": "gemini-3.0-flash",
+      "model": "gemini-3-flash",
       "tier": "LOW",
       "reason": "Delegate documentation to Flash"
     }
@@ -509,7 +511,6 @@ usage.24hour          // 24-hour usage (%)
 usage.weekly          // Weekly usage (%)
 
 // Mode information
-mode.ecomode          // Whether ecomode is active
 mode.fusion           // Whether fusion mode is active
 
 // Task information
@@ -556,13 +557,6 @@ time.dayOfWeek        // Day of week (0-6, 0=Sunday)
       "action": "prefer_opencode",
       "priority": 90,
       "description": "Prefer OpenCode when weekly usage exceeds 85%"
-    },
-    {
-      "id": "ecomode-active",
-      "condition": "mode.ecomode == true",
-      "action": "prefer_opencode",
-      "priority": 95,
-      "description": "Prefer OpenCode when ecomode is active"
     },
     {
       "id": "complex-task-claude",

@@ -29,7 +29,7 @@ const AGENT_MAPPING_SCHEMA = {
           target: { type: 'string' },
           provider: {
             type: 'string',
-            enum: ['opencode', 'claude', 'openai', 'google'],
+            enum: ['mcp', 'claude', 'openai', 'google'],
           },
           model: { type: 'string' },
           tier: {
@@ -65,8 +65,8 @@ const ROUTING_RULES_SCHEMA = {
           action: {
             type: 'string',
             enum: [
-              'prefer_opencode',
-              'force_opencode',
+              'prefer_mcp',
+              'force_mcp',
               'prefer_claude',
               'force_claude',
               'block',

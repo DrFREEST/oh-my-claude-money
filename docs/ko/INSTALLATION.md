@@ -1,4 +1,6 @@
-# OMCM v1.0.0 설치 가이드
+# OMCM v2.1.5 설치 가이드
+
+> **버전 기준 (OMC 4.2.15):** 본 문서는 `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, `gemini-3-pro`를 기본으로 설명합니다. `researcher`, `tdd-guide`, `*-low`/`*-medium` 표기는 하위호환(legacy) 맥락에서만 유지됩니다.
 
 > **oh-my-claude-money** - Claude Code ↔ OpenCode 퓨전 오케스트레이터
 
@@ -100,7 +102,7 @@ brew install opencode
 OMCM은 다음 프로바이더를 지원합니다.
 
 **필수 선택:**
-- **OpenAI** (GPT-5.2 사용) 또는
+- **OpenAI** (GPT-5.3 사용) 또는
 - **Google** (Gemini 사용) 또는
 - 둘 다 설정하기 (권장)
 
@@ -260,8 +262,8 @@ opencode auth status
 출력 예:
 
 ```
-✅ OpenAI (gpt-5.2, gpt-5.2-codex)
-✅ Google (gemini-3.0-pro, gemini-3.0-flash)
+✅ OpenAI (gpt-5.3, gpt-5.3-codex)
+✅ Google (gemini-3-pro, gemini-3-flash)
 ❌ Anthropic (not configured)
 ```
 
@@ -843,7 +845,22 @@ claude
 
 - [README.md](../README.md) - 전체 개요 및 기능
 - [CONFIGURATION.md](./CONFIGURATION.md) - 상세 설정 옵션
-- [USAGE.md](./USAGE.md) - 사용 예제 및 팁
+- [FEATURES.md](./FEATURES.md) - 기능 가이드 및 사용 예제
+- [SKILLS-REFERENCE.md](./SKILLS-REFERENCE.md) - 스킬 레퍼런스
+
+### 4. OMC 4.2.15 호환성 검증 (권장)
+
+```bash
+# strict 호환성 검수
+node scripts/check-omc-compat.mjs --source /tmp/omc_4212_clone --strict
+
+# 누락 래퍼 자동 동기화 (agents/skills/commands)
+node scripts/sync-omc-compat.mjs --source /tmp/omc_4212_clone
+
+# package.json 스크립트 단축
+npm run check:compat
+npm run sync:compat
+```
 
 ---
 
@@ -865,8 +882,8 @@ MIT License - 자세한 내용은 [LICENSE](../LICENSE) 파일 참조
 
 ## 버전
 
-- **OMCM**: v1.0.0
-- **최소 Node.js**: 18+
+- **OMCM**: v2.1.5
+- **최소 Node.js**: 20+
 - **최소 Claude Code**: latest
 - **최소 OpenCode**: latest
 

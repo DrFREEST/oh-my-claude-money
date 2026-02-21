@@ -1,4 +1,6 @@
-# Fusion Mode Guide - OMCM v1.0.0
+# Fusion Mode Guide - OMCM v2.1.5
+
+> **Version Baseline (OMC 4.2.15):** This document uses `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, and `gemini-3-pro` as defaults. Legacy aliases such as `researcher`, `tdd-guide`, and `*-low`/`*-medium` appear only for backward compatibility.
 
 **Complete Guide to Intelligent Token Optimization: Claude Code ↔ OpenCode**
 
@@ -61,8 +63,8 @@ Fusion Mode integrates Claude Code's 32 OMC (oh-my-claudecode) agents with OpenC
 | Tier | Original Model | Fusion Mode Model | Savings |
 |------|----------------|-------------------|---------|
 | **HIGH** | Claude Opus | Claude Opus | - |
-| **MEDIUM** | Claude Sonnet | GPT-5.2-Codex | ✅ |
-| **LOW** | Claude Haiku | Gemini-3.0-Flash | ✅ |
+| **MEDIUM** | Claude Sonnet | GPT-5.3-Codex | ✅ |
+| **LOW** | Claude Haiku | Gemini 3 Flash | ✅ |
 
 **Example Project**:
 - Regular usage (Claude only): 100k tokens
@@ -112,9 +114,9 @@ User: hulw: create REST API project
       - Test writing
 
 OMCM Automatic Routing:
-├─ Route design → explore (Gemini Flash) ✅
-├─ Controller implementation → executor (GPT-5.2-Codex) ✅
-└─ Test writing → executor (GPT-5.2-Codex) ✅
+├─ Route design → explore (Gemini 3 Flash) ✅
+├─ Controller implementation → executor (GPT-5.3-Codex) ✅
+└─ Test writing → executor (GPT-5.3-Codex) ✅
 
 Result: 62% token savings + parallel processing
 ```
@@ -176,8 +178,8 @@ I want a login system
 ```
 1. Requirements Analysis (analyst) → Claude Opus (HIGH tier)
 2. Planning (planner) → Claude Opus (HIGH tier)
-3. Code Exploration (explore) → OpenCode explore (Gemini Flash)
-4. Implementation (executor) → OpenCode build (GPT-5.2-Codex)
+3. Code Exploration (explore) → OpenCode explore (Gemini 3 Flash)
+4. Implementation (executor) → OpenCode build (GPT-5.3-Codex)
 5. Verification (architect) → Claude Opus (HIGH tier)
 6. Completion Report
 ```
@@ -246,32 +248,32 @@ Automatic agent routing handled by OMCM. **HIGH tier agents always stay on Claud
 
 | OMC Agent | OpenCode Agent | Model | Savings |
 |-----------|----------------|-------|---------|
-| **architect-medium** | build | GPT-5.2-Codex | ✅ |
-| **executor** | build | GPT-5.2-Codex | ✅ |
-| **explore-medium** | explore | GPT-5.2-Codex | ✅ |
-| **designer** | build | GPT-5.2-Codex | ✅ |
-| **researcher** | general | GPT-5.2-Codex | ✅ |
-| **vision** | general | GPT-5.2-Codex | ✅ |
-| **qa-tester** | build | GPT-5.2-Codex | ✅ |
-| **build-fixer** | build | GPT-5.2-Codex | ✅ |
-| **tdd-guide** | build | GPT-5.2-Codex | ✅ |
-| **scientist** | build | GPT-5.2-Codex | ✅ |
+| **architect-medium** | build | GPT-5.3-Codex | ✅ |
+| **executor** | build | GPT-5.3-Codex | ✅ |
+| **explore-medium** | explore | GPT-5.3-Codex | ✅ |
+| **designer** | build | GPT-5.3-Codex | ✅ |
+| **researcher** | general | GPT-5.3-Codex | ✅ |
+| **vision** | general | GPT-5.3-Codex | ✅ |
+| **qa-tester** | build | GPT-5.3-Codex | ✅ |
+| **build-fixer** | build | GPT-5.3-Codex | ✅ |
+| **tdd-guide** | build | GPT-5.3-Codex | ✅ |
+| **scientist** | build | GPT-5.3-Codex | ✅ |
 
 #### LOW Tier (OpenCode FLASH model, 8 agents)
 
 | OMC Agent | OpenCode Agent | Model | Savings |
 |-----------|----------------|-------|---------|
-| **architect-low** | build | Gemini-3.0-Flash | ✅ |
-| **executor-low** | build | Gemini-3.0-Flash | ✅ |
-| **explore** | explore | Gemini-3.0-Flash | ✅ |
-| **designer-low** | build | Gemini-3.0-Flash | ✅ |
-| **researcher-low** | general | Gemini-3.0-Flash | ✅ |
-| **writer** | general | Gemini-3.0-Flash | ✅ |
-| **security-reviewer-low** | build | Gemini-3.0-Flash | ✅ |
-| **build-fixer-low** | build | Gemini-3.0-Flash | ✅ |
-| **tdd-guide-low** | build | Gemini-3.0-Flash | ✅ |
-| **code-reviewer-low** | build | Gemini-3.0-Flash | ✅ |
-| **scientist-low** | build | Gemini-3.0-Flash | ✅ |
+| **architect-low** | build | Gemini 3 Flash | ✅ |
+| **executor-low** | build | Gemini 3 Flash | ✅ |
+| **explore** | explore | Gemini 3 Flash | ✅ |
+| **designer-low** | build | Gemini 3 Flash | ✅ |
+| **researcher-low** | general | Gemini 3 Flash | ✅ |
+| **writer** | general | Gemini 3 Flash | ✅ |
+| **security-reviewer-low** | build | Gemini 3 Flash | ✅ |
+| **build-fixer-low** | build | Gemini 3 Flash | ✅ |
+| **tdd-guide-low** | build | Gemini 3 Flash | ✅ |
+| **code-reviewer-low** | build | Gemini 3 Flash | ✅ |
+| **scientist-low** | build | Gemini 3 Flash | ✅ |
 
 ### Routing Rules
 
@@ -285,12 +287,12 @@ if (tier === 'HIGH') {
 
 // 2. MEDIUM TIER (Sonnet → Codex) - Fusion applied (10 agents)
 if (tier === 'MEDIUM') {
-  return 'OpenCode build/explore/general (GPT-5.2-Codex)'; // Token savings!
+  return 'OpenCode build/explore/general (GPT-5.3-Codex)'; // Token savings!
 }
 
 // 3. LOW TIER (Haiku → Flash) - Fusion applied (8+ agents)
 if (tier === 'LOW') {
-  return 'OpenCode build/explore/general (Gemini-3.0-Flash)'; // Maximum savings
+  return 'OpenCode build/explore/general (Gemini 3 Flash)'; // Maximum savings
 }
 ```
 
@@ -300,12 +302,12 @@ Model selection criteria in fusion mode:
 
 | Task Type | Selected Model | Reason |
 |-----------|----------------|--------|
-| Complex analysis | GPT-5.2 | Strong reasoning capabilities |
-| Code implementation | GPT-5.2-Codex | Coding-specialized model |
+| Complex analysis | GPT-5.3 | Strong reasoning capabilities |
+| Code implementation | GPT-5.3-Codex | Coding-specialized model |
 | UI/Frontend | Gemini Pro | Enhanced visual work |
-| Quick exploration | Gemini Flash | Fast response, low cost |
-| Data analysis | GPT-5.2 | Statistical analysis capabilities |
-| Security review | GPT-5.2 | Security expertise |
+| Quick exploration | Gemini 3 Flash | Fast response, low cost |
+| Data analysis | GPT-5.3 | Statistical analysis capabilities |
+| Security review | GPT-5.3 | Security expertise |
 
 ---
 
@@ -336,9 +338,9 @@ Model selection criteria in fusion mode:
 ```
 
 **Routing Result** (85% usage):
-- Code exploration → OpenCode explore (Gemini Flash) ✅
+- Code exploration → OpenCode explore (Gemini 3 Flash) ✅
 - Architecture analysis → Claude Opus (HIGH tier, retained) ✓
-- UI work → OpenCode build (GPT-5.2-Codex) ✅
+- UI work → OpenCode build (GPT-5.3-Codex) ✅
 - Complex implementation → Claude Opus ✓ (quality needed)
 - Token Savings: ~45%
 
@@ -376,16 +378,16 @@ autopilot hulw create complete REST API server
    → Task(planner) → Claude Opus (HIGH tier)
 
 3. Directory Structure Design
-   → Task(explore) → OpenCode explore (Gemini Flash)
+   → Task(explore) → OpenCode explore (Gemini 3 Flash)
 
 4. Controller Implementation
-   → Task(executor) → OpenCode build (GPT-5.2-Codex)
+   → Task(executor) → OpenCode build (GPT-5.3-Codex)
 
 5. Middleware Implementation
-   → Task(executor) → OpenCode build (GPT-5.2-Codex)
+   → Task(executor) → OpenCode build (GPT-5.3-Codex)
 
 6. Test Writing
-   → Task(qa-tester) → OpenCode build (GPT-5.2-Codex)
+   → Task(qa-tester) → OpenCode build (GPT-5.3-Codex)
 
 7. Final Verification
    → Task(architect) → Claude Opus (HIGH tier)
@@ -409,7 +411,7 @@ autopilot hulw create complete REST API server
 
 **Routing Result:**
 - Task(explore-high) → Claude Opus (HIGH tier, retained) ✓
-- Task(researcher) → OpenCode general (GPT-5.2-Codex) ✅
+- Task(researcher) → OpenCode general (GPT-5.3-Codex) ✅
 - Task(architect) → Claude Opus (HIGH tier, retained) ✓
 - Token Savings: ~40% (architect/explore-high stay on Claude)
 
@@ -490,7 +492,7 @@ Fusion mode uses direct CLI execution for optimal performance:
 
 ```bash
 # Codex CLI (OpenAI)
-codex exec -m gpt-5.2-codex --json --full-auto
+codex exec -m gpt-5.3-codex --json --full-auto
 
 # Gemini CLI (Google)
 gemini -p=. --yolo
@@ -928,6 +930,6 @@ tail -f ~/.omcm/routing-log.jsonl
 
 ---
 
-**Last Updated**: 2026-01-28
+**Last Updated**: 2026-02-15
 **Version**: 1.0.0
 **License**: MIT

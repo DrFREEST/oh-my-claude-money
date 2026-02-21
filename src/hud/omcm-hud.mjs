@@ -49,7 +49,7 @@ const RESET = '\x1b[0m';
 /**
  * 세션 시작 시간 관리
  * - 파일에 저장하여 HUD 재실행 시에도 유지
- * - Claude 세션과 OpenCode 토큰 집계 시간 동기화
+ * - Claude 세션과 MCP 토큰 집계 시간 동기화
  * - num_turns == 1이면 새 세션으로 판단하여 자동 리셋
  */
 const SESSION_START_FILE = join(homedir(), '.omcm', 'session-start.json');
@@ -89,11 +89,11 @@ function resetSessionStartTime() {
 }
 
 /**
- * OpenCode 토큰 캐시 무효화 (세션 리셋 시 호출)
+ * MCP 토큰 캐시 무효화 (세션 리셋 시 호출)
  */
-function invalidateOpenCodeCache() {
-  openCodeTokenCache = null;
-  openCodeCacheTime = 0;
+function invalidateMcpTokenCache() {
+  mcpTokenCache = null;
+  mcpTokenCacheTime = 0;
 }
 
 /**
@@ -113,7 +113,7 @@ function checkAndResetSessionIfNeeded(numTurns) {
 
   if (shouldReset) {
     hudSessionStartTime = resetSessionStartTime();
-    invalidateOpenCodeCache();
+    invalidateMcpTokenCache();
     resetFusionStatsOnClear();
   }
 
@@ -524,19 +524,19 @@ function parseClaudeTokensFromStdin(stdinData) {
 }
 
 /**
- * Token cache for OpenCode files
+ * Token cache for MCP/provider token aggregation
  */
-let openCodeTokenCache = null;
-let openCodeCacheTime = 0;
+let mcpTokenCache = null;
+let mcpTokenCacheTime = 0;
 const CACHE_TTL_MS = 5000; // 5초로 단축 (세션 변경 빠른 반영)
 
 /**
- * Aggregate token usage from OpenCode session files
+ * Aggregate token usage from MCP/provider session files
  */
-function aggregateOpenCodeTokens() {
+function aggregateMcpTokens() {
   const now = Date.now();
-  if (openCodeTokenCache && (now - openCodeCacheTime) < CACHE_TTL_MS) {
-    return openCodeTokenCache;
+  if (mcpTokenCache && (now - mcpTokenCacheTime) < CACHE_TTL_MS) {
+    return mcpTokenCache;
   }
 
   const result = {
@@ -590,138 +590,14 @@ function aggregateOpenCodeTokens() {
     } catch (e) {
       // 세션 로그 조회 실패해도 빈 결과 반환 (레거시 폴백 안 함)
     }
-    openCodeTokenCache = result;
-    openCodeCacheTime = now;
+    mcpTokenCache = result;
+    mcpTokenCacheTime = now;
     return result;
   }
 
-  // 세션 ID가 없을 때만: OpenCode 메시지 디렉토리에서 시간 기반 집계 (레거시 폴백)
-  try {
-    const messageDir = join(homedir(), '.local', 'share', 'opencode', 'storage', 'message');
-
-    if (!existsSync(messageDir)) {
-      openCodeTokenCache = result;
-      openCodeCacheTime = now;
-      return result;
-    }
-
-    const sessionDirs = readdirSync(messageDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && d.name.startsWith('ses_'))
-      .map((d) => {
-        const sessionPath = join(messageDir, d.name);
-        try {
-          const stat = statSync(sessionPath);
-          return { name: d.name, path: sessionPath, mtime: stat.mtimeMs };
-        } catch (e) {
-          return null;
-        }
-      })
-      .filter((d) => d !== null)
-      .sort((a, b) => b.mtime - a.mtime);
-
-    // 세션 시작 시간 또는 최근 8시간 중 더 오래된 시간 기준
-    // (세션 리셋 버그 방지: 세션 시작 시간이 너무 오래되었을 수 있음)
-    const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
-    // 매번 파일에서 최신 세션 시작 시간 읽기 (다른 터미널과 동기화)
-    const latestSessionStart = getSessionStartTime();
-    const filterStartTime = Math.max(latestSessionStart, now - EIGHT_HOURS_MS);
-    const activeSessions = sessionDirs.filter((s) => s.mtime >= filterStartTime);
-
-    if (activeSessions.length === 0) {
-      openCodeTokenCache = result;
-      openCodeCacheTime = now;
-      return result;
-    }
-
-    for (const activeSession of activeSessions) {
-      const sessionPath = activeSession.path;
-
-      try {
-        const msgFiles = readdirSync(sessionPath).filter((f) => f.startsWith('msg_') && f.endsWith('.json'));
-
-        for (const msgFile of msgFiles) {
-          const msgPath = join(sessionPath, msgFile);
-
-          try {
-            // 세션 시작 이후 메시지만 집계 (8시간 제한 적용)
-            const msgStat = statSync(msgPath);
-            if (msgStat.mtimeMs < filterStartTime) {
-              continue;
-            }
-
-            const content = readFileSync(msgPath, 'utf-8');
-            const msg = JSON.parse(content);
-
-            // 에러 응답 또는 스트리밍 중인 메시지는 스킵
-            if (msg.error) {
-              continue;
-            }
-
-            let providerID = msg.providerID || (msg.model && msg.model.providerID);
-            let modelID = (msg.model && msg.model.modelID) || '';
-
-            if (!providerID) {
-              continue;
-            }
-
-            let normalizedProvider = providerID;
-            if (providerID === 'kimi-for-coding' || providerID === 'kimi' || providerID === 'moonshot') {
-              normalizedProvider = 'kimi';
-            }
-            if (providerID === 'opencode') {
-              const modelLower = modelID.toLowerCase();
-              if (modelLower.includes('gemini') || modelLower.includes('flash') || modelLower.includes('pro')) {
-                normalizedProvider = 'google';
-              } else if (modelLower.includes('gpt') || modelLower.includes('o1') || modelLower.includes('codex')) {
-                normalizedProvider = 'openai';
-              } else if (modelLower.includes('claude') || modelLower.includes('sonnet') || modelLower.includes('opus') || modelLower.includes('haiku')) {
-                normalizedProvider = 'anthropic';
-              } else {
-                normalizedProvider = 'openai';
-              }
-            }
-
-            const tokens = msg.tokens;
-            let inputTokens = 0;
-            let outputTokens = 0;
-
-            if (tokens) {
-              const cacheRead = (tokens.cache && tokens.cache.read) || 0;
-              inputTokens = (tokens.input || 0) + cacheRead;
-              outputTokens = tokens.output || 0;
-            }
-
-            if (normalizedProvider === 'openai') {
-              result.openai.input += inputTokens;
-              result.openai.output += outputTokens;
-              result.openai.count++;
-            } else if (normalizedProvider === 'google') {
-              result.gemini.input += inputTokens;
-              result.gemini.output += outputTokens;
-              result.gemini.count++;
-            } else if (normalizedProvider === 'kimi') {
-              result.kimi.input += inputTokens;
-              result.kimi.output += outputTokens;
-              result.kimi.count++;
-            } else if (normalizedProvider === 'anthropic') {
-              result.anthropic.input += inputTokens;
-              result.anthropic.output += outputTokens;
-              result.anthropic.count++;
-            }
-          } catch (e) {
-            // Individual file read failure - ignore
-          }
-        }
-      } catch (e) {
-        // Session directory read failure - continue
-      }
-    }
-  } catch (e) {
-    // Overall failure - return empty result
-  }
-
-  openCodeTokenCache = result;
-  openCodeCacheTime = now;
+  // 세션 ID가 없을 때: 빈 결과 반환 (OpenCode 레거시 폴백 제거됨)
+  mcpTokenCache = result;
+  mcpTokenCacheTime = now;
   return result;
 }
 
@@ -855,10 +731,10 @@ async function buildIndependentHud(stdinData) {
   // 3. Token usage
   const claudeTokens = parseClaudeTokensFromStdin(stdinData);
 
-  // Claude 세션 변경 감지 및 OpenCode 필터 시간 동기화
+  // Claude 세션 변경 감지 및 MCP 필터 시간 동기화
   checkAndResetSessionIfNeeded(claudeTokens.count);
 
-  const openCodeTokens = aggregateOpenCodeTokens();
+  const mcpProviderTokens = aggregateMcpTokens();
 
   // 세션 ID 획득 (fusion-tracker에 전달)
   let currentSessionId = null;
@@ -867,13 +743,13 @@ async function buildIndependentHud(stdinData) {
   } catch (e) { /* 무시 */ }
 
   // 실제 토큰 기반 절약율 업데이트
-  updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini, currentSessionId);
+  updateSavingsFromTokens(claudeTokens, mcpProviderTokens.openai, mcpProviderTokens.gemini, currentSessionId);
 
   const tokenData = {
     claude: claudeTokens,
-    openai: openCodeTokens.openai,
-    gemini: openCodeTokens.gemini,
-    kimi: openCodeTokens.kimi,
+    openai: mcpProviderTokens.openai,
+    gemini: mcpProviderTokens.gemini,
+    kimi: mcpProviderTokens.kimi,
   };
 
   const tokenOutput = renderProviderTokens(tokenData);
@@ -896,13 +772,13 @@ async function buildIndependentHud(stdinData) {
   var mcpFirstOutput = renderMcpFirstRate(fusionState);
 
   // 8. Provider counts
-  const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
+  const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : mcpProviderTokens.anthropic.count;
   const sessionCounts = {
     byProvider: {
       anthropic: claudeCount,
-      openai: openCodeTokens.openai.count,
-      gemini: openCodeTokens.gemini.count,
-      kimi: openCodeTokens.kimi.count,
+      openai: mcpProviderTokens.openai.count,
+      gemini: mcpProviderTokens.gemini.count,
+      kimi: mcpProviderTokens.kimi.count,
     }
   };
   const countsOutput = renderProviderCounts(sessionCounts);
@@ -979,10 +855,10 @@ async function main() {
         // Parse tokens and build extras
         const claudeTokens = parseClaudeTokensFromStdin(stdinData);
 
-        // Claude 세션 변경 감지 및 OpenCode 필터 시간 동기화
+        // Claude 세션 변경 감지 및 MCP 필터 시간 동기화
         checkAndResetSessionIfNeeded(claudeTokens.count);
 
-        const openCodeTokens = aggregateOpenCodeTokens();
+        const mcpProviderTokens = aggregateMcpTokens();
 
         // 세션 ID 획득 (fusion-tracker에 전달)
         let currentSessionId = null;
@@ -991,26 +867,26 @@ async function main() {
         } catch (e) { /* 무시 */ }
 
         // 실제 토큰 기반 절약율 업데이트
-        updateSavingsFromTokens(claudeTokens, openCodeTokens.openai, openCodeTokens.gemini, currentSessionId);
+        updateSavingsFromTokens(claudeTokens, mcpProviderTokens.openai, mcpProviderTokens.gemini, currentSessionId);
 
         const tokenData = {
           claude: claudeTokens,
-          openai: openCodeTokens.openai,
-          gemini: openCodeTokens.gemini,
-          kimi: openCodeTokens.kimi,
+          openai: mcpProviderTokens.openai,
+          gemini: mcpProviderTokens.gemini,
+          kimi: mcpProviderTokens.kimi,
         };
 
         const tokenOutput = renderProviderTokens(tokenData);
         const fusionState = readFusionState(currentSessionId);
         const fusionOutput = renderFusionMetrics(fusionState);
 
-        const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : openCodeTokens.anthropic.count;
+        const claudeCount = claudeTokens.count > 0 ? claudeTokens.count : mcpProviderTokens.anthropic.count;
         const sessionCounts = {
           byProvider: {
             anthropic: claudeCount,
-            openai: openCodeTokens.openai.count,
-            gemini: openCodeTokens.gemini.count,
-            kimi: openCodeTokens.kimi.count,
+            openai: mcpProviderTokens.openai.count,
+            gemini: mcpProviderTokens.gemini.count,
+            kimi: mcpProviderTokens.kimi.count,
           }
         };
         const countsOutput = renderProviderCounts(sessionCounts);

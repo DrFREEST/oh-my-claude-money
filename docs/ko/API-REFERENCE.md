@@ -1,5 +1,7 @@
 # OMCM API 레퍼런스
 
+> **버전 기준 (OMC 4.2.15):** 본 문서는 `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, `gemini-3-pro`를 기본으로 설명합니다. `researcher`, `tdd-guide`, `*-low`/`*-medium` 표기는 하위호환(legacy) 맥락에서만 유지됩니다.
+
 OMCM(Oh My Claude Money)의 모든 공개 API와 모듈을 문서화합니다.
 
 **목차**
@@ -12,9 +14,9 @@ OMCM(Oh My Claude Money)의 모든 공개 API와 모듈을 문서화합니다.
 - [CLI 실행기 (CLI Executor)](#cli-실행기-cli-executor)
 - [실시간 추적 (Realtime Tracker)](#실시간-추적-realtime-tracker)
 
-- [OMC 4.2.7 훅 대응](#omc-427-훅-대응)
+- [OMC 4.2.15 훅 대응](#omc-4212-훅-대응)
 
-## OMC 4.2.7 훅 대응
+## OMC 4.2.15 훅 대응
 
 ### 세션 시작 훅
 
@@ -25,7 +27,7 @@ OMCM(Oh My Claude Money)의 모든 공개 API와 모듈을 문서화합니다.
 
 ### AskUserQuestion 알림 타이밍
 
-- OMC 4.2.7 패턴에 맞춰 `AskUserQuestion`은 `PreToolUse`에서 메시지 알림을 처리합니다.
+- OMC 4.2.15 패턴에 맞춰 `AskUserQuestion`은 `PreToolUse`에서 메시지 알림을 처리합니다.
 - `hooks/hooks.json`의 `PreToolUse` 매처에 `AskUserQuestion` 블록을 추가해 사용자 확인 시점에 알림을 선행합니다.
 
 ---
@@ -857,17 +859,17 @@ export const TASK_ROUTING_PREFERENCES = {
 // OMO 에이전트 매핑 (agent-fusion-map.mjs 기반)
 // OMO 에이전트는 4종: build, explore, plan, general
 export const OPENCODE_AGENT_MAPPING = {
-  explore: 'explore',           // LOW → Gemini 3.0 Flash
-  'explore-medium': 'explore',  // MEDIUM → GPT-5.2-Codex
-  researcher: 'general',        // MEDIUM → GPT-5.2-Codex
-  'researcher-low': 'general',  // LOW → Gemini 3.0 Flash
-  writer: 'general',            // LOW → Gemini 3.0 Flash
-  designer: 'build',            // MEDIUM → GPT-5.2-Codex
-  executor: 'build',            // MEDIUM → GPT-5.2-Codex
-  'executor-low': 'build',      // LOW → Gemini 3.0 Flash
-  vision: 'general',            // MEDIUM → GPT-5.2-Codex
-  'architect-medium': 'build',  // MEDIUM → GPT-5.2-Codex
-  'architect-low': 'explore'    // LOW → Gemini 3.0 Flash
+  explore: 'explore',           // LOW → Gemini 3 Flash
+  'explore-medium': 'explore',  // MEDIUM → GPT-5.3-Codex
+  researcher: 'general',        // MEDIUM → GPT-5.3-Codex
+  'researcher-low': 'general',  // LOW → Gemini 3 Flash
+  writer: 'general',            // LOW → Gemini 3 Flash
+  designer: 'build',            // MEDIUM → GPT-5.3-Codex
+  executor: 'build',            // MEDIUM → GPT-5.3-Codex
+  'executor-low': 'build',      // LOW → Gemini 3 Flash
+  vision: 'general',            // MEDIUM → GPT-5.3-Codex
+  'architect-medium': 'build',  // MEDIUM → GPT-5.3-Codex
+  'architect-low': 'explore'    // LOW → Gemini 3 Flash
 };
 ```
 
@@ -887,7 +889,7 @@ import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
 const result = await executeViaCLI({
   provider: 'openai',         // 'openai' | 'google'
-  model: 'gpt-5.2-codex',    // 모델 ID
+  model: 'gpt-5.3-codex',    // 모델 ID
   prompt: '인증 버그 수정',
   projectDir: process.cwd(),
   timeout: 300000             // 5분 타임아웃
@@ -909,7 +911,7 @@ const result = await executeViaCLI({
 | 옵션 | 타입 | 기본값 | 설명 |
 |------|------|--------|------|
 | `provider` | string | - | 'openai' 또는 'google' |
-| `model` | string | - | 모델 ID (예: 'gpt-5.2-codex', 'gemini-3.0-flash') |
+| `model` | string | - | 모델 ID (예: 'gpt-5.3-codex', 'gemini-3-flash') |
 | `prompt` | string | - | 실행할 프롬프트 |
 | `projectDir` | string | cwd | 작업 디렉토리 |
 | `timeout` | number | 300000 | 타임아웃 (ms) |
@@ -940,9 +942,9 @@ CLI는 stateless이므로 제한 없이 병렬 실행 가능합니다.
 import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
 const tasks = [
-  { provider: 'openai', model: 'gpt-5.2-codex', prompt: '작업 1' },
-  { provider: 'google', model: 'gemini-3.0-flash', prompt: '작업 2' },
-  { provider: 'openai', model: 'gpt-5.2-codex', prompt: '작업 3' }
+  { provider: 'openai', model: 'gpt-5.3-codex', prompt: '작업 1' },
+  { provider: 'google', model: 'gemini-3-flash', prompt: '작업 2' },
+  { provider: 'openai', model: 'gpt-5.3-codex', prompt: '작업 3' }
 ];
 
 const results = await Promise.all(
@@ -970,7 +972,7 @@ async function batchProcessing() {
     tasks.push(
       executeViaCLI({
         provider: i % 2 === 0 ? 'openai' : 'google',
-        model: i % 2 === 0 ? 'gpt-5.2-codex' : 'gemini-3.0-flash',
+        model: i % 2 === 0 ? 'gpt-5.3-codex' : 'gemini-3-flash',
         prompt: `파일 ${i}.ts 분석`,
         projectDir: process.cwd()
       })
@@ -999,10 +1001,10 @@ import {
 } from 'src/executor/cli-executor.mjs';
 
 // Codex 실행
-const result1 = await executeCodex('코드 분석', { model: 'gpt-5.2-codex' });
+const result1 = await executeCodex('코드 분석', { model: 'gpt-5.3-codex' });
 
 // Gemini 실행
-const result2 = await executeGemini('UI 생성', { model: 'gemini-3.0-flash' });
+const result2 = await executeGemini('UI 생성', { model: 'gemini-3-flash' });
 
 // 배치 실행
 const results = await executeBatch([
@@ -1337,7 +1339,7 @@ if (!detectCLI('openai')) {
 
 const result = await executeViaCLI({
   provider: 'openai',
-  model: 'gpt-5.2-codex',
+  model: 'gpt-5.3-codex',
   prompt: 'Implement feature X',
   projectDir: process.cwd()
 });
@@ -1352,9 +1354,9 @@ console.log('성공:', result.success);
 import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
 const tasks = [
-  { provider: 'openai', model: 'gpt-5.2-codex', prompt: 'Task 1' },
-  { provider: 'google', model: 'gemini-3.0-flash', prompt: 'Task 2' },
-  { provider: 'openai', model: 'gpt-5.2-codex', prompt: 'Task 3' }
+  { provider: 'openai', model: 'gpt-5.3-codex', prompt: 'Task 1' },
+  { provider: 'google', model: 'gemini-3-flash', prompt: 'Task 2' },
+  { provider: 'openai', model: 'gpt-5.3-codex', prompt: 'Task 3' }
 ];
 
 const results = await Promise.all(
@@ -1457,7 +1459,6 @@ import { STATE_FILES } from 'src/utils/state-manager.mjs';
 //   ULTRAPILOT: 'ultrapilot-state.json',
 //   RALPH: 'ralph-state.json',
 //   AUTOPILOT: 'autopilot-state.json',
-//   ECOMODE: 'ecomode-state.json',
 //   SWARM: 'swarm-state.json',
 //   PIPELINE: 'pipeline-state.json',
 //   ULTRAQA: 'ultraqa-state.json',

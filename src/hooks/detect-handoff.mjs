@@ -3,7 +3,7 @@
  * detect-handoff.mjs - 작업 위임 및 MCP 활용 권장 훅
  *
  * UserPromptSubmit 훅에서 실행됨
- * - 모드 키워드 감지: ecomode, ralph, cancel 등
+ * - 모드 키워드 감지: ralph, cancel 등
  * - 작업 위임 패턴 감지 및 권장
  * - MCP-First 리마인더
  */
@@ -37,7 +37,6 @@ async function loadUtils() {
     checkThreshold = () => ({ exceeded: false });
     loadConfig = () => ({
       modeKeywords: {
-        ecomode: ['eco:', 'ecomode:', 'eco ', '효율', '절약', 'budget', 'save-tokens'],
         ralph: ['ralph:', 'ralph ', "don't stop", 'must complete', '끝까지', '완료할때까지', '멈추지마'],
         cancel: ['cancelomc', 'stopomc', 'cancel', 'stop', 'abort', '취소', '중지'],
       },
@@ -108,7 +107,7 @@ function extractPrompt(input) {
 }
 
 // =============================================================================
-// 모드 키워드 감지 (ecomode, ralph, cancel)
+// 모드 키워드 감지 (ralph, cancel)
 // =============================================================================
 
 function detectModeKeyword(prompt, modeKeywords) {
@@ -152,7 +151,7 @@ function saveModeState(mode, projectDir) {
     // cancel 모드의 경우 모든 상태 파일 비활성화
     // OMC v4.2.6: team으로 통합 (ultrapilot, swarm은 레거시 호환)
     if (mode === 'cancel') {
-      const modes = ['ralph', 'autopilot', 'ultrawork', 'ecomode', 'team', 'swarm', 'pipeline', 'ultrapilot', 'ultraqa'];
+      const modes = ['ralph', 'autopilot', 'ultrawork', 'team', 'swarm', 'pipeline', 'ultrapilot', 'ultraqa'];
 
       // 프로젝트 경로 + homedir 레거시 경로 모두 정리
       const cancelDirs = [stateDir];
@@ -278,7 +277,7 @@ async function main() {
 
     const config = loadConfig();
 
-    // 0. 모드 키워드 감지 (ecomode, ralph, cancel)
+    // 0. 모드 키워드 감지 (ralph, cancel)
     const modeKeywords = config.modeKeywords || {};
     const detectedMode = detectModeKeyword(prompt, modeKeywords);
     if (detectedMode) {

@@ -1,11 +1,11 @@
 {
   "description": "OMC 에이전트 → OMO 에이전트 퓨전 매핑 (퓨전/폴백 모드 전용)",
-  "version": "4.0.0",
-  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.2.7 + OMO v3.4.0 호환 (28 에이전트 + backward-compat aliases)",
+  "version": "4.1.0",
+  "note": "기본 모드에서는 Claude 모델만 사용, 퓨전/폴백 모드 활성화 시 이 매핑 적용. OMC v4.3.0 + OMO v3.4.0 호환 (30 에이전트 + backward-compat aliases)",
   "metadata": {
-    "omc_version": "4.2.7",
-    "omcm_version": "2.1.4",
-    "last_updated": "2026-02-13"
+    "omc_version": "4.3.0",
+    "omcm_version": "2.1.9",
+    "last_updated": "2026-02-21"
   },
   "models": {
     "opus": {
@@ -209,6 +209,14 @@
       "description": "기술 문서 작성",
       "mcp_direct": "ask_gemini"
     },
+    "document-specialist": {
+      "omo_agent": "general",
+      "default_model": "haiku",
+      "model": "gemini-3-flash",
+      "thinking": true,
+      "description": "문서 구조화, 편집, 품질 개선",
+      "mcp_direct": "ask_gemini"
+    },
     "vision": {
       "omo_agent": "general",
       "default_model": "sonnet",
@@ -298,6 +306,16 @@
       "mcp_direct": "ask_codex"
     },
 
+    "_comment_refactoring": "=== Refactoring Lane (OMC 4.3.0 신규) ===",
+    "code-simplifier": {
+      "omo_agent": "build",
+      "default_model": "opus",
+      "model": "claude-opus-4-6-20260205",
+      "thinking": true,
+      "description": "코드 단순화 및 리팩토링 전문가 - 기능 보존하며 가독성/일관성/유지보수성 개선",
+      "mcp_direct": null
+    },
+
     "_comment_aliases": "=== Backward-Compat Aliases (OMC 4.0.x → 4.1.x 호환) ===",
     "researcher": {
       "_alias_of": "dependency-expert",
@@ -327,15 +345,16 @@
     ]
   },
   "statistics": {
-    "total_agents": 28,
-    "total_with_aliases": 30,
+    "total_agents": 30,
+    "total_with_aliases": 32,
     "build_analysis_lane": 7,
     "review_lane": 6,
     "testing_lane": 2,
-    "domain_specialists": 6,
+    "refactoring_lane": 1,
+    "domain_specialists": 7,
     "product_lane": 5,
     "backward_compat_aliases": 2,
-    "mcp_direct_agents": 19,
-    "claude_only_agents": 9
+    "mcp_direct_agents": 20,
+    "claude_only_agents": 10
   }
 }

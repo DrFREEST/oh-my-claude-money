@@ -23,20 +23,16 @@ export const DEFAULT_CONFIG = {
 
   // 키워드 설정
   keywords: [
-    'opencode',
     'handoff',
     '전환',
-    'switch to opencode',
-    'opencode로',
-    '오픈코드',
   ],
 
   // 하이브리드 라우팅 설정
   routing: {
     enabled: true, // 하이브리드 라우팅 활성화
-    usageThreshold: 70, // 이 사용량 이상이면 OpenCode 분배 증가
-    maxOpencodeWorkers: 3, // 동시 OpenCode 워커 수
-    preferOpencode: ['explore', 'dependency-expert', 'researcher', 'writer', 'style-reviewer', 'ux-researcher'], // OpenCode 선호 작업
+    usageThreshold: 70, // 이 사용량 이상이면 MCP 분배 증가
+    maxMcpWorkers: 3, // 동시 MCP 워커 수
+    preferMcp: ['explore', 'dependency-expert', 'researcher', 'writer', 'document-specialist', 'style-reviewer', 'ux-researcher'], // MCP 선호 작업
     preferClaude: ['architect', 'deep-executor', 'critic', 'planner', 'debugger'], // Claude 선호 작업
     autoDelegate: true, // 자동 위임 활성화
   },
@@ -48,14 +44,6 @@ export const DEFAULT_CONFIG = {
     includeTodos: true,
     includeDecisions: true,
     maxContextLength: 50000,
-  },
-
-  // OpenCode 설정
-  opencode: {
-    command: 'opencode',
-    args: [],
-    ultraworkByDefault: true, // ulw 키워드 자동 추가
-    timeout: 300000, // 5분 타임아웃
   },
 
   // 알림 설정

@@ -216,7 +216,7 @@ describe('RealtimeTracker', () => {
   describe('trackRouting()', () => {
     test('records routing event with all fields', () => {
       const event = {
-        target: 'opencode',
+        target: 'mcp',
         provider: 'gemini',
         agent: 'explore',
         timestamp: Date.now(),
@@ -225,7 +225,7 @@ describe('RealtimeTracker', () => {
       const result = tracker.trackRouting(event);
 
       assert.strictEqual(result.type, 'routing');
-      assert.strictEqual(result.target, 'opencode');
+      assert.strictEqual(result.target, 'mcp');
       assert.strictEqual(result.provider, 'gemini');
       assert.strictEqual(result.agent, 'explore');
       assert.ok(result.timestamp);
@@ -241,7 +241,7 @@ describe('RealtimeTracker', () => {
     });
 
     test('stores event in events array', () => {
-      tracker.trackRouting({ target: 'opencode', provider: 'openai' });
+      tracker.trackRouting({ target: 'mcp', provider: 'openai' });
       tracker.trackRouting({ target: 'omc', provider: 'anthropic' });
 
       assert.strictEqual(tracker.events.length, 2);
@@ -286,20 +286,20 @@ describe('RealtimeTracker', () => {
 
   describe('getStats()', () => {
     test('returns stats for minute window', () => {
-      tracker.trackRouting({ target: 'opencode', provider: 'gemini' });
-      tracker.trackRouting({ target: 'opencode', provider: 'openai' });
+      tracker.trackRouting({ target: 'mcp', provider: 'gemini' });
+      tracker.trackRouting({ target: 'mcp', provider: 'openai' });
       tracker.trackRouting({ target: 'omc', provider: 'anthropic' });
 
       const stats = tracker.getStats('minute');
 
       assert.strictEqual(stats.window, 'minute');
       assert.strictEqual(stats.routing.total, 3);
-      assert.strictEqual(stats.routing.byTarget.opencode, 2);
+      assert.strictEqual(stats.routing.byTarget.mcp, 2);
       assert.strictEqual(stats.routing.byTarget.omc, 1);
     });
 
     test('returns stats for hour window', () => {
-      tracker.trackRouting({ target: 'opencode', provider: 'gemini' });
+      tracker.trackRouting({ target: 'mcp', provider: 'gemini' });
       
       const stats = tracker.getStats('hour');
 
@@ -357,9 +357,9 @@ describe('RealtimeTracker', () => {
     });
 
     test('groups by provider correctly', () => {
-      tracker.trackRouting({ target: 'opencode', provider: 'gemini' });
-      tracker.trackRouting({ target: 'opencode', provider: 'gemini' });
-      tracker.trackRouting({ target: 'opencode', provider: 'openai' });
+      tracker.trackRouting({ target: 'mcp', provider: 'gemini' });
+      tracker.trackRouting({ target: 'mcp', provider: 'gemini' });
+      tracker.trackRouting({ target: 'mcp', provider: 'openai' });
 
       const stats = tracker.getStats('hour');
 
@@ -430,7 +430,7 @@ describe('MetricsCollector', () => {
     test('records routing with all fields', () => {
       const routing = {
         source: 'architect',
-        target: 'opencode',
+        target: 'mcp',
         provider: 'gemini',
         reason: 'token_saving',
       };
@@ -438,7 +438,7 @@ describe('MetricsCollector', () => {
       const result = collector.recordRouting(routing);
 
       assert.strictEqual(result.source, 'architect');
-      assert.strictEqual(result.target, 'opencode');
+      assert.strictEqual(result.target, 'mcp');
       assert.strictEqual(result.provider, 'gemini');
       assert.strictEqual(result.reason, 'token_saving');
       assert.ok(result.timestamp);
@@ -498,14 +498,14 @@ describe('MetricsCollector', () => {
 
   describe('getMetrics()', () => {
     test('returns aggregated routing metrics', () => {
-      collector.recordRouting({ source: 's1', target: 'opencode', provider: 'p1' });
-      collector.recordRouting({ source: 's2', target: 'opencode', provider: 'p2' });
+      collector.recordRouting({ source: 's1', target: 'mcp', provider: 'p1' });
+      collector.recordRouting({ source: 's2', target: 'mcp', provider: 'p2' });
       collector.recordRouting({ source: 's3', target: 'omc', provider: 'p3' });
 
       const metrics = collector.getMetrics();
 
       assert.strictEqual(metrics.routing.total, 3);
-      assert.strictEqual(metrics.routing.byTarget.opencode, 2);
+      assert.strictEqual(metrics.routing.byTarget.mcp, 2);
       assert.strictEqual(metrics.routing.byTarget.omc, 1);
     });
 

@@ -1,15 +1,15 @@
 /**
- * agent-fusion-map.mjs - OMC ↔ OMO 에이전트 퓨전 매핑 v3.0
+ * agent-fusion-map.mjs - OMC ↔ MCP 에이전트 퓨전 매핑 v4.0
  *
  * 퓨전/폴백 모드에서 oh-my-claudecode(OMC) 에이전트를
- * oh-my-opencode(OMO) 에이전트로 매핑하여 Claude 토큰 절약
+ * MCP 도구(ask_codex / ask_gemini)로 매핑하여 Claude 토큰 절약
  *
- * OMC v4.2.6 호환 - Codex fallback chain 반영
+ * OMC v4.2.15 호환 - MCP-First 아키텍처
  *
  * 티어별 모델 분배:
  * - HIGH (Opus급): Claude Opus 4.6 유지 - 복잡한 추론 필요
- * - MEDIUM (Sonnet급): gpt-5.3-codex (thinking) - 표준 구현 작업
- * - LOW (Haiku급): gemini-3-flash (thinking) - 빠른 탐색/간단한 작업
+ * - MEDIUM (Sonnet급): ask_codex (GPT 5.3 Codex) - 표준 구현 작업
+ * - LOW (Haiku급): ask_gemini (Gemini 3 Flash) - 빠른 탐색/간단한 작업
  */
 
 // =============================================================================
@@ -27,7 +27,7 @@ export const MODELS = {
   },
 
   // MEDIUM Tier - GPT 5.3 Codex (코딩 특화, thinking 모드)
-  // OMC 4.2.6 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
+  // OMC 4.2.15 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
   CODEX: {
     provider: 'openai',
     model: 'gpt-5.3-codex',
@@ -82,7 +82,7 @@ export const OMO_AGENTS = {
 };
 
 // =============================================================================
-// OMC → OMO 에이전트 퓨전 매핑 (28개 + 2 alias) - OMC v4.2.6 호환
+// OMC → OMO 에이전트 퓨전 매핑 (29개 + 2 alias) - OMC v4.2.15 호환
 // =============================================================================
 
 export const FUSION_MAP = {
@@ -270,7 +270,7 @@ export const FUSION_MAP = {
   },
 
   // =========================================================================
-  // LOW Tier (4개) - Gemini 3 Flash Preview (thinking) ⭐ 토큰 절약!
+  // LOW Tier (5개) - Gemini 3 Flash Preview (thinking) ⭐ 토큰 절약!
   // =========================================================================
 
   explore: {
@@ -284,6 +284,13 @@ export const FUSION_MAP = {
     omoAgent: 'general',
     model: MODELS.FLASH,
     reason: 'Gemini Flash - 기술 문서 작성',
+    fallbackToOMC: false,
+  },
+
+  'document-specialist': {
+    omoAgent: 'general',
+    model: MODELS.FLASH,
+    reason: 'Gemini Flash - 문서 구조화/전문화',
     fallbackToOMC: false,
   },
 
@@ -380,26 +387,30 @@ export function getFusionStats() {
 }
 
 /**
- * OpenCode 실행 명령어 생성
+ * MCP 호출 디스크립터 생성 (ask_codex / ask_gemini)
+ *
+ * OpenCode CLI 실행 대신 MCP 도구를 직접 호출하는 방식으로 전환.
+ * 반환 객체는 호출 측에서 해당 MCP 도구를 호출하는 데 사용됩니다.
  */
-export function buildOpenCodeCommand(omcAgent, prompt, options = {}) {
+export function buildMcpCallDescriptor(omcAgent, prompt, options = {}) {
   const fusion = FUSION_MAP[omcAgent];
   if (!fusion) {
     return null;
   }
 
-  const model = `${fusion.model.provider}/${fusion.model.model}`;
-  const agent = fusion.omoAgent;
+  const provider = fusion.model.provider;
+  // Gemini 계열 → ask_gemini, 그 외(OpenAI/Anthropic) → ask_codex
+  const mcpTool = (provider === 'google') ? 'ask_gemini' : 'ask_codex';
+  const agentRole = omcAgent;
 
   // thinking 모드가 활성화된 경우 /ulw 커맨드 포함
   const thinkingPrefix = fusion.model.thinking ? '/ulw ' : '';
 
   return {
-    command: 'opencode',
-    args: ['run', '--format', 'json', '--model', model, '--agent', agent],
+    mcpTool,
+    agentRole,
     prompt: `${thinkingPrefix}${prompt}`,
-    model,
-    agent,
+    model: fusion.model.model,
     savesTokens: fusion.model.savesClaudeTokens,
   };
 }
@@ -451,7 +462,7 @@ export function shouldUseFusionMapping(fusionState) {
     return true;
   }
 
-  // team 모드가 활성화된 경우 (OMC 4.2.6, was hulw)
+  // team 모드가 활성화된 경우 (OMC 4.2.15, was hulw)
   if (fusionState.teamMode || fusionState.hulwMode) {
     return true;
   }

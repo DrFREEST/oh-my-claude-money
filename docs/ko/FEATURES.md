@@ -1,5 +1,7 @@
 # OMCM v2.1.0 기능 가이드
 
+> **버전 기준 (OMC 4.2.15):** 본 문서는 `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, `gemini-3-pro`를 기본으로 설명합니다. `researcher`, `tdd-guide`, `*-low`/`*-medium` 표기는 하위호환(legacy) 맥락에서만 유지됩니다.
+
 OMCM (oh-my-claude-money) v2.1.0의 모든 기능에 대한 완전한 기술 참조 문서입니다. API 문서 및 사용 예제를 포함합니다.
 
 ## 목차
@@ -25,15 +27,15 @@ OMCM (oh-my-claude-money) v2.1.0의 모든 기능에 대한 완전한 기술 참
 - `hulw` 및 `ulw` 키워드를 통한 제로 설정 활성화
 - 다양한 사용 사례를 위한 3가지 활성화 모드
 
-### 에이전트-프로바이더 매핑 (v1.0.0)
+### 에이전트-프로바이더 매핑 (v2.1.5)
 
 35개 OMC 에이전트 모두 최적의 프로바이더에 지능적으로 매핑됩니다:
 
 | 계층 | 개수 | 기본 모델 | 퓨전 모델 | 토큰 절약 |
 |------|------|-----------|-----------|-----------|
-| **HIGH** | 13 | Claude Opus 4.5 | Claude Opus 4.5 | - |
-| **MEDIUM** | 10 | Claude Sonnet | GPT-5.2-Codex (with thinking) | 40% |
-| **LOW** | 12 | Claude Haiku | Gemini 3.0 Flash (with thinking) | 70% |
+| **HIGH** | 13 | Claude Opus 4.6 | Claude Opus 4.6 | - |
+| **MEDIUM** | 10 | Claude Sonnet | GPT-5.3-Codex (with thinking) | 40% |
+| **LOW** | 12 | Claude Haiku | Gemini 3 Flash (with thinking) | 70% |
 
 **계층별 주요 에이전트:**
 
@@ -43,12 +45,12 @@ HIGH (Claude Opus - 변경 없음):
 - `qa-tester-high`, `security-reviewer`, `code-reviewer`
 - `scientist-high`, `researcher-high`, `build-fixer-high`
 
-MEDIUM → GPT-5.2-Codex:
+MEDIUM → GPT-5.3-Codex:
 - `architect-medium`, `executor`, `explore-medium`
 - `researcher`, `designer`, `vision`, `qa-tester`
 - `scientist`, `build-fixer`, `tdd-guide`
 
-LOW → Gemini 3.0 Flash:
+LOW → Gemini 3 Flash:
 - `architect-low`, `executor-low`, `explore`
 - `writer`, `designer-low`, `researcher-low`
 - `security-reviewer-low`, `build-fixer-low`, `code-reviewer-low`
@@ -71,7 +73,7 @@ hulw: <작업 설명>
 **특징:**
 - 항상 퓨전 라우팅 사용 (사용량 임계값 없음)
 - 호환 가능한 하위 작업의 병렬 실행 활성화
-- OMC + OpenCode 워커를 동시에 결합
+- OMC + MCP(Codex/Gemini CLI) 워커를 동시에 결합
 - 최적 사용처: 대규모 리팩토링, 멀티 컴포넌트 빌드
 
 **사용 예제:**
@@ -91,8 +93,8 @@ hulw: 데이터베이스 마이그레이션과 함께 REST API 생성
 1. `hulw` 키워드 감지
 2. mode='always'로 `fusionRouter` 활성화
 3. 병렬 실행기에 작업 디스패치
-4. Codex/Gemini CLI 준비 확인
-5. 작업 분배: Claude는 아키텍처 처리, Codex/Gemini는 탐색 처리
+4. MCP(ask_codex/ask_gemini) 도구 준비 확인
+5. 작업 분배: Claude는 아키텍처 처리, Codex/Gemini CLI는 탐색 처리
 
 #### 2. 자동 퓨전 울트라워크 (ulw)
 
@@ -108,8 +110,8 @@ ulw: <작업 설명>
 
 **모드 전환 로직:**
 - **< 70% 사용량:** Claude 에이전트만 사용 (최고 품질)
-- **70-90% 사용량:** 하이브리드 모드 (점진적 OpenCode 증가)
-- **> 90% 사용량:** OpenCode 중심 (비용 최적화)
+- **70-90% 사용량:** 하이브리드 모드 (점진적 MCP CLI 증가)
+- **> 90% 사용량:** MCP CLI 중심 (비용 최적화)
 
 **사용 예제:**
 
@@ -168,8 +170,8 @@ autopilot hulw 실시간 데이터가 있는 대시보드 생성
   "routing": {
     "enabled": true,
     "usageThreshold": 70,
-    "maxOpencodeWorkers": 3,
-    "preferOpencode": ["explore", "researcher", "writer"],
+    "maxMcpWorkers": 3,
+    "preferMcp": ["explore", "researcher", "writer"],
     "preferClaude": ["architect", "executor-high", "critic"],
     "autoDelegate": true
   }
@@ -182,8 +184,8 @@ autopilot hulw 실시간 데이터가 있는 대시보드 생성
 |------|------|--------|------|
 | `fusionDefault` | boolean | false | 모든 작업에 퓨전 활성화 |
 | `usageThreshold` | number | 70 | 하이브리드 모드 활성화 % (ulw만 해당) |
-| `maxOpencodeWorkers` | number | 3 | 최대 병렬 CLI 호출 수 (1-10 권장) |
-| `preferOpencode` | array | [...] | 항상 OpenCode로 라우팅되는 에이전트 |
+| `maxMcpWorkers` | number | 3 | 최대 병렬 CLI 호출 수 (1-10 권장) |
+| `preferMcp` | array | [...] | 항상 MCP CLI로 라우팅되는 에이전트 |
 | `preferClaude` | array | [...] | 항상 Claude로 라우팅되는 에이전트 |
 | `autoDelegate` | boolean | true | 작업 타입 기반 자동 라우팅 |
 
@@ -210,8 +212,8 @@ CLI Executor (executeViaCLI)
     ↓
 Direct CLI Invocation
 │
-├─ codex run --prompt "..." --model gpt-5.2
-├─ gemini run --prompt "..." --model gemini-3.0-flash
+├─ codex run --prompt "..." --model gpt-5.3
+├─ gemini run --prompt "..." --model gemini-3-flash
 └─ Parallel execution via Promise.all()
 ```
 
@@ -228,7 +230,7 @@ import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
 const result = await executeViaCLI({
   provider: 'openai',      // 'openai' | 'google'
-  model: 'gpt-5.2-codex',
+  model: 'gpt-5.3-codex',
   prompt: '코드 분석',
   projectDir: process.cwd(),
   timeout: 300000
@@ -241,7 +243,7 @@ const result = await executeViaCLI({
 | 옵션 | 타입 | 기본값 | 설명 |
 |------|------|--------|------|
 | `provider` | string | - | 'openai' 또는 'google' |
-| `model` | string | - | 모델 ID (예: 'gpt-5.2-codex') |
+| `model` | string | - | 모델 ID (예: 'gpt-5.3-codex') |
 | `prompt` | string | - | 실행할 프롬프트 |
 | `projectDir` | string | cwd | 작업 디렉토리 |
 | `timeout` | number | 300000 | 타임아웃 (ms) |
@@ -276,9 +278,9 @@ CLI는 stateless이므로 제한 없이 병렬 실행 가능:
 import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 
 const tasks = [
-  { provider: 'openai', model: 'gpt-5.2-codex', prompt: '작업 1' },
-  { provider: 'google', model: 'gemini-3.0-flash', prompt: '작업 2' },
-  { provider: 'openai', model: 'gpt-5.2-codex', prompt: '작업 3' }
+  { provider: 'openai', model: 'gpt-5.3-codex', prompt: '작업 1' },
+  { provider: 'google', model: 'gemini-3-flash', prompt: '작업 2' },
+  { provider: 'openai', model: 'gpt-5.3-codex', prompt: '작업 3' }
 ];
 
 const results = await Promise.all(
@@ -305,7 +307,7 @@ async function parallelProcessing() {
     tasks.push(
       executeViaCLI({
         provider: i % 2 === 0 ? 'openai' : 'google',
-        model: i % 2 === 0 ? 'gpt-5.2-codex' : 'gemini-3.0-flash',
+        model: i % 2 === 0 ? 'gpt-5.3-codex' : 'gemini-3-flash',
         prompt: `파일 ${i}.ts 분석`,
         projectDir: process.cwd()
       })
@@ -469,7 +471,7 @@ setInterval(() => {
 
 ### 개요
 
-세션 상태를 자동으로 캡처하고 Claude Code와 OpenCode 프로바이더 간 원활한 핸드오프를 가능하게 합니다.
+세션 상태를 자동으로 캡처하고 Claude Code와 MCP(Codex/Gemini CLI) 프로바이더 간 원활한 핸드오프를 가능하게 합니다.
 
 **캡처되는 컨텍스트:**
 - 현재 작업 설명
@@ -536,13 +538,13 @@ import { ContextSynchronizer } from 'src/context/index.mjs';
 
 const sync = new ContextSynchronizer({
   localPath: '/project/.omcm',
-  remotePath: 'opencode://context'
+  remotePath: 'mcp://context'
 });
 
-// OpenCode로 컨텍스트 푸시
+// MCP CLI로 컨텍스트 푸시
 await sync.pushContext(context);
 
-// OpenCode에서 업데이트 풀
+// MCP CLI에서 업데이트 풀
 const updated = await sync.pullContext();
 
 // 변경사항 구독
@@ -558,7 +560,7 @@ sync.on('contextChanged', (newContext) => {
 ```markdown
 # 작업 핸드오프 컨텍스트
 
-> Claude Code에서 OpenCode로 전환됨
+> Claude Code에서 MCP CLI(Codex/Gemini)로 전환됨
 > 생성 시간: 2026-01-28T15:30:00+09:00
 
 ---
@@ -600,7 +602,7 @@ import { buildContext, serializeContextToMarkdown } from 'src/context/index.mjs'
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-async function handoffToOpenCode() {
+async function handoffToMcp() {
   // 현재 컨텍스트 빌드
   const context = buildContext({
     sessionId: crypto.randomUUID(),
@@ -623,7 +625,7 @@ async function handoffToOpenCode() {
   );
 
   console.log('컨텍스트가 .omcm/handoff/context.md에 저장되었습니다');
-  console.log('OpenCode 핸드오프 준비 완료');
+  console.log('MCP CLI 핸드오프 준비 완료');
 }
 ```
 
@@ -743,12 +745,12 @@ const provider = balancer.selectWithContext(context);
     "openai": {
       "weight": 2,
       "priority": 2,
-      "models": ["gpt-5.2", "gpt-5.2-codex"]
+      "models": ["gpt-5.3", "gpt-5.3-codex"]
     },
     "gemini": {
       "weight": 2,
       "priority": 2,
-      "models": ["gemini-3.0-pro", "gemini-3.0-flash"]
+      "models": ["gemini-3-pro", "gemini-3-flash"]
     }
   }
 }
@@ -793,7 +795,7 @@ console.log(`평균 지연 시간:`, stats.latencies);
 
 ### 개요
 
-의존성 및 파일 충돌을 존중하면서 여러 작업을 병렬로 실행합니다. 작업을 최적의 프로바이더(Claude 또는 OpenCode)로 자동 라우팅합니다.
+의존성 및 파일 충돌을 존중하면서 여러 작업을 병렬로 실행합니다. 작업을 최적의 프로바이더(Claude 또는 MCP CLI)로 자동 라우팅합니다.
 
 **기능:**
 - 독립적인 작업의 병렬 실행
@@ -927,7 +929,7 @@ console.log(strategy);
 // {
 //   mode: 'run',              // 'run' | 'serve' | 'acp'
 //   parallelizable: true,
-//   routeToOpenCode: false,
+//   routeToMcp: false,
 //   options: { ... }
 // }
 ```
@@ -936,9 +938,9 @@ console.log(strategy);
 
 | 모드 | 사용 사례 | 프로바이더 | 속도 |
 |------|----------|------------|------|
-| `run` | 일회성 명령 | Claude/OpenCode | 빠름 |
-| `serve` | 장기 실행 서비스 | OpenCode | 느린 시작, 지속적 |
-| `acp` | 에이전트-프로바이더 프로토콜 | OpenCode | 유연하고 기능 풍부 |
+| `run` | 일회성 명령 | Claude/MCP CLI | 빠름 |
+| `serve` | 장기 실행 서비스 | MCP CLI | 느린 시작, 지속적 |
+| `acp` | 에이전트-프로바이더 프로토콜 | MCP CLI | 유연하고 기능 풍부 |
 
 ### 사용 예제
 
@@ -1047,7 +1049,7 @@ async function buildComplexSystem() {
       description: 'React 대시보드 빌드',
       files: ['src/ui/**'],
       type: 'implementation',
-      agent: 'designer'  // OpenCode (Gemini)로 라우팅됨
+      agent: 'designer'  // MCP(ask_gemini, Gemini)로 라우팅됨
     },
     {
       id: 'devops-docker',
@@ -1133,10 +1135,10 @@ buildComplexSystem().catch(console.error);
 
 **v2.1.0 기능:**
 - ✅ CLI 직접 실행 (v2.1.0 신규)
-- ✅ 실시간 추적 (v1.0.0+)
-- ✅ 컨텍스트 전송 (v1.0.0+)
-- ✅ 멀티 프로바이더 밸런싱 (v1.0.0+)
-- ✅ 병렬 실행기 (v1.0.0+)
+- ✅ 실시간 추적 (v2.1.5+)
+- ✅ 컨텍스트 전송 (v2.1.5+)
+- ✅ 멀티 프로바이더 밸런싱 (v2.1.5+)
+- ✅ 병렬 실행기 (v2.1.5+)
 - ✅ 퓨전 모드 (v0.3.0+)
 - ✅ 에이전트 매핑 (v0.5.0+)
 - ✅ 동적 라우팅 (v0.8.0+)
@@ -1147,19 +1149,19 @@ buildComplexSystem().catch(console.error);
 - 무제한 병렬 처리 지원
 
 **마이그레이션:**
-- `OpenCodeServerPool` → `executeViaCLI` 함수로 교체
-- `opencode-server.sh` 스크립트 더 이상 사용하지 않음
+- `McpServerPool` → `executeViaCLI` 함수로 교체
+- `opencode-server.sh` 스크립트 더 이상 사용하지 않음 (MCP CLI로 대체)
 - Codex/Gemini CLI 설치 필요 (`which codex`, `which gemini`로 확인)
 
 ### v2.1.3 호환성 업데이트
 
 **새로운 기능:**
 - **z.ai 프로바이더 지원**: ANTHROPIC_BASE_URL이 z.ai 호스트를 가리킬 때 GLM API를 통해 사용량 조회
-- **Monthly 사용량 표시**: HUD에 `mo:XX%` 형식으로 월간 사용량 표시 (OMC v4.2.6+)
+- **Monthly 사용량 표시**: HUD에 `mo:XX%` 형식으로 월간 사용량 표시 (OMC v4.2.15+)
 - **provider-limits monthly 필드**: updateClaudeLimits()에 monthlyPercent 3번째 인자 추가
 
 **호환 버전:**
-- OMC v4.2.6 이상 (monthly 사용량 표시 지원)
+- OMC v4.2.15 이상 (monthly 사용량 표시 지원)
 - z.ai API 프로바이더 지원
 
 ---

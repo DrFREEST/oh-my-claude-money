@@ -22,21 +22,24 @@ const FALLBACK_CHAIN = [
     name: 'GPT-5.3 Codex',
     provider: 'openai',
     type: 'fallback-1',
-    opencodeAgent: 'build'
+    mcpTool: 'ask_codex',
+    mcpRole: 'executor'
   },
   {
     id: 'gemini-3-flash',
     name: 'Gemini 3 Flash',
     provider: 'google',
     type: 'fallback-2',
-    opencodeAgent: 'explore'
+    mcpTool: 'ask_gemini',
+    mcpRole: 'explore'
   },
   {
     id: 'gpt-5.3',
     name: 'GPT-5.3',
     provider: 'openai',
     type: 'fallback-3',
-    opencodeAgent: 'oracle'
+    mcpTool: 'ask_codex',
+    mcpRole: 'architect'
   }
 ];
 
@@ -344,24 +347,23 @@ export class FallbackOrchestrator {
   }
 
   /**
-   * OpenCode로 작업 실행 (폴백 모델 사용)
+   * MCP를 통해 작업 실행 (폴백 모델 사용)
+   * MCP-First: ask_codex / ask_gemini 디스크립터 반환
    */
   async executeWithFallback(prompt, options) {
-    const defaultOptions = {};
-    const opts = options || defaultOptions;
-
     const current = this.state.currentModel;
 
     // Claude인 경우 일반 실행
     if (current.provider === 'anthropic') {
-      return { useOpenCode: false, model: current };
+      return { useMcp: false, model: current };
     }
 
-    // OpenCode 사용
+    // MCP 사용: ask_codex / ask_gemini
     return {
-      useOpenCode: true,
+      useMcp: true,
       model: current,
-      opencodeAgent: current.opencodeAgent,
+      mcpTool: current.mcpTool || 'ask_codex',
+      mcpRole: current.mcpRole || 'executor',
       prompt
     };
   }
@@ -401,7 +403,8 @@ export class FallbackOrchestrator {
         provider: model.provider,
         type: model.type,
         checkLimit: model.checkLimit,
-        opencodeAgent: model.opencodeAgent,
+        mcpTool: model.mcpTool,
+        mcpRole: model.mcpRole,
         order: index,
         isCurrent: model.id === self.state.currentModel.id
       };

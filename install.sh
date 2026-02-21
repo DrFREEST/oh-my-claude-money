@@ -428,10 +428,45 @@ setup_claude_hooks() {
       --arg read_cmd "node $plugin_hooks_dir/read-optimizer.mjs" \
       --arg bash_cmd "node $plugin_hooks_dir/bash-optimizer.mjs" \
       --arg tracker_cmd "node $plugin_hooks_dir/tool-tracker.mjs" \
+      --arg permission_request_cmd "node $plugin_hooks_dir/permission-request.mjs" \
+      --arg subagent_start_cmd "node $plugin_hooks_dir/subagent-lifecycle.mjs start" \
+      --arg subagent_stop_cmd "node $plugin_hooks_dir/subagent-lifecycle.mjs stop" \
+      --arg pre_compact_cmd "node $plugin_hooks_dir/pre-compact.mjs" \
+      --arg session_end_cmd "node $plugin_hooks_dir/session-end.mjs" \
       --arg session_start_cmd "node $plugin_src_hooks/session-start.mjs" \
       --arg detect_handoff_cmd "node $plugin_src_hooks/detect-handoff.mjs" \
       --arg persistent_mode_cmd "node $plugin_src_hooks/persistent-mode.mjs" \
     '
+      def dedupe_by_command:
+        reduce .[] as $entry (
+          { "seen": [], "out": [] };
+          (($entry.hooks // []) | if type == "array" then . else [] end) as $hooks |
+          if ($hooks | length) == 0 then
+            .out += [$entry]
+          else
+            ($hooks | map(select((.command // "") == ""))) as $non_command_hooks |
+            .seen as $seen_before |
+            (reduce ($hooks | map(select((.command // "") != "")))[] as $hook (
+              { "seen": $seen_before, "hooks": [] };
+              if (.seen | index(($hook.command // ""))) != null then
+                .
+              else
+                {
+                  "seen": (.seen + [($hook.command // "")]),
+                  "hooks": (.hooks + [$hook])
+                }
+              end
+            )) as $command_result |
+            .seen = $command_result.seen |
+            ($non_command_hooks + $command_result.hooks) as $merged_hooks |
+            if ($merged_hooks | length) > 0 then
+              .out += [($entry | .hooks = $merged_hooks)]
+            else
+              .
+            end
+          end
+        ) | .out;
+
       .hooks = (.hooks // {}) |
       .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [
         {
@@ -446,35 +481,65 @@ setup_claude_hooks() {
           "matcher": "Bash",
           "hooks": [{"type": "command", "command": $bash_cmd, "timeout": 5}]
         }
-      ] | unique_by(.matcher)) |
+      ] | dedupe_by_command) |
+      .hooks.PermissionRequest = ((.hooks.PermissionRequest // []) + [
+        {
+          "matcher": "Bash",
+          "hooks": [{"type": "command", "command": $permission_request_cmd, "timeout": 5, "statusMessage": "권한 요청 확인 중..."}]
+        }
+      ] | dedupe_by_command) |
       .hooks.PostToolUse = ((.hooks.PostToolUse // []) + [
         {
           "matcher": "Read|Edit|Bash|Grep|Glob|Task",
           "hooks": [{"type": "command", "command": $tracker_cmd, "timeout": 5}]
         }
-      ] | unique_by(.matcher)) |
+      ] | dedupe_by_command) |
+      .hooks.SubagentStart = ((.hooks.SubagentStart // []) + [
+        {
+          "matcher": "*",
+          "hooks": [{"type": "command", "command": $subagent_start_cmd, "timeout": 5}]
+        }
+      ] | dedupe_by_command) |
+      .hooks.SubagentStop = ((.hooks.SubagentStop // []) + [
+        {
+          "matcher": "*",
+          "hooks": [{"type": "command", "command": $subagent_stop_cmd, "timeout": 5}]
+        }
+      ] | dedupe_by_command) |
+      .hooks.PreCompact = ((.hooks.PreCompact // []) + [
+        {
+          "matcher": "*",
+          "hooks": [{"type": "command", "command": $pre_compact_cmd, "timeout": 10, "statusMessage": "컴팩트 준비 중..."}]
+        }
+      ] | dedupe_by_command) |
       .hooks.SessionStart = ((.hooks.SessionStart // []) + [
         {
           "matcher": "*",
           "hooks": [{"type": "command", "command": $session_start_cmd, "timeout": 3}]
         }
-      ] | unique_by(.matcher)) |
+      ] | dedupe_by_command) |
       .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [
         {
           "matcher": "*",
           "hooks": [{"type": "command", "command": $detect_handoff_cmd, "timeout": 5, "statusMessage": "사용량 확인 중..."}]
         }
-      ] | unique_by(.matcher)) |
+      ] | dedupe_by_command) |
       .hooks.Stop = ((.hooks.Stop // []) + [
         {
           "matcher": "*",
           "hooks": [{"type": "command", "command": $persistent_mode_cmd, "timeout": 5, "statusMessage": "활성 모드 확인 중..."}]
         }
-      ] | unique_by(.matcher))
+      ] | dedupe_by_command) |
+      .hooks.SessionEnd = ((.hooks.SessionEnd // []) + [
+        {
+          "matcher": "*",
+          "hooks": [{"type": "command", "command": $session_end_cmd, "timeout": 10}]
+        }
+      ] | dedupe_by_command)
     ')
 
     echo "$updated_settings" > "$settings_file"
-    log_success "모든 Hooks 설정 완료 (PreToolUse/PostToolUse/SessionStart/UserPromptSubmit/Stop)"
+    log_success "모든 Hooks 설정 완료 (PreToolUse/PermissionRequest/PostToolUse/SubagentStart/SubagentStop/PreCompact/SessionStart/UserPromptSubmit/Stop/SessionEnd)"
 }
 
 # Handoff 디렉토리 설정

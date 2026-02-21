@@ -14,17 +14,16 @@ import {
 } from '../../src/router/rules.mjs';
 
 describe('기본 규칙', () => {
-  test('기본 규칙 5개 로드', () => {
+  test('기본 규칙 4개 로드', () => {
     invalidateRulesCache();
     const rules = getRules();
-    assert.ok(rules.length >= 5, '최소 5개 기본 규칙 필요');
+    assert.ok(rules.length >= 4, '최소 4개 기본 규칙 필요');
 
     const ruleIds = rules.map((r) => r.id);
-    assert.ok(ruleIds.includes('high-usage-opencode'));
-    assert.ok(ruleIds.includes('weekly-limit-opencode'));
+    assert.ok(ruleIds.includes('high-usage-mcp'));
+    assert.ok(ruleIds.includes('weekly-limit-mcp'));
     assert.ok(ruleIds.includes('complex-task-claude'));
     assert.ok(ruleIds.includes('security-claude'));
-    assert.ok(ruleIds.includes('ecomode-opencode'));
   });
 
   test('규칙은 우선순위 순으로 정렬', () => {
@@ -39,7 +38,7 @@ describe('기본 규칙', () => {
 });
 
 describe('규칙 평가', () => {
-  test('usage.fiveHour > 90 - OpenCode 라우팅', () => {
+  test('usage.fiveHour > 90 - MCP 라우팅', () => {
     const context = {
       usage: { fiveHour: 95, weekly: 50 },
       mode: {},
@@ -49,10 +48,10 @@ describe('규칙 평가', () => {
 
     const result = evaluateRouting(context);
     assert.strictEqual(result.matched, true);
-    assert.strictEqual(result.action, 'prefer_opencode');
+    assert.strictEqual(result.action, 'prefer_mcp');
   });
 
-  test('usage.weekly > 85 - OpenCode 라우팅', () => {
+  test('usage.weekly > 85 - MCP 라우팅', () => {
     const context = {
       usage: { fiveHour: 50, weekly: 90 },
       mode: {},
@@ -62,20 +61,7 @@ describe('규칙 평가', () => {
 
     const result = evaluateRouting(context);
     assert.strictEqual(result.matched, true);
-    assert.strictEqual(result.action, 'prefer_opencode');
-  });
-
-  test('mode.ecomode == true - OpenCode 라우팅', () => {
-    const context = {
-      usage: { fiveHour: 30, weekly: 30 },
-      mode: { ecomode: true },
-      task: {},
-      agent: { type: 'executor' },
-    };
-
-    const result = evaluateRouting(context);
-    assert.strictEqual(result.matched, true);
-    assert.strictEqual(result.action, 'prefer_opencode');
+    assert.strictEqual(result.action, 'prefer_mcp');
   });
 
   test('task.complexity == "high" - Claude 선호', () => {
@@ -119,15 +105,15 @@ describe('규칙 평가', () => {
 });
 
 describe('액션 해석', () => {
-  test('prefer_opencode', () => {
-    const action = interpretAction('prefer_opencode');
-    assert.strictEqual(action.preferredProvider, 'opencode');
+  test('prefer_mcp', () => {
+    const action = interpretAction('prefer_mcp');
+    assert.strictEqual(action.preferredProvider, 'mcp');
     assert.strictEqual(action.forceProvider, false);
   });
 
-  test('force_opencode', () => {
-    const action = interpretAction('force_opencode');
-    assert.strictEqual(action.preferredProvider, 'opencode');
+  test('force_mcp', () => {
+    const action = interpretAction('force_mcp');
+    assert.strictEqual(action.preferredProvider, 'mcp');
     assert.strictEqual(action.forceProvider, true);
   });
 
@@ -154,7 +140,7 @@ describe('규칙 검증', () => {
     const rule = {
       id: 'test-rule',
       condition: 'usage.fiveHour > 80',
-      action: 'prefer_opencode',
+      action: 'prefer_mcp',
       priority: 50,
     };
 

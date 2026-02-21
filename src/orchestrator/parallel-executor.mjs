@@ -2,13 +2,13 @@
  * parallel-executor.mjs - 병렬 작업 실행기
  *
  * 여러 작업을 병렬 또는 순차적으로 실행하는 오케스트레이터입니다.
- * Codex/Gemini CLI와 Claude 간 작업 분배 및 실행을 담당합니다.
+ * MCP(ask_codex/ask_gemini)와 Claude 간 작업 분배 및 실행을 담당합니다.
  *
- * v2.1.0: OpenCode 서버 풀 → CLI 직접 실행 전환
+ * v4.0: OpenCode CLI 제거 → MCP-First(ask_codex/ask_gemini 직접 호출) 전환
  */
 
 import { routeTask, planParallelDistribution } from './task-router.mjs';
-import { executeViaCLI, detectCLI } from '../executor/cli-executor.mjs';
+import { buildMcpCallDescriptor } from './agent-fusion-map.mjs';
 import {
   isContextLimitError,
   attemptContextLimitRecovery,
@@ -128,7 +128,7 @@ export class ParallelExecutor {
    * @param {Object} options - 실행기 옵션
    * @param {number} [options.maxWorkers=3] - 최대 워커 수
    * @param {boolean} [options.autoRoute=true] - 자동 라우팅 활성화
-   * @param {boolean} [options.enableServer=true] - OpenCode 서버 활성화
+   * @param {boolean} [options.enableMcp=true] - MCP 도구 활성화 (ask_codex/ask_gemini)
    * @param {Function} [options.onTaskStart] - 작업 시작 콜백
    * @param {Function} [options.onTaskComplete] - 작업 완료 콜백
    * @param {Function} [options.onError] - 오류 콜백
@@ -138,7 +138,7 @@ export class ParallelExecutor {
 
     this.maxWorkers = options.maxWorkers || 3;
     this.autoRoute = options.autoRoute !== false;
-    this.enableServer = options.enableServer !== false;
+    this.enableMcp = options.enableMcp !== false;
 
     this.onTaskStart = options.onTaskStart;
     this.onTaskComplete = options.onTaskComplete;
@@ -161,8 +161,8 @@ export class ParallelExecutor {
     this.contextLimitRecovery = options.contextLimitRecovery !== false;
     this.recoveryStats = { detected: 0, recovered: 0, failed: 0 };
 
-    // CLI 사용 가능 여부
-    this.cliAvailable = false;
+    // MCP 사용 가능 여부 (항상 true — 직접 호출)
+    this.mcpAvailable = true;
   }
 
   /**
@@ -193,16 +193,11 @@ export class ParallelExecutor {
     this.errors = [];
     this.cancelled = false;
 
-    // CLI 사용 가능 여부 확인
-    if (this.enableServer) {
-      this.cliAvailable = detectCLI('codex') || detectCLI('gemini');
-    }
-
     // 작업 라우팅
     var routedTasks = tasks;
     if (this.autoRoute) {
       var distribution = planParallelDistribution(tasks);
-      routedTasks = distribution.claudeTasks.concat(distribution.opencodeTasks);
+      routedTasks = distribution.claudeTasks.concat(distribution.mcpTasks || []);
     }
 
     // 워커 풀 실행
@@ -245,11 +240,6 @@ export class ParallelExecutor {
     this.results = [];
     this.errors = [];
     this.cancelled = false;
-
-    // CLI 사용 가능 여부 확인
-    if (this.enableServer) {
-      this.cliAvailable = detectCLI('codex') || detectCLI('gemini');
-    }
 
     // 순차 실행
     var results = [];
@@ -316,11 +306,6 @@ export class ParallelExecutor {
     this.results = [];
     this.errors = [];
     this.cancelled = false;
-
-    // CLI 사용 가능 여부 확인
-    if (this.enableServer) {
-      this.cliAvailable = detectCLI('codex') || detectCLI('gemini');
-    }
 
     // 그룹별 실행 (순차)
     var allResults = [];
@@ -396,9 +381,9 @@ export class ParallelExecutor {
       var routing = routeTask(task.type || 'executor');
 
       var result;
-      if (routing.target === 'opencode') {
-        // OpenCode 실행
-        result = await this._executeOpenCodeTask(task, routing);
+      if (routing.target === 'mcp') {
+        // MCP 실행 (ask_codex / ask_gemini 디스크립터 생성)
+        result = await this._executeMcpTask(task, routing);
       } else {
         // Claude 실행 (위임)
         result = await this._executeClaudeTask(task);
@@ -482,32 +467,27 @@ export class ParallelExecutor {
   }
 
   /**
-   * OpenCode 작업 실행
+   * MCP 작업 실행 — ask_codex / ask_gemini 디스크립터 생성
    *
    * @private
    */
-  async _executeOpenCodeTask(task, routing) {
-    var agent = (routing.agent || '').toLowerCase();
-    var provider = 'openai';
-    if (agent.indexOf('gemini') >= 0 || agent.indexOf('flash') >= 0 || agent === 'frontend-engineer') {
-      provider = 'google';
+  async _executeMcpTask(task, routing) {
+    var descriptor = buildMcpCallDescriptor(task.type || 'executor', task.prompt || '', {});
+    if (!descriptor) {
+      descriptor = {
+        mcpTool: 'ask_codex',
+        agentRole: task.type || 'executor',
+        prompt: task.prompt || '',
+      };
     }
 
-    var result = await executeViaCLI({
-      prompt: task.prompt,
-      provider: provider,
-      agent: routing.agent,
-      cwd: task.cwd || process.cwd(),
-    });
-
     return {
-      success: result.success || false,
-      output: result.output || '',
-      error: result.error,
-      duration: result.duration || 0,
-      route: 'opencode',
-      agent: routing.agent,
-      strategy: 'cli'
+      success: true,
+      output: descriptor,
+      route: 'mcp',
+      mcpTool: descriptor.mcpTool,
+      agentRole: descriptor.agentRole,
+      strategy: 'mcp',
     };
   }
 
@@ -535,8 +515,8 @@ export class ParallelExecutor {
   async _executeRetryTask(retryTask) {
     var routing = routeTask(retryTask.type || 'executor');
 
-    if (routing.target === 'opencode') {
-      return await this._executeOpenCodeTask(retryTask, routing);
+    if (routing.target === 'mcp') {
+      return await this._executeMcpTask(retryTask, routing);
     } else {
       return await this._executeClaudeTask(retryTask);
     }
@@ -693,11 +673,10 @@ export class ParallelExecutor {
   }
 
   /**
-   * 정리 (서버 풀 종료)
+   * 정리
    */
   async cleanup() {
-    // CLI는 stateless — 별도 종료 불필요
-    this.cliAvailable = false;
+    // MCP는 stateless — 별도 종료 불필요
   }
 }
 

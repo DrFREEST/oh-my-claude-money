@@ -1,4 +1,6 @@
-# OMCM v1.0.0 설정 가이드
+# OMCM v2.1.5 설정 가이드
+
+> **버전 기준 (OMC 4.2.15):** 본 문서는 `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, `gemini-3-pro`를 기본으로 설명합니다. `researcher`, `tdd-guide`, `*-low`/`*-medium` 표기는 하위호환(legacy) 맥락에서만 유지됩니다.
 
 OMCM(oh-my-claude-money)의 완전한 설정 가이드입니다. 설정 파일, 스키마, 환경 변수, 훅 시스템을 상세히 설명합니다.
 
@@ -284,7 +286,7 @@ OpenCode로 전환할 때 전달할 컨텍스트 범위를 설정합니다.
 
 OMCM은 OMC HUD의 사용량 정보를 읽어 퓨전 라우팅에 활용합니다.
 
-**표시 형식 (OMC v4.2.6+):**
+**표시 형식 (OMC v4.2.15+):**
 - `5h:XX%(리셋시간)` - 5시간 사용량
 - `wk:XX%(리셋시간)` - 주간 사용량
 - `mo:XX%(리셋시간)` - 월간 사용량 (v2.1.3+)
@@ -299,7 +301,7 @@ OMCM은 OMC HUD의 사용량 정보를 읽어 퓨전 라우팅에 활용합니�
 - z.ai 프로바이더: GLM API를 통해 사용량 조회 (v2.1.3+)
 
 **참고:**
-- monthly 표시는 OMC v4.2.6 이상 필요
+- monthly 표시는 OMC v4.2.15 이상 필요
 - z.ai 프로바이더 사용 시 ANTHROPIC_BASE_URL이 z.ai 호스트를 가리켜야 함
 
 ---
@@ -366,49 +368,49 @@ OMC 에이전트를 OpenCode 에이전트로 매핑하여 최적의 LLM으로 �
       "source": ["architect-medium", "executor", "designer", "qa-tester", "build-fixer", "tdd-guide", "scientist"],
       "target": "build",
       "provider": "opencode",
-      "model": "gpt-5.2-codex",
+      "model": "gpt-5.3-codex",
       "tier": "MEDIUM",
-      "reason": "표준 구현 작업은 GPT-5.2-Codex로 위임"
+      "reason": "표준 구현 작업은 GPT-5.3-Codex로 위임"
     },
     {
       "source": ["explore-medium"],
       "target": "explore",
       "provider": "opencode",
-      "model": "gpt-5.2-codex",
+      "model": "gpt-5.3-codex",
       "tier": "MEDIUM",
-      "reason": "중간 복잡도 탐색은 GPT-5.2-Codex로 위임"
+      "reason": "중간 복잡도 탐색은 GPT-5.3-Codex로 위임"
     },
     {
       "source": ["researcher", "vision"],
       "target": "general",
       "provider": "opencode",
-      "model": "gpt-5.2-codex",
+      "model": "gpt-5.3-codex",
       "tier": "MEDIUM",
-      "reason": "리서치/비전은 GPT-5.2-Codex general로 위임"
+      "reason": "리서치/비전은 GPT-5.3-Codex general로 위임"
     },
     {
       "source": ["explore", "architect-low"],
       "target": "explore",
       "provider": "opencode",
-      "model": "gemini-3.0-flash",
+      "model": "gemini-3-flash",
       "tier": "LOW",
-      "reason": "빠른 탐색은 Gemini 3.0 Flash로 위임"
+      "reason": "빠른 탐색은 Gemini 3 Flash로 위임"
     },
     {
       "source": ["writer", "researcher-low"],
       "target": "general",
       "provider": "opencode",
-      "model": "gemini-3.0-flash",
+      "model": "gemini-3-flash",
       "tier": "LOW",
-      "reason": "문서/리서치는 Gemini 3.0 Flash general로 위임"
+      "reason": "문서/리서치는 Gemini 3 Flash general로 위임"
     },
     {
       "source": ["executor-low", "designer-low", "security-reviewer-low", "build-fixer-low"],
       "target": "build",
       "provider": "opencode",
-      "model": "gemini-3.0-flash",
+      "model": "gemini-3-flash",
       "tier": "LOW",
-      "reason": "간단한 작업은 Gemini 3.0 Flash build로 위임"
+      "reason": "간단한 작업은 Gemini 3 Flash build로 위임"
     }
   ],
   "fallback": {
@@ -515,7 +517,6 @@ usage.24hour          // 24시간 사용량 (%)
 usage.weekly          // 주간 사용량 (%)
 
 // 모드 정보
-mode.ecomode          // Ecomode 활성화 여부
 mode.fusion           // 퓨전 모드 활성화 여부
 
 // 작업 정보
@@ -562,13 +563,6 @@ time.dayOfWeek        // 요일 (0-6, 0=일요일)
       "action": "prefer_opencode",
       "priority": 90,
       "description": "주간 사용량 85% 초과 시 OpenCode 우선"
-    },
-    {
-      "id": "ecomode-active",
-      "condition": "mode.ecomode == true",
-      "action": "prefer_opencode",
-      "priority": 95,
-      "description": "Ecomode 활성화 시 OpenCode 우선"
     },
     {
       "id": "complex-task-claude",

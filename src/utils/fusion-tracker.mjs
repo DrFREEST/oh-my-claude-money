@@ -31,7 +31,7 @@ function getDefaultState() {
     enabled: true,
     mode: 'balanced',
     totalTasks: 0,
-    routedToOpenCode: 0,
+    routedToMcp: 0,
     routingRate: 0,
     estimatedSavedTokens: 0,
     actualTokens: {
@@ -87,7 +87,7 @@ export function writeFusionState(state, sessionId = null) {
 
 /**
  * 작업 라우팅 기록
- * @param {string} target - 라우팅 대상 ('opencode' 또는 'claude')
+ * @param {string} target - 라우팅 대상 ('mcp' 또는 'claude')
  * @param {string} provider - 프로바이더 ('gemini', 'openai', 'anthropic')
  * @param {number} savedTokens - 절약된 토큰 수
  * @param {string|null} sessionId - 세션 ID (선택적)
@@ -101,8 +101,9 @@ export function recordRouting(target, provider, savedTokens, sessionId = null) {
 
   state.totalTasks++;
 
-  if (target === 'opencode') {
-    state.routedToOpenCode++;
+  if (target === 'mcp') {
+    // Support legacy 'opencode' value for backward compatibility
+    state.routedToMcp = (state.routedToMcp || state.routedToOpenCode || 0) + 1;
     state.estimatedSavedTokens += (savedTokens || 0);
 
     if (provider === 'gemini' || provider === 'google') {
@@ -115,7 +116,7 @@ export function recordRouting(target, provider, savedTokens, sessionId = null) {
   }
 
   state.routingRate = state.totalTasks > 0
-    ? Math.round((state.routedToOpenCode / state.totalTasks) * 100)
+    ? Math.round(((state.routedToMcp || 0) / state.totalTasks) * 100)
     : 0;
 
   writeFusionState(state, sessionId);
@@ -182,7 +183,7 @@ export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens
 
   // 현재 세션 토큰으로 대체 (누적 X, 세션 값 그대로)
   // Claude: stdin에서 현재 세션 누적값
-  // OpenCode: 세션 시작 이후 집계값
+  // MCP: 세션 시작 이후 집계값
   state.actualTokens.claude.input = claudeTokens.input || 0;
   state.actualTokens.claude.output = claudeTokens.output || 0;
   state.actualTokens.openai.input = openaiTokens.input || 0;
@@ -190,18 +191,18 @@ export function updateSavingsFromTokens(claudeTokens, openaiTokens, geminiTokens
   state.actualTokens.gemini.input = geminiTokens.input || 0;
   state.actualTokens.gemini.output = geminiTokens.output || 0;
 
-  // 절약 토큰 계산 (OpenCode 사용량 = Claude 대신 사용된 양)
-  const totalOpenCode =
+  // 절약 토큰 계산 (MCP 사용량 = Claude 대신 사용된 양)
+  const totalMcp =
     state.actualTokens.openai.input + state.actualTokens.openai.output +
     state.actualTokens.gemini.input + state.actualTokens.gemini.output;
 
   const totalClaude =
     state.actualTokens.claude.input + state.actualTokens.claude.output;
 
-  const total = totalClaude + totalOpenCode;
+  const total = totalClaude + totalMcp;
 
-  state.estimatedSavedTokens = totalOpenCode;
-  state.savingsRate = total > 0 ? Math.round((totalOpenCode / total) * 100) : 0;
+  state.estimatedSavedTokens = totalMcp;
+  state.savingsRate = total > 0 ? Math.round((totalMcp / total) * 100) : 0;
 
   writeFusionState(state, sessionId);
   return state;

@@ -4,8 +4,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import {
-  shouldRouteToOpenCode,
-  mapAgentToOpenCode,
+  shouldRouteToMcp,
+  mapAgentToMcp,
   wrapWithUlwCommand,
   updateFusionState,
   TOKEN_SAVING_AGENTS,
@@ -13,7 +13,7 @@ import {
 } from '../../src/hooks/fusion-router-logic.mjs';
 
 describe('fusion-router-logic', () => {
-  describe('shouldRouteToOpenCode()', () => {
+  describe('shouldRouteToMcp()', () => {
     it('fusionDefault가 true일 때 토큰 절약 에이전트 라우팅', () => {
       const toolInput = {
         subagent_type: 'oh-my-claudecode:architect',
@@ -26,11 +26,11 @@ describe('fusion-router-logic', () => {
         config: { fusionDefault: true }
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, true);
       assert.strictEqual(decision.reason.startsWith('fusion-default-'), true);
-      assert.strictEqual(decision.opencodeAgent, 'Oracle');
+      assert.strictEqual(decision.mcpAgent, 'codex-oracle');
     });
 
     it('fusionDefault가 false이고 fusion disabled면 라우팅 안함', () => {
@@ -45,7 +45,7 @@ describe('fusion-router-logic', () => {
         config: { fusionDefault: false }
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, false);
       assert.strictEqual(decision.reason, 'fusion-disabled');
@@ -68,11 +68,11 @@ describe('fusion-router-logic', () => {
         config: null
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, true);
       assert.strictEqual(decision.reason, 'claude-limit-92%');
-      assert.strictEqual(decision.opencodeAgent, 'Codex');
+      assert.strictEqual(decision.mcpAgent, 'codex-build');
     });
 
     it('Claude 주간 사용량 90% 이상일 때 라우팅', () => {
@@ -92,11 +92,11 @@ describe('fusion-router-logic', () => {
         config: null
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, true);
       assert.strictEqual(decision.reason, 'claude-limit-95%');
-      assert.strictEqual(decision.opencodeAgent, 'Flash');
+      assert.strictEqual(decision.mcpAgent, 'gemini-flash');
     });
 
     it('Claude 사용량 89%일 때 라우팅 안함', () => {
@@ -116,7 +116,7 @@ describe('fusion-router-logic', () => {
         config: null
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, false);
       assert.strictEqual(decision.reason, 'no-routing-needed');
@@ -132,20 +132,20 @@ describe('fusion-router-logic', () => {
         fallback: {
           fallbackActive: true,
           currentModel: {
-            id: 'gpt-5.2-codex',
-            name: 'GPT-5.2 Codex',
-            opencodeAgent: 'Codex'
+            id: 'gpt-5.3-codex',
+            name: 'GPT-5.3 Codex',
+            mcpAgent: 'codex-build'
           }
         },
         limits: null,
         config: null
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, true);
       assert.strictEqual(decision.reason, 'fallback-active');
-      assert.strictEqual(decision.opencodeAgent, 'Codex');
+      assert.strictEqual(decision.mcpAgent, 'codex-build');
     });
 
     it('save-tokens 모드에서 토큰 절약 에이전트 라우팅', () => {
@@ -160,11 +160,11 @@ describe('fusion-router-logic', () => {
         config: null
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, true);
       assert.strictEqual(decision.reason, 'token-saving-agent-explore');
-      assert.strictEqual(decision.opencodeAgent, 'Flash');
+      assert.strictEqual(decision.mcpAgent, 'gemini-flash');
     });
 
     it('save-tokens 모드에서 executor는 라우팅 안됨', () => {
@@ -179,7 +179,7 @@ describe('fusion-router-logic', () => {
         config: null
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, false);
       assert.strictEqual(decision.reason, 'no-routing-needed');
@@ -202,7 +202,7 @@ describe('fusion-router-logic', () => {
         config: null
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, false);
       assert.strictEqual(decision.reason, 'no-routing-needed');
@@ -220,7 +220,7 @@ describe('fusion-router-logic', () => {
         config: null
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, false);
       assert.strictEqual(decision.reason, 'no-routing-needed');
@@ -238,160 +238,160 @@ describe('fusion-router-logic', () => {
         config: null
       };
 
-      const decision = shouldRouteToOpenCode(toolInput, options);
+      const decision = shouldRouteToMcp(toolInput, options);
 
       assert.strictEqual(decision.route, false);
       assert.strictEqual(decision.reason, 'no-routing-needed');
     });
   });
 
-  describe('mapAgentToOpenCode()', () => {
+  describe('mapAgentToMcp()', () => {
     // Core agents
     it('architect → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('architect'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('architect'), 'codex-oracle');
     });
 
     it('executor → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('executor'), 'Codex');
+      assert.strictEqual(mapAgentToMcp('executor'), 'codex-build');
     });
 
     it('explore → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('explore'), 'Flash');
+      assert.strictEqual(mapAgentToMcp('explore'), 'gemini-flash');
     });
 
     it('debugger → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('debugger'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('debugger'), 'codex-oracle');
     });
 
     it('verifier → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('verifier'), 'Codex');
+      assert.strictEqual(mapAgentToMcp('verifier'), 'codex-build');
     });
 
     it('deep-executor → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('deep-executor'), 'Codex');
+      assert.strictEqual(mapAgentToMcp('deep-executor'), 'codex-build');
     });
 
     it('git-master → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('git-master'), 'Codex');
+      assert.strictEqual(mapAgentToMcp('git-master'), 'codex-build');
     });
 
     // Quality agents
     it('security-reviewer → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('security-reviewer'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('security-reviewer'), 'codex-oracle');
     });
 
     it('code-reviewer → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('code-reviewer'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('code-reviewer'), 'codex-oracle');
     });
 
     it('style-reviewer → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('style-reviewer'), 'Flash');
+      assert.strictEqual(mapAgentToMcp('style-reviewer'), 'gemini-flash');
     });
 
     it('quality-reviewer → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('quality-reviewer'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('quality-reviewer'), 'codex-oracle');
     });
 
     it('api-reviewer → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('api-reviewer'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('api-reviewer'), 'codex-oracle');
     });
 
     it('performance-reviewer → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('performance-reviewer'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('performance-reviewer'), 'codex-oracle');
     });
 
     // Test agents
     it('qa-tester → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('qa-tester'), 'Codex');
+      assert.strictEqual(mapAgentToMcp('qa-tester'), 'codex-build');
     });
 
     it('test-engineer → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('test-engineer'), 'Codex');
+      assert.strictEqual(mapAgentToMcp('test-engineer'), 'codex-build');
     });
 
     // Research/Data agents
     it('scientist → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('scientist'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('scientist'), 'codex-oracle');
     });
 
     it('dependency-expert → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('dependency-expert'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('dependency-expert'), 'codex-oracle');
     });
 
     // Design/Content agents
     it('designer → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('designer'), 'Flash');
+      assert.strictEqual(mapAgentToMcp('designer'), 'gemini-flash');
     });
 
     it('writer → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('writer'), 'Flash');
+      assert.strictEqual(mapAgentToMcp('writer'), 'gemini-flash');
     });
 
     it('vision → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('vision'), 'Flash');
+      assert.strictEqual(mapAgentToMcp('vision'), 'gemini-flash');
     });
 
     // Strategy agents
     it('quality-strategist → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('quality-strategist'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('quality-strategist'), 'codex-oracle');
     });
 
     it('planner → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('planner'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('planner'), 'codex-oracle');
     });
 
     it('critic → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('critic'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('critic'), 'codex-oracle');
     });
 
     it('analyst → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('analyst'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('analyst'), 'codex-oracle');
     });
 
     // Product agents
     it('product-manager → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('product-manager'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('product-manager'), 'codex-oracle');
     });
 
     it('ux-researcher → Flash', () => {
-      assert.strictEqual(mapAgentToOpenCode('ux-researcher'), 'Flash');
+      assert.strictEqual(mapAgentToMcp('ux-researcher'), 'gemini-flash');
     });
 
     it('information-architect → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('information-architect'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('information-architect'), 'codex-oracle');
     });
 
     it('product-analyst → Oracle', () => {
-      assert.strictEqual(mapAgentToOpenCode('product-analyst'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('product-analyst'), 'codex-oracle');
     });
 
     // Backward compatibility
     it('researcher → Oracle (backward-compat)', () => {
-      assert.strictEqual(mapAgentToOpenCode('researcher'), 'Oracle');
+      assert.strictEqual(mapAgentToMcp('researcher'), 'codex-oracle');
     });
 
     it('tdd-guide → Codex (backward-compat)', () => {
-      assert.strictEqual(mapAgentToOpenCode('tdd-guide'), 'Codex');
+      assert.strictEqual(mapAgentToMcp('tdd-guide'), 'codex-build');
     });
 
     it('build-fixer → Codex', () => {
-      assert.strictEqual(mapAgentToOpenCode('build-fixer'), 'Codex');
+      assert.strictEqual(mapAgentToMcp('build-fixer'), 'codex-build');
     });
 
     it('알 수 없는 에이전트 → Codex (기본값)', () => {
-      assert.strictEqual(mapAgentToOpenCode('unknown-agent'), 'Codex');
+      assert.strictEqual(mapAgentToMcp('unknown-agent'), 'codex-build');
     });
 
     it('빈 문자열 → Codex (기본값)', () => {
-      assert.strictEqual(mapAgentToOpenCode(''), 'Codex');
+      assert.strictEqual(mapAgentToMcp(''), 'codex-build');
     });
 
     it('null → Codex (기본값)', () => {
-      assert.strictEqual(mapAgentToOpenCode(null), 'Codex');
+      assert.strictEqual(mapAgentToMcp(null), 'codex-build');
     });
 
     it('undefined → Codex (기본값)', () => {
-      assert.strictEqual(mapAgentToOpenCode(undefined), 'Codex');
+      assert.strictEqual(mapAgentToMcp(undefined), 'codex-build');
     });
   });
 
@@ -437,19 +437,19 @@ describe('fusion-router-logic', () => {
   });
 
   describe('updateFusionState()', () => {
-    it('OpenCode 라우팅 시 통계 업데이트 (Gemini)', () => {
+    it('MCP 라우팅 시 통계 업데이트 (Gemini)', () => {
       const decision = {
         route: true,
         reason: 'claude-limit-95%',
-        targetModel: { id: 'gemini-flash', name: 'Gemini Flash' },
-        opencodeAgent: 'Flash'
+        targetModel: { id: 'gemini-3-flash', name: 'Gemini 3 Flash' },
+        mcpAgent: 'gemini-flash'
       };
       const result = { success: true };
       const initialState = {
         enabled: true,
         mode: 'balanced',
         totalTasks: 0,
-        routedToOpenCode: 0,
+        routedToMcp: 0,
         routingRate: 0,
         estimatedSavedTokens: 0,
         byProvider: { gemini: 0, openai: 0, anthropic: 0 }
@@ -458,7 +458,7 @@ describe('fusion-router-logic', () => {
       const state = updateFusionState(decision, result, initialState);
 
       assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 1);
+      assert.strictEqual(state.routedToMcp, 1);
       assert.strictEqual(state.routingRate, 100);
       assert.strictEqual(state.estimatedSavedTokens, 1000);
       assert.strictEqual(state.byProvider.gemini, 1);
@@ -466,19 +466,19 @@ describe('fusion-router-logic', () => {
       assert.strictEqual(state.byProvider.anthropic, 0);
     });
 
-    it('OpenCode 라우팅 시 통계 업데이트 (OpenAI)', () => {
+    it('MCP 라우팅 시 통계 업데이트 (OpenAI)', () => {
       const decision = {
         route: true,
         reason: 'claude-limit-95%',
-        targetModel: { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
-        opencodeAgent: 'Codex'
+        targetModel: { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' },
+        mcpAgent: 'codex-build'
       };
       const result = { success: true };
       const initialState = {
         enabled: true,
         mode: 'balanced',
         totalTasks: 0,
-        routedToOpenCode: 0,
+        routedToMcp: 0,
         routingRate: 0,
         estimatedSavedTokens: 0,
         byProvider: { gemini: 0, openai: 0, anthropic: 0 }
@@ -487,7 +487,7 @@ describe('fusion-router-logic', () => {
       const state = updateFusionState(decision, result, initialState);
 
       assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 1);
+      assert.strictEqual(state.routedToMcp, 1);
       assert.strictEqual(state.routingRate, 100);
       assert.strictEqual(state.estimatedSavedTokens, 1000);
       assert.strictEqual(state.byProvider.gemini, 0);
@@ -505,7 +505,7 @@ describe('fusion-router-logic', () => {
         enabled: true,
         mode: 'balanced',
         totalTasks: 0,
-        routedToOpenCode: 0,
+        routedToMcp: 0,
         routingRate: 0,
         estimatedSavedTokens: 0,
         byProvider: { gemini: 0, openai: 0, anthropic: 0 }
@@ -514,7 +514,7 @@ describe('fusion-router-logic', () => {
       const state = updateFusionState(decision, result, initialState);
 
       assert.strictEqual(state.totalTasks, 1);
-      assert.strictEqual(state.routedToOpenCode, 0);
+      assert.strictEqual(state.routedToMcp, 0);
       assert.strictEqual(state.routingRate, 0);
       assert.strictEqual(state.estimatedSavedTokens, 0);
       assert.strictEqual(state.byProvider.gemini, 0);
@@ -527,20 +527,20 @@ describe('fusion-router-logic', () => {
         enabled: true,
         mode: 'balanced',
         totalTasks: 0,
-        routedToOpenCode: 0,
+        routedToMcp: 0,
         routingRate: 0,
         estimatedSavedTokens: 0,
         byProvider: { gemini: 0, openai: 0, anthropic: 0 }
       };
 
-      // OpenCode 2번
+      // MCP 2번
       let state = updateFusionState(
-        { route: true, targetModel: { id: 'gemini-flash' }, opencodeAgent: 'Flash' },
+        { route: true, targetModel: { id: 'gemini-3-flash' }, mcpAgent: 'gemini-flash' },
         { success: true },
         initialState
       );
       state = updateFusionState(
-        { route: true, targetModel: { id: 'gpt-5.2-codex' }, opencodeAgent: 'Codex' },
+        { route: true, targetModel: { id: 'gpt-5.3-codex' }, mcpAgent: 'codex-build' },
         { success: true },
         state
       );
@@ -551,25 +551,25 @@ describe('fusion-router-logic', () => {
       state = updateFusionState({ route: false }, null, state);
 
       assert.strictEqual(state.totalTasks, 5);
-      assert.strictEqual(state.routedToOpenCode, 2);
+      assert.strictEqual(state.routedToMcp, 2);
       assert.strictEqual(state.routingRate, 40); // 2/5 * 100 = 40%
       assert.strictEqual(state.byProvider.gemini, 1);
       assert.strictEqual(state.byProvider.openai, 1);
       assert.strictEqual(state.byProvider.anthropic, 3);
     });
 
-    it('Flash 에이전트는 Gemini로 카운트', () => {
+    it('gemini-flash 에이전트는 Gemini로 카운트', () => {
       const decision = {
         route: true,
         reason: 'token-saving',
-        targetModel: { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
-        opencodeAgent: 'Flash'
+        targetModel: { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' },
+        mcpAgent: 'gemini-flash'
       };
       const initialState = {
         enabled: true,
         mode: 'balanced',
         totalTasks: 0,
-        routedToOpenCode: 0,
+        routedToMcp: 0,
         routingRate: 0,
         estimatedSavedTokens: 0,
         byProvider: { gemini: 0, openai: 0, anthropic: 0 }
@@ -584,14 +584,14 @@ describe('fusion-router-logic', () => {
     it('lastUpdated 타임스탬프 추가', () => {
       const decision = {
         route: true,
-        targetModel: { id: 'gemini-flash' },
-        opencodeAgent: 'Flash'
+        targetModel: { id: 'gemini-3-flash' },
+        mcpAgent: 'gemini-flash'
       };
       const initialState = {
         enabled: true,
         mode: 'balanced',
         totalTasks: 0,
-        routedToOpenCode: 0,
+        routedToMcp: 0,
         routingRate: 0,
         estimatedSavedTokens: 0,
         byProvider: { gemini: 0, openai: 0, anthropic: 0 }
@@ -610,7 +610,7 @@ describe('fusion-router-logic', () => {
         'architect', 'explore', 'debugger', 'code-reviewer',
         'security-reviewer', 'style-reviewer', 'quality-reviewer',
         'api-reviewer', 'performance-reviewer', 'scientist',
-        'dependency-expert', 'researcher', 'designer', 'writer',
+        'dependency-expert', 'researcher', 'designer', 'writer', 'document-specialist',
         'vision', 'quality-strategist', 'analyst', 'ux-researcher',
         'information-architect', 'product-analyst'
       ];

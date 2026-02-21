@@ -1,5 +1,7 @@
 # OMCM API Reference
 
+> **Version Baseline (OMC 4.2.15):** This document uses `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, and `gemini-3-pro` as defaults. Legacy aliases such as `researcher`, `tdd-guide`, and `*-low`/`*-medium` appear only for backward compatibility.
+
 Complete documentation of all public APIs and modules in OMCM (Oh My Claude Money).
 
 **Table of Contents**
@@ -14,11 +16,11 @@ Complete documentation of all public APIs and modules in OMCM (Oh My Claude Mone
 - [ACP Client (Agent Client Protocol)](#acp-client-agent-client-protocol)
 - [Realtime Tracker](#realtime-tracker)
 
-- [OMC 4.2.7 Hook Compatibility](#omc-427-hook-compatibility)
+- [OMC 4.2.15 Hook Compatibility](#omc-4212-hook-compatibility)
 
 ---
 
-## OMC 4.2.7 Hook Compatibility
+## OMC 4.2.15 Hook Compatibility
 
 ### Session Start Hook
 
@@ -29,7 +31,7 @@ Complete documentation of all public APIs and modules in OMCM (Oh My Claude Mone
 
 ### AskUserQuestion Timing
 
-- Aligns with OMC 4.2.7 by handling `AskUserQuestion` notifications in `PreToolUse` instead of post execution.
+- Aligns with OMC 4.2.15 by handling `AskUserQuestion` notifications in `PreToolUse` instead of post execution.
 - Adds a `PreToolUse` matcher entry for `AskUserQuestion` so user-facing prompts appear before tool use handling.
 
 ---
@@ -1024,7 +1026,7 @@ import { executeViaCLI } from 'src/executor/cli-executor.mjs';
 var result = await executeViaCLI({
   prompt: 'Fix authentication bug',
   provider: 'openai',     // or 'google'
-  model: 'gpt-5.2-codex', // optional
+  model: 'gpt-5.3-codex', // optional
   agent: 'oracle',        // for logging
   timeout: 300000,        // 5min default
   cwd: '/path/to/project'
@@ -1088,7 +1090,7 @@ if (detectCLI('codex')) {
 
 // Output format: JSONL
 // Token extraction: From JSON response
-// Models supported: gpt-5.2, gpt-5.2-codex, gpt-4o
+// Models supported: gpt-5.3, gpt-5.3-codex, gpt-4o
 
 // Example output parsing:
 // {"type":"tokens","input":150,"output":280,"reasoning":45,"cacheRead":100}
@@ -1102,7 +1104,7 @@ if (detectCLI('codex')) {
 
 // Output format: Plain text
 // Token estimation: Based on text length
-// Models supported: gemini-2.0-flash, gemini-3.0-pro
+// Models supported: gemini-2.0-flash, gemini-3-pro
 
 // Fallback: Uses Codex if Gemini CLI not installed
 ```
@@ -1643,7 +1645,7 @@ if (!detectCLI('codex')) {
 var result = await executeViaCLI({
   prompt: 'Implement feature X',
   provider: 'openai',
-  model: 'gpt-5.2-codex'
+  model: 'gpt-5.3-codex'
 });
 
 console.log('Result:', result.output);
@@ -1760,7 +1762,6 @@ import { STATE_FILES } from 'src/utils/state-manager.mjs';
 //   ULTRAPILOT: 'ultrapilot-state.json',
 //   RALPH: 'ralph-state.json',
 //   AUTOPILOT: 'autopilot-state.json',
-//   ECOMODE: 'ecomode-state.json',
 //   SWARM: 'swarm-state.json',
 //   PIPELINE: 'pipeline-state.json',
 //   ULTRAQA: 'ultraqa-state.json',

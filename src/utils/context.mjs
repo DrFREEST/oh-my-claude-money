@@ -25,7 +25,6 @@ export function exportContext(projectDir, options = {}) {
   // 헤더
   sections.push(`# 작업 핸드오프 컨텍스트
 
-> Claude Code에서 OpenCode로 전환됨
 > 생성 시간: ${new Date().toISOString()}
 
 ---`);

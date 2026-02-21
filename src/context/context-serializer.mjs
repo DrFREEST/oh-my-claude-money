@@ -4,7 +4,7 @@
  */
 
 /**
- * 컨텍스트를 OpenCode용 Markdown 형식으로 직렬화
+ * 컨텍스트를 Markdown 형식으로 직렬화
  * @param {Object} context - 구조화된 컨텍스트 객체
  * @returns {string} Markdown 형식의 문자열
  */

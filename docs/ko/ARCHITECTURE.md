@@ -1,14 +1,16 @@
-# OMCM (oh-my-claude-money) v1.0.0 아키텍처
+# OMCM (oh-my-claude-money) v2.1.5 아키텍처
+
+> **버전 기준 (OMC 4.2.15):** 본 문서는 `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, `gemini-3-pro`를 기본으로 설명합니다. `researcher`, `tdd-guide`, `*-low`/`*-medium` 표기는 하위호환(legacy) 맥락에서만 유지됩니다.
 
 ## 개요
 
-OMCM은 Claude Code와 OpenCode를 통합하는 퓨전 오케스트레이터입니다. 단일 메타 오케스트레이터(Claude Opus 4.5)가 작업을 분석하여 35개의 OMC 에이전트 또는 OpenCode의 다중 프로바이더 에이전트로 라우팅합니다.
+OMCM은 Claude Code와 OpenCode를 통합하는 퓨전 오케스트레이터입니다. 단일 메타 오케스트레이터(Claude Opus 4.6)가 작업을 분석하여 35개의 OMC 에이전트 또는 OpenCode의 다중 프로바이더 에이전트로 라우팅합니다.
 
 **핵심 목표**: Claude 토큰 62% 절약 + 병렬 처리 성능 향상 + 자동 폴백 시스템
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│              메타 오케스트레이터 (Claude Opus 4.5)                    │
+│              메타 오케스트레이터 (Claude Opus 4.6)                    │
 │                     "지휘자 역할"                                    │
 ├─────────────────────────────────────────────────────────────────────┤
 │                              ↓                                      │
@@ -67,8 +69,8 @@ shouldRouteToOpenCode(toolInput, options)
   route: true,                      // 라우팅 여부
   reason: 'claude-limit-92%',       // 결정 사유
   targetModel: {
-    id: 'gpt-5.2-codex',
-    name: 'GPT-5.2 Codex'
+    id: 'gpt-5.3-codex',
+    name: 'GPT-5.3 Codex'
   },
   opencodeAgent: 'build'           // OpenCode 매핑 에이전트 (OMO: build/explore/plan/general)
 }
@@ -78,16 +80,16 @@ shouldRouteToOpenCode(toolInput, options)
 
 | OMC 에이전트 | 라우팅 대상 | 모델 | 이유 |
 |-------------|-----------|------|------|
-| architect-low | OMO explore | Gemini 3.0 Flash | 빠른 분석 |
-| architect-medium | OMO build | GPT-5.2-Codex | 중간 복잡도 |
-| researcher | OMO general | GPT-5.2-Codex | 비용 효율 |
-| explore | OMO explore | Gemini 3.0 Flash | 빠른 탐색 |
-| explore-medium | OMO explore | GPT-5.2-Codex | 깊은 탐색 |
-| designer | OMO build | GPT-5.2-Codex | UI 작업 |
-| writer | OMO general | Gemini 3.0 Flash | 문서 작성 |
-| vision | OMO general | GPT-5.2-Codex | 이미지 분석 |
-| code-reviewer-low | OMO build | Gemini 3.0 Flash | 간단한 리뷰 |
-| security-reviewer-low | OMO build | Gemini 3.0 Flash | 빠른 검사 |
+| architect-low | OMO explore | Gemini 3 Flash | 빠른 분석 |
+| architect-medium | OMO build | GPT-5.3-Codex | 중간 복잡도 |
+| researcher | OMO general | GPT-5.3-Codex | 비용 효율 |
+| explore | OMO explore | Gemini 3 Flash | 빠른 탐색 |
+| explore-medium | OMO explore | GPT-5.3-Codex | 깊은 탐색 |
+| designer | OMO build | GPT-5.3-Codex | UI 작업 |
+| writer | OMO general | Gemini 3 Flash | 문서 작성 |
+| vision | OMO general | GPT-5.3-Codex | 이미지 분석 |
+| code-reviewer-low | OMO build | Gemini 3 Flash | 간단한 리뷰 |
+| security-reviewer-low | OMO build | Gemini 3 Flash | 빠른 검사 |
 | **HIGH 13개** (architect, planner, critic 등) | Claude (유지) | Claude Opus | 높은 품질 (fallbackToOMC) |
 
 ### 1.2 CLI 직접 실행 엔진 (src/executor/cli-executor.mjs)
@@ -135,7 +137,7 @@ var hasGemini = detectCLI('gemini');
 var result = await executeViaCLI({
   prompt: 'task instructions',
   provider: 'openai',  // 또는 'google'
-  model: 'gpt-5.2-codex',  // optional
+  model: 'gpt-5.3-codex',  // optional
   agent: 'oracle',
   timeout: 300000,
   cwd: '/path/to/project'
@@ -388,7 +390,7 @@ Claude 리밋 체크 (5시간/주간 사용량)
 └─ ≥ 90% → 폴백 활성화
    │
    ├─ fallbackActive = true 설정
-   ├─ currentModel = GPT-5.2-Codex 설정
+   ├─ currentModel = GPT-5.3-Codex 설정
    │
    └─ 이후 모든 요청
       └─ shouldRouteToOpenCode() → OpenCode 강제
@@ -559,7 +561,7 @@ Claude Code의 훅 시스템을 통해 자동으로 통합됩니다.
 ### 4.2 OMC 에이전트 위임 구조
 
 ```
-Claude Opus 4.5 (메인 오케스트레이터)
+Claude Opus 4.6 (메인 오케스트레이터)
 │
 ├─ 에이전트 호출
 │  └─ Task(subagent_type='oh-my-claudecode:architect')
@@ -717,26 +719,26 @@ oh-my-claude-money/
 │   └── plugin.json               # 플러그인 정의
 │
 ├── src/
-│   ├── context/                  # v1.0.0 컨텍스트 전달 시스템
+│   ├── context/                  # v2.1.5 컨텍스트 전달 시스템
 │   │   ├── context-builder.mjs       # 컨텍스트 빌드
 │   │   ├── context-serializer.mjs    # JSON 직렬화
 │   │   ├── context-sync.mjs          # 동기화
 │   │   └── index.mjs                 # 모듈 내보내기
 │   │
-│   ├── tracking/                 # v1.0.0 실시간 추적 시스템
+│   ├── tracking/                 # v2.1.5 실시간 추적 시스템
 │   │   ├── realtime-tracker.mjs      # RingBuffer 기반 추적
 │   │   ├── metrics-collector.mjs     # 메트릭 집계
 │   │   └── index.mjs                 # 모듈 내보내기
 │   │
 │   ├── router/                   # 라우팅 엔진
-│   │   ├── balancer.mjs              # v1.0.0 프로바이더 밸런싱
+│   │   ├── balancer.mjs              # v2.1.5 프로바이더 밸런싱
 │   │   ├── mapping.mjs               # 동적 에이전트 매핑
 │   │   ├── cache.mjs                 # LRU 캐시
 │   │   └── rules.mjs                 # 규칙 엔진
 │   │
 │   ├── orchestrator/              # 오케스트레이션
-│   │   ├── parallel-executor.mjs      # v1.0.0 병렬 실행기
-│   │   ├── execution-strategy.mjs     # v1.0.0 실행 전략
+│   │   ├── parallel-executor.mjs      # v2.1.5 병렬 실행기
+│   │   ├── execution-strategy.mjs     # v2.1.5 실행 전략
 │   │   ├── task-router.mjs            # 작업 라우팅
 │   │   ├── agent-fusion-map.mjs       # 에이전트 매핑
 │   │   ├── fallback-orchestrator.mjs  # 폴백 오케스트레이터
@@ -934,7 +936,7 @@ npm test -- --grep "parallel" # 병렬 실행 테스트만
 
 ## 문서 정보
 
-**버전**: v1.0.0
+**버전**: v2.1.5
 **작성**: 2026-01-28
 **대상**: OMCM 개발자 및 유지보수자
 **언어**: 한국어

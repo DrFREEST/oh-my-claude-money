@@ -10,7 +10,7 @@
  */
 
 import {
-  shouldRouteToOpenCode,
+  shouldRouteToMcp,
   updateFusionState,
   logRouting,
   applyGeminiFallbackToDecision
@@ -68,7 +68,7 @@ function resolveProvider(modelId) {
  */
 async function executeFusionCLI(toolInput, decision) {
   var prompt = toolInput.prompt || '';
-  var agent = decision.opencodeAgent || 'Codex';
+  var agent = decision.mcpAgent || 'Codex';
 
   // 모델 결정
   var internalModelId = decision.targetModel && decision.targetModel.id
@@ -141,7 +141,7 @@ async function main() {
     }
 
     // 라우팅 결정 확인
-    var decision = shouldRouteToOpenCode(toolInput);
+    var decision = shouldRouteToMcp(toolInput);
 
     // Gemini rate limit 폴백 적용 (Gemini → OpenAI 자동 대체)
     if (decision.route) {
@@ -151,7 +151,7 @@ async function main() {
           ? new Date(decision.geminiRateLimit.earliestReset).toISOString()
           : 'unknown';
         console.error('[OMCM Fusion] Gemini rate-limited → OpenAI fallback applied');
-        console.error('[OMCM Fusion] Original: ' + (decision.originalAgent || '?') + ' → Fallback: ' + decision.opencodeAgent);
+        console.error('[OMCM Fusion] Original: ' + (decision.originalAgent || '?') + ' → Fallback: ' + decision.mcpAgent);
         console.error('[OMCM Fusion] Gemini reset at: ' + resetTime);
       }
     }
@@ -171,7 +171,7 @@ async function main() {
         var cwd = process.cwd();
         var hookDuration = Date.now() - hookStartTime;
         var routingInfo = decision.route
-          ? 'routed:opencode:' + (decision.opencodeAgent || 'unknown')
+          ? 'routed:mcp:' + (decision.mcpAgent || 'unknown')
           : 'passed:claude';
         flowTracer.recordHookResult(cwd, sessionId, 'omcm-fusion-router', 'PreToolUse', hookDuration, true, routingInfo.length);
       } catch (e) {
@@ -259,7 +259,7 @@ async function main() {
         ? decision.targetModel.name
         : 'CLI';
       console.error('[OMCM Fusion] Target: ' + targetName);
-      console.error('[OMCM Fusion] Agent: ' + decision.opencodeAgent);
+      console.error('[OMCM Fusion] Agent: ' + decision.mcpAgent);
       console.error('[OMCM Fusion] Reason: ' + decision.reason);
 
       // Codex/Gemini CLI 직접 실행
@@ -275,7 +275,7 @@ async function main() {
         var callData = {
           provider: logProvider,
           model: targetModelId,
-          agent: decision.opencodeAgent || '',
+          agent: decision.mcpAgent || '',
           success: result.success,
           source: 'fusion-cli',
           duration: result.duration || 0
@@ -300,7 +300,7 @@ async function main() {
         var outputPreview = result.output ? result.output.slice(0, 500) : 'Completed';
         console.log(JSON.stringify({
           allow: false,
-          reason: 'Task executed via CLI (' + decision.opencodeAgent + '). Result: Success',
+          reason: 'Task executed via CLI (' + decision.mcpAgent + '). Result: Success',
           message: outputPreview
         }));
       } else {

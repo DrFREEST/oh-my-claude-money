@@ -13,7 +13,19 @@
 import { spawn } from 'child_process';
 import { createInterface } from 'readline';
 import { EventEmitter } from 'events';
-import { wrapWithUlwCommand } from './opencode-executor.mjs';
+
+/**
+ * ACP 프롬프트에 ULW 커맨드 래핑
+ * @param {string} prompt - 원본 프롬프트
+ * @param {Object} options - { disableUlw }
+ * @returns {string}
+ */
+function wrapWithUlwCommand(prompt, options) {
+  options = options || {};
+  if (options.disableUlw) return prompt;
+  if (prompt.includes('/ulw') || prompt.includes('/ultrawork')) return prompt;
+  return '/ulw ' + prompt;
+}
 
 /**
  * ACP 클라이언트 클래스

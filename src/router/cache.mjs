@@ -169,7 +169,6 @@ function hashContext(context) {
   const relevantFields = {
     usage5h: Math.floor((context.usage && context.usage.fiveHour) || 0 / 10) * 10, // 10% 단위로 버킷팅
     usageWk: Math.floor((context.usage && context.usage.weekly) || 0 / 10) * 10,
-    ecomode: (context.mode && context.mode.ecomode) || false,
     ralph: (context.mode && context.mode.ralph) || false,
     taskComplexity: (context.task && context.task.complexity) || 'medium',
   };

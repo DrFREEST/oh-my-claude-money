@@ -1,8 +1,7 @@
 /**
  * port-utils.mjs - 자동 포트 탐색 유틸리티
  *
- * OpenCode 서버 풀에서 사용 가능한 포트를 자동으로 탐색합니다.
- * OMO(oh-my-opencode)의 port-utils.ts를 참고하여 구현.
+ * 사용 가능한 로컬 포트를 자동으로 탐색합니다.
  *
  * @version 1.1.0
  */

@@ -118,123 +118,111 @@ export function logRouting(decision) {
 }
 
 /**
- * OMC 에이전트를 OpenCode 에이전트로 매핑
+ * OMC 에이전트를 MCP 도구용 모델 힌트로 매핑
  *
- * OMC 4.2.6 기준 에이전트 (28개, Lane 기반):
+ * OMC 4.2.15 기준 에이전트 (29개, Lane 기반):
  *   Build/Analysis: architect, executor, explore, debugger, verifier, deep-executor, git-master
  *   Review: security-reviewer, code-reviewer, style-reviewer, quality-reviewer, api-reviewer, performance-reviewer
  *   Testing: qa-tester, test-engineer (was tdd-guide)
- *   Domain: scientist, dependency-expert (was researcher), designer, writer, vision, quality-strategist
+ *   Domain: scientist, dependency-expert (was researcher), designer, writer, document-specialist, vision, quality-strategist
  *   Product: planner, critic, analyst, product-manager, ux-researcher, information-architect, product-analyst
  *
- * OMO 3.4.0 기준 에이전트: oracle (GPT), explore (Gemini), build (GPT),
- *                        sisyphus, librarian, metis, momus, prometheus, atlas, hephaestus, multimodal-looker
- *
- * OMC v4.2.6: ultrapilot + swarm → team 통합 (delegation routing 유지)
+ * MCP-First (v3.0): ask_codex / ask_gemini 직접 호출
  * OMCM은 delegationRouting이 활성화되면 자동으로 양보함
  *
  * @param {string} agentType - OMC 에이전트 타입
- * @returns {string} - OpenCode 에이전트
+ * @returns {string} - MCP 모델 힌트 (내부 분류용)
  */
-export function mapAgentToOpenCode(agentType) {
+export function mapAgentToMcp(agentType) {
   var mapping = {
-    // Build/Analysis Lane
-    'architect': 'oracle',           // 전략적 아키텍처 분석
-    'executor': 'build',             // 코드 작성/구현
-    'explore': 'explore',            // 빠른 코드베이스 탐색
-    'debugger': 'oracle',            // 복잡한 디버깅
-    'verifier': 'build',             // 코드 검증
-    'deep-executor': 'build',        // 복잡한 자율 작업
-    'git-master': 'build',           // Git 작업 관리
+    // Build/Analysis Lane → ask_codex
+    'architect': 'codex-oracle',       // 전략적 아키텍처 분석
+    'executor': 'codex-build',         // 코드 작성/구현
+    'explore': 'gemini-flash',         // 빠른 코드베이스 탐색
+    'debugger': 'codex-oracle',        // 복잡한 디버깅
+    'verifier': 'codex-build',         // 코드 검증
+    'deep-executor': 'codex-build',    // 복잡한 자율 작업
+    'git-master': 'codex-build',       // Git 작업 관리
 
-    // Review Lane
-    'security-reviewer': 'oracle',   // 보안 취약점 분석
-    'code-reviewer': 'oracle',       // 코드 품질 리뷰
-    'style-reviewer': 'explore',     // 코드 스타일 체크
-    'quality-reviewer': 'oracle',    // 품질 심층 리뷰
-    'api-reviewer': 'oracle',        // API 설계 리뷰
-    'performance-reviewer': 'oracle', // 성능 분석
+    // Review Lane → ask_codex
+    'security-reviewer': 'codex-oracle',   // 보안 취약점 분석
+    'code-reviewer': 'codex-oracle',       // 코드 품질 리뷰
+    'style-reviewer': 'gemini-flash',      // 코드 스타일 체크
+    'quality-reviewer': 'codex-oracle',    // 품질 심층 리뷰
+    'api-reviewer': 'codex-oracle',        // API 설계 리뷰
+    'performance-reviewer': 'codex-oracle', // 성능 분석
 
-    // Testing Lane
-    'qa-tester': 'build',            // QA 테스팅
-    'test-engineer': 'build',        // TDD/테스트 작성 (was tdd-guide)
+    // Testing Lane → ask_codex
+    'qa-tester': 'codex-build',        // QA 테스팅
+    'test-engineer': 'codex-build',    // TDD/테스트 작성 (was tdd-guide)
 
     // Domain Lane
-    'scientist': 'oracle',           // 데이터 분석
-    'dependency-expert': 'oracle',   // 의존성/문서 조사 (was researcher)
-    'designer': 'explore',           // UI/UX 디자인
-    'writer': 'explore',             // 문서 작성
-    'vision': 'explore',             // 이미지/다이어그램 분석
-    'quality-strategist': 'oracle',  // 품질 전략 수립
+    'scientist': 'codex-oracle',           // 데이터 분석 → ask_codex
+    'dependency-expert': 'codex-oracle',   // 의존성/문서 조사 → ask_codex
+    'designer': 'gemini-flash',            // UI/UX 디자인 → ask_gemini
+    'writer': 'gemini-flash',              // 문서 작성 → ask_gemini
+    'document-specialist': 'gemini-flash', // 문서 전문 작성/정리 → ask_gemini
+    'vision': 'gemini-flash',              // 이미지/다이어그램 분석 → ask_gemini
+    'quality-strategist': 'codex-oracle',  // 품질 전략 수립 → ask_codex
 
-    // Product Lane
-    'planner': 'oracle',             // 전략적 계획 수립
-    'critic': 'oracle',              // 플랜 검토/비평
-    'analyst': 'oracle',             // 요구사항 분석
-    'product-manager': 'oracle',     // 제품 관리
-    'ux-researcher': 'explore',      // UX 리서치
-    'information-architect': 'oracle', // 정보 구조 설계
-    'product-analyst': 'oracle',     // 제품 분석
+    // Product Lane → ask_codex
+    'planner': 'codex-oracle',             // 전략적 계획 수립
+    'critic': 'codex-oracle',              // 플랜 검토/비평
+    'analyst': 'codex-oracle',             // 요구사항 분석
+    'product-manager': 'codex-oracle',     // 제품 관리
+    'ux-researcher': 'gemini-flash',       // UX 리서치 → ask_gemini
+    'information-architect': 'codex-oracle', // 정보 구조 설계
+    'product-analyst': 'codex-oracle',     // 제품 분석
 
-    // Hephaestus (OMO 3.4.0 신규)
-    'build-fixer': 'hephaestus',     // 빌드/타입 오류 수정 전문
+    // build-fixer → ask_codex
+    'build-fixer': 'codex-build',      // 빌드/타입 오류 수정 전문
 
     // Backward-compat aliases (OMC 4.0.x → 4.1.x)
-    'researcher': 'oracle',          // → dependency-expert
-    'tdd-guide': 'build',            // → test-engineer
+    'researcher': 'codex-oracle',      // → dependency-expert
+    'tdd-guide': 'codex-build',        // → test-engineer
   };
-  return mapping[agentType] || 'build';
+  return mapping[agentType] || 'codex-build';
 }
 
 /**
- * OMO 에이전트에 해당하는 모델 정보 반환
- * @param {string} omoAgent - OMO 에이전트 이름
+ * MCP 힌트에 해당하는 모델 정보 반환
+ * @param {string} mcpHint - MCP 모델 힌트 (mapAgentToMcp() 반환값)
  * @returns {object} - { id: string, name: string }
  */
-export function getModelInfoForAgent(omoAgent) {
-  // Gemini 기반 에이전트
-  var geminiAgents = ['explore', 'metis', 'momus', 'multimodal-looker'];
-  // GPT Oracle 기반 에이전트
-  var oracleAgents = ['oracle', 'librarian', 'sisyphus'];
-  // GPT Codex 기반 에이전트
-  var codexAgents = ['build', 'hephaestus', 'atlas', 'prometheus'];
-
-  for (var i = 0; i < geminiAgents.length; i++) {
-    if (omoAgent === geminiAgents[i]) {
-      if (omoAgent === 'metis') {
-        return { id: 'gemini-3-pro', name: 'Gemini 3 Pro' };
-      }
-      return { id: 'gemini-3-flash', name: 'Gemini 3 Flash' };
-    }
+export function getModelInfoForAgent(mcpHint) {
+  // Gemini 기반 (ask_gemini)
+  if (mcpHint === 'gemini-flash' || mcpHint === 'gemini-3-flash') {
+    return { id: 'gemini-3-flash', name: 'Gemini 3 Flash' };
+  }
+  if (mcpHint === 'gemini-pro' || mcpHint === 'gemini-3-pro') {
+    return { id: 'gemini-3-pro', name: 'Gemini 3 Pro' };
   }
 
-  for (var j = 0; j < oracleAgents.length; j++) {
-    if (omoAgent === oracleAgents[j]) {
-      return { id: 'gpt-5.3', name: 'GPT 5.3 Oracle' };
-    }
+  // GPT Oracle 기반 (ask_codex oracle role)
+  if (mcpHint === 'codex-oracle') {
+    return { id: 'gpt-5.3', name: 'GPT 5.3 Oracle' };
   }
 
-  for (var k = 0; k < codexAgents.length; k++) {
-    if (omoAgent === codexAgents[k]) {
-      return { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex' };
-    }
+  // GPT Codex 기반 (ask_codex build role)
+  if (mcpHint === 'codex-build') {
+    return { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex' };
   }
 
-  // 기본값 (OMC 4.2.6 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2)
+  // 기본값 (OMC 4.2.15 fallback chain: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2)
   return { id: 'gpt-5.3-codex', name: 'GPT 5.3 Codex' };
 }
 
 /**
- * OpenCode로 라우팅해야 하는지 확인
+ * MCP로 라우팅해야 하는지 확인
  * @param {object} toolInput - 도구 입력
  * @param {object} [options] - 옵션 (테스트용 의존성 주입)
  * @param {object} [options.fusion] - 퓨전 상태 (주입)
  * @param {object} [options.fallback] - 폴백 상태 (주입)
  * @param {object} [options.limits] - 프로바이더 리밋 (주입)
  * @param {object} [options.config] - 설정 (주입)
- * @returns {object} - { route: boolean, reason: string, targetModel?: object, opencodeAgent?: string }
+ * @returns {object} - { route: boolean|'mcp', reason: string, targetModel?: object, mcpTool?: string, agentRole?: string }
  */
-export function shouldRouteToOpenCode(toolInput, options = {}) {
+export function shouldRouteToMcp(toolInput, options = {}) {
   // === MCP-First 라우팅 (v3.0) ===
   // config.json의 mcpFirst 설정 확인
   var config = options.config !== undefined ? options.config : readJsonFile(CONFIG_FILE);
@@ -247,14 +235,13 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
 
     if (mcpTool && mcpFirstMode !== 'off') {
       // MCP-eligible 에이전트 → MCP로 라우팅
-      var mcpModelInfo = getModelInfoForAgent(mapAgentToOpenCode(agentForMcp));
+      var mcpModelInfo = getModelInfoForAgent(mapAgentToMcp(agentForMcp));
       return {
         route: 'mcp',
         mcpTool: mcpTool,
         agentRole: agentForMcp,
         reason: 'mcp-first-' + agentForMcp,
         targetModel: mcpModelInfo,
-        opencodeAgent: mapAgentToOpenCode(agentForMcp),
         mcpFirstMode: mcpFirstMode
       };
     }
@@ -267,7 +254,7 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
   var limits = options.limits !== undefined ? options.limits : readJsonFile(PROVIDER_LIMITS_FILE);
   // config는 이미 위에서 읽었으므로 재사용
 
-  // OMC v4.2.6+ delegationRouting 활성화 시: OMC가 직접 라우팅하므로 OMCM 퓨전 비활성화
+  // OMC v4.2.15+ delegationRouting 활성화 시: OMC가 직접 라우팅하므로 OMCM 퓨전 비활성화
   // 단, fusionMode가 명시적으로 'always'인 경우는 OMCM이 우선
   try {
     var omcConfigPath = join(HOME, '.omc-config.json');
@@ -292,18 +279,18 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
     return { route: false, reason: 'fusion-disabled' };
   }
 
-  // 폴백 활성화 상태 - 반드시 OpenCode로 라우팅
+  // 폴백 활성화 상태 - MCP로 라우팅
   if (fallback && fallback.fallbackActive) {
     var currentModel = fallback.currentModel;
-    var opencodeAgent = 'build';
-    if (currentModel && currentModel.opencodeAgent) {
-      opencodeAgent = currentModel.opencodeAgent;
+    var mcpAgent = 'codex-build';
+    if (currentModel && currentModel.mcpAgent) {
+      mcpAgent = currentModel.mcpAgent;
     }
     return {
       route: true,
       reason: 'fallback-active',
       targetModel: currentModel,
-      opencodeAgent: opencodeAgent
+      mcpAgent: mcpAgent
     };
   }
 
@@ -327,14 +314,14 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
       if (toolInput && toolInput.subagent_type) {
         agentType = toolInput.subagent_type.replace('oh-my-claudecode:', '');
       }
-      var mappedAgent = agentType ? mapAgentToOpenCode(agentType) : 'build';
+      var mappedAgent = agentType ? mapAgentToMcp(agentType) : 'codex-build';
       var modelInfo = getModelInfoForAgent(mappedAgent);
 
       return {
         route: true,
         reason: 'claude-limit-' + maxPercent + '%',
         targetModel: { id: modelInfo.id, name: modelInfo.name },
-        opencodeAgent: mappedAgent
+        mcpAgent: mappedAgent
       };
     }
   }
@@ -360,14 +347,14 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
 
     // 대규모 작업이면 planner 제외 모든 에이전트 라우팅 (fusionDefault처럼)
     if (isLargeTask && agentTypePrompt !== 'planner') {
-      var largeAgent = mapAgentToOpenCode(agentTypePrompt);
+      var largeAgent = mapAgentToMcp(agentTypePrompt);
       var largeModel = getModelInfoForAgent(largeAgent);
 
       return {
         route: true,
         reason: 'large-task-' + agentTypePrompt,
         targetModel: { id: largeModel.id, name: largeModel.name },
-        opencodeAgent: largeAgent
+        mcpAgent: largeAgent
       };
     }
   }
@@ -395,14 +382,14 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
       }
 
       if (isInLevel) {
-        var levelAgent = mapAgentToOpenCode(agentTypeForLevel);
+        var levelAgent = mapAgentToMcp(agentTypeForLevel);
         var levelModel = getModelInfoForAgent(levelAgent);
 
         return {
           route: true,
           reason: 'session-token-' + routingLevel.name + '-' + agentTypeForLevel,
           targetModel: { id: levelModel.id, name: levelModel.name },
-          opencodeAgent: levelAgent,
+          mcpAgent: levelAgent,
           routingLevel: routingLevel.level
         };
       }
@@ -416,7 +403,7 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
     var agentType = toolInput.subagent_type.replace('oh-my-claudecode:', '');
 
     // planner만 Claude에서 유지 (전략적 계획 수립)
-    // 나머지 모든 에이전트는 fusionDefault 모드에서 OpenCode로 라우팅
+    // 나머지 모든 에이전트는 fusionDefault 모드에서 MCP로 라우팅
     var claudeOnlyInFusion = ['planner'];
 
     var isClaudeOnly = false;
@@ -429,14 +416,14 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
 
     // fusionDefault 모드에서는 planner 제외 모든 에이전트 라우팅
     if (fusionDefault && !isClaudeOnly) {
-      var mappedAgent = mapAgentToOpenCode(agentType);
+      var mappedAgent = mapAgentToMcp(agentType);
       var modelInfo = getModelInfoForAgent(mappedAgent);
 
       return {
         route: true,
         reason: 'fusion-default-' + agentType,
         targetModel: { id: modelInfo.id, name: modelInfo.name },
-        opencodeAgent: mappedAgent
+        mcpAgent: mappedAgent
       };
     }
 
@@ -451,7 +438,7 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
         'quality-reviewer', 'api-reviewer', 'performance-reviewer',
         // Domain Lane (분석/문서)
         'scientist', 'dependency-expert', 'researcher',
-        'designer', 'writer', 'vision', 'quality-strategist',
+        'designer', 'writer', 'document-specialist', 'vision', 'quality-strategist',
         // Product Lane (분석)
         'analyst', 'ux-researcher', 'information-architect', 'product-analyst'
       ];
@@ -469,7 +456,7 @@ export function shouldRouteToOpenCode(toolInput, options = {}) {
           route: true,
           reason: 'token-saving-agent-' + agentType,
           targetModel: { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' },
-          opencodeAgent: mapAgentToOpenCode(agentType)
+          mcpAgent: mapAgentToMcp(agentType)
         };
       }
     }
@@ -495,47 +482,67 @@ export function wrapWithUlwCommand(prompt) {
  * 퓨전 상태 업데이트
  * @param {object} decision - 라우팅 결정
  * @param {object} result - 실행 결과
- * @param {string|null} [sessionId] - 세션 ID (null이면 글로벌)
+ * 하위호환: updateFusionState(decision, result, currentState) 호출도 지원
+ *
+ * @param {string|null|object} [sessionId] - 세션 ID (null이면 글로벌, object면 currentState로 간주)
  * @param {object} [currentState] - 현재 상태 (테스트용 주입)
  * @returns {object} - 업데이트된 상태
  */
 export function updateFusionState(decision, result, sessionId = null, currentState = null) {
   ensureOmcmDir();
 
+  // 하위호환: updateFusionState(decision, result, currentState)
+  var resolvedSessionId = sessionId;
+  var resolvedCurrentState = currentState;
+  if (
+    resolvedSessionId &&
+    typeof resolvedSessionId === 'object' &&
+    !Array.isArray(resolvedSessionId) &&
+    resolvedCurrentState === null
+  ) {
+    resolvedCurrentState = resolvedSessionId;
+    resolvedSessionId = null;
+  }
+
   // 세션별 또는 글로벌 상태 파일 경로 결정
   var stateFile = FUSION_STATE_FILE;
-  if (sessionId) {
-    var sessionDir = join(OMCM_DIR, 'sessions', sessionId);
+  if (resolvedSessionId) {
+    var sessionDir = join(OMCM_DIR, 'sessions', resolvedSessionId);
     if (!existsSync(sessionDir)) {
       mkdirSync(sessionDir, { recursive: true });
     }
     stateFile = join(sessionDir, 'fusion-state.json');
   }
 
-  var state = currentState !== null ? currentState : readJsonFile(stateFile);
+  var state = resolvedCurrentState !== null ? resolvedCurrentState : readJsonFile(stateFile);
   if (!state) {
     state = {
       enabled: true,
       mode: 'balanced',
       totalTasks: 0,
-      routedToOpenCode: 0,
+      routedToMcp: 0,
       routingRate: 0,
       estimatedSavedTokens: 0,
       byProvider: { gemini: 0, openai: 0, anthropic: 0 },
-      sessionId: sessionId
+      sessionId: resolvedSessionId
     };
   }
 
-  state.totalTasks++;
+  // byProvider 방어적 초기화 (MCP-First 섹션이 부분 상태를 기록한 경우)
+  if (!state.byProvider) {
+    state.byProvider = { gemini: 0, openai: 0, anthropic: 0 };
+  }
+
+  state.totalTasks = (state.totalTasks || 0) + 1;
 
   if (decision.route) {
-    state.routedToOpenCode++;
-    state.estimatedSavedTokens += 1000;
+    state.routedToMcp = (state.routedToMcp || 0) + 1;
+    state.estimatedSavedTokens = (state.estimatedSavedTokens || 0) + 1000;
 
     var model = decision.targetModel ? decision.targetModel.id : '';
-    var agent = decision.opencodeAgent || '';
+    var agent = decision.mcpAgent || '';
 
-    if (model.indexOf('gemini') !== -1 || agent === 'explore') {
+    if (model.indexOf('gemini') !== -1 || agent === 'gemini-flash' || agent === 'gemini-pro') {
       state.byProvider.gemini++;
     } else if (model.indexOf('gpt') !== -1 || model.indexOf('codex') !== -1) {
       state.byProvider.openai++;
@@ -545,33 +552,36 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
   }
 
   state.routingRate = state.totalTasks > 0
-    ? Math.round((state.routedToOpenCode / state.totalTasks) * 100)
+    ? Math.round(((state.routedToMcp || 0) / state.totalTasks) * 100)
     : 0;
   state.lastUpdated = new Date().toISOString();
 
   writeFileSync(stateFile, JSON.stringify(state, null, 2));
 
   // 글로벌 상태도 함께 업데이트 (세션별 상태와 별개로 누적)
-  if (sessionId) {
+  if (resolvedSessionId) {
     var globalState = readJsonFile(FUSION_STATE_FILE);
     if (!globalState) {
       globalState = {
         enabled: true,
         mode: 'balanced',
         totalTasks: 0,
-        routedToOpenCode: 0,
+        routedToMcp: 0,
         routingRate: 0,
         estimatedSavedTokens: 0,
         byProvider: { gemini: 0, openai: 0, anthropic: 0 }
       };
     }
-    globalState.totalTasks++;
+    if (!globalState.byProvider) {
+      globalState.byProvider = { gemini: 0, openai: 0, anthropic: 0 };
+    }
+    globalState.totalTasks = (globalState.totalTasks || 0) + 1;
     if (decision.route) {
-      globalState.routedToOpenCode++;
-      globalState.estimatedSavedTokens += 1000;
+      globalState.routedToMcp = (globalState.routedToMcp || 0) + 1;
+      globalState.estimatedSavedTokens = (globalState.estimatedSavedTokens || 0) + 1000;
       var gModel = decision.targetModel ? decision.targetModel.id : '';
-      var gAgent = decision.opencodeAgent || '';
-      if (gModel.indexOf('gemini') !== -1 || gAgent === 'explore') {
+      var gAgent = decision.mcpAgent || '';
+      if (gModel.indexOf('gemini') !== -1 || gAgent === 'gemini-flash' || gAgent === 'gemini-pro') {
         globalState.byProvider.gemini++;
       } else if (gModel.indexOf('gpt') !== -1 || gModel.indexOf('codex') !== -1) {
         globalState.byProvider.openai++;
@@ -580,7 +590,7 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
       globalState.byProvider.anthropic++;
     }
     globalState.routingRate = globalState.totalTasks > 0
-      ? Math.round((globalState.routedToOpenCode / globalState.totalTasks) * 100) : 0;
+      ? Math.round(((globalState.routedToMcp || 0) / globalState.totalTasks) * 100) : 0;
     globalState.lastUpdated = new Date().toISOString();
     writeFileSync(FUSION_STATE_FILE, JSON.stringify(globalState, null, 2));
   }
@@ -589,8 +599,8 @@ export function updateFusionState(decision, result, sessionId = null, currentSta
 }
 
 /**
- * 라우팅 가능한 에이전트 목록 (OpenCode로 라우팅하여 토큰 절약)
- * OMC 4.2.6 + OMO 3.4.0 기준
+ * 라우팅 가능한 에이전트 목록 (MCP로 라우팅하여 토큰 절약)
+ * OMC 4.2.15 + MCP-First v3.0 기준
  * fusionDefault 모드에서는 planner 제외 모든 에이전트가 라우팅됨
  */
 export const TOKEN_SAVING_AGENTS = [
@@ -601,7 +611,7 @@ export const TOKEN_SAVING_AGENTS = [
   'quality-reviewer', 'api-reviewer', 'performance-reviewer',
   // Domain Lane (→ Oracle/Flash)
   'scientist', 'dependency-expert', 'researcher',
-  'designer', 'writer', 'vision', 'quality-strategist',
+  'designer', 'writer', 'document-specialist', 'vision', 'quality-strategist',
   // Product Lane (분석, → Oracle/Flash)
   'analyst', 'ux-researcher', 'information-architect', 'product-analyst'
 ];
@@ -638,7 +648,7 @@ import { getCachedRoute, cacheRoute, getCacheStats } from '../router/cache.mjs';
  * @param {object} [options] - 옵션 (테스트용 의존성 주입)
  * @returns {object} - 라우팅 결정
  */
-export function shouldRouteToOpenCodeV2(toolInput, context = {}, options = {}) {
+export function shouldRouteToMcpV2(toolInput, context = {}, options = {}) {
   // 에이전트 타입 추출
   var agentType = '';
   if (toolInput && toolInput.subagent_type) {
@@ -651,7 +661,12 @@ export function shouldRouteToOpenCodeV2(toolInput, context = {}, options = {}) {
 
   // 0. MCP-First 체크 (V2에서도 최우선)
   if (toolInput && toolInput.subagent_type) {
-    var configForMcp = readJsonFile(CONFIG_FILE);
+    var configForMcp = null;
+    if (Object.prototype.hasOwnProperty.call(options, 'config')) {
+      configForMcp = options.config;
+    } else {
+      configForMcp = readJsonFile(CONFIG_FILE);
+    }
     if (configForMcp && configForMcp.mcpFirst === true) {
       var mcpToolV2 = getMcpDirectMapping(agentType);
       if (mcpToolV2) {
@@ -660,8 +675,8 @@ export function shouldRouteToOpenCodeV2(toolInput, context = {}, options = {}) {
           mcpTool: mcpToolV2,
           agentRole: agentType,
           reason: 'mcp-first-v2-' + agentType,
-          targetModel: getModelInfoForAgent(mapAgentToOpenCode(agentType)),
-          opencodeAgent: mapAgentToOpenCode(agentType)
+          targetModel: getModelInfoForAgent(mapAgentToMcp(agentType)),
+          mcpAgent: mapAgentToMcp(agentType)
         };
         cacheRoute(agentType, context, mcpDecision);
         return mcpDecision;
@@ -691,15 +706,15 @@ export function shouldRouteToOpenCodeV2(toolInput, context = {}, options = {}) {
     // prefer 또는 force 액션 모두 적용 (preferredProvider가 있으면)
     if (action.preferredProvider) {
       var decision = {
-        route: action.preferredProvider === 'opencode',
+        route: action.preferredProvider === 'mcp',
         reason: 'rule-' + ruleResult.rule.id,
         ruleApplied: ruleResult.rule,
         matched: true,
       };
 
       if (decision.route) {
-        var mappedAgent = mapAgentToOpenCode(agentType);
-        decision.opencodeAgent = mappedAgent;
+        var mappedAgent = mapAgentToMcp(agentType);
+        decision.mcpAgent = mappedAgent;
         decision.targetModel = getModelInfoForAgent(mappedAgent);
       }
 
@@ -713,13 +728,13 @@ export function shouldRouteToOpenCodeV2(toolInput, context = {}, options = {}) {
 
   if (dynamicMapping) {
     var decision = {
-      route: dynamicMapping.provider === 'opencode',
+      route: dynamicMapping.provider === 'mcp',
       reason: 'dynamic-mapping-' + agentType,
       targetModel: {
         id: dynamicMapping.model,
         name: dynamicMapping.model,
       },
-      opencodeAgent: dynamicMapping.target,
+      mcpAgent: dynamicMapping.target,
       tier: dynamicMapping.tier,
     };
 
@@ -728,7 +743,7 @@ export function shouldRouteToOpenCodeV2(toolInput, context = {}, options = {}) {
   }
 
   // 4. 기본 로직 (v0.7.0 호환)
-  var baseDecision = shouldRouteToOpenCode(toolInput, options);
+  var baseDecision = shouldRouteToMcp(toolInput, options);
 
   // 캐시에 저장
   cacheRoute(agentType, context, baseDecision);
@@ -747,7 +762,7 @@ export function getRoutingStats() {
   return {
     fusion: {
       totalTasks: fusionState.totalTasks || 0,
-      routedToOpenCode: fusionState.routedToOpenCode || 0,
+      routedToMcp: fusionState.routedToMcp || 0,
       routingRate: fusionState.routingRate || 0,
       estimatedSavedTokens: fusionState.estimatedSavedTokens || 0,
       byProvider: fusionState.byProvider || {},
@@ -777,7 +792,7 @@ export function getRoutingLevel(sessionInputTokens) {
         // L2 에이전트 (분석/탐색/리뷰)
         'architect', 'explore', 'debugger',
         'dependency-expert', 'researcher',
-        'scientist', 'designer', 'writer', 'vision',
+        'scientist', 'designer', 'writer', 'document-specialist', 'vision',
         'code-reviewer', 'security-reviewer', 'style-reviewer',
         'quality-reviewer', 'api-reviewer', 'performance-reviewer',
         'quality-strategist', 'ux-researcher', 'information-architect', 'product-analyst',
@@ -799,7 +814,7 @@ export function getRoutingLevel(sessionInputTokens) {
         // L2 에이전트
         'architect', 'explore', 'debugger',
         'dependency-expert', 'researcher',
-        'scientist', 'designer', 'writer', 'vision',
+        'scientist', 'designer', 'writer', 'document-specialist', 'vision',
         'code-reviewer', 'security-reviewer', 'style-reviewer',
         'quality-reviewer', 'api-reviewer', 'performance-reviewer',
         'quality-strategist', 'ux-researcher', 'information-architect', 'product-analyst',
@@ -818,7 +833,7 @@ export function getRoutingLevel(sessionInputTokens) {
       agents: [
         'architect', 'explore', 'debugger',
         'dependency-expert', 'researcher',
-        'scientist', 'designer', 'writer', 'vision',
+        'scientist', 'designer', 'writer', 'document-specialist', 'vision',
         'code-reviewer', 'security-reviewer', 'style-reviewer',
         'quality-reviewer', 'api-reviewer', 'performance-reviewer',
         'quality-strategist', 'ux-researcher', 'information-architect', 'product-analyst'
@@ -840,7 +855,7 @@ export function getRoutingLevel(sessionInputTokens) {
 /**
  * Antigravity 계정 설정 파일 경로
  */
-var ANTIGRAVITY_ACCOUNTS_FILE = join(HOME, '.config', 'opencode', 'antigravity-accounts.json');
+var ANTIGRAVITY_ACCOUNTS_FILE = join(HOME, '.config', 'omcm', 'antigravity-accounts.json');
 
 /**
  * Rate limit 캐시 (5분 TTL)
@@ -907,7 +922,7 @@ export function checkGeminiRateLimit() {
       // Gemini Flash의 rate limit reset time 확인
       // 키 패턴: "gemini-antigravity:antigravity-gemini-3-flash" (Antigravity 프록시)
       // 주의: "gemini-cli:gemini-3-flash" (CLI 직접 접속)와 구분 필요
-      // OpenCode 서버풀은 Antigravity 프록시를 사용하므로 antigravity 키만 확인
+      // MCP ask_gemini는 Antigravity 프록시를 사용하므로 antigravity 키만 확인
       var isAccountLimited = false;
       var keys = Object.keys(resetTimes);
       for (var j = 0; j < keys.length; j++) {
@@ -941,7 +956,7 @@ export function checkGeminiRateLimit() {
       result.isLimited = false;
     } else {
       // 어떤 계정이든 rate-limited이면 폴백 적용
-      // (OpenCode가 rate-limited 계정을 우선 선택하는 경우 방지)
+      // (MCP ask_gemini가 rate-limited 계정을 우선 선택하는 경우 방지)
       result.isLimited = true;
       result.earliestReset = earliestReset === Infinity ? null : earliestReset;
     }
@@ -973,14 +988,14 @@ function _saveRateLimitCache(result) {
 /**
  * Gemini가 rate-limited일 때 OpenAI 폴백 에이전트/모델 결정
  *
- * Flash → Codex (빠른 작업은 GPT-5.2-Codex로 대체)
- * Gemini Pro → Oracle (GPT-5.2)
+ * Flash → Codex (빠른 작업은 GPT-5.3-Codex로 대체)
+ * Gemini Pro → Oracle (GPT-5.3)
  *
- * @param {string} omoAgent - 원래 OpenCode 에이전트 (Flash, Oracle, Codex 등)
+ * @param {string} mcpAgent - 원래 MCP 에이전트 힌트 (gemini-flash, codex-oracle 등)
  * @param {object} modelInfo - 원래 모델 정보 { id, name }
  * @returns {object|null} - { agent, model: { id, name }, reason } 또는 null (폴백 불필요)
  */
-export function getGeminiFallback(omoAgent, modelInfo) {
+export function getGeminiFallback(mcpAgent, modelInfo) {
   if (!modelInfo || !modelInfo.id) return null;
 
   var modelId = modelInfo.id;
@@ -1009,7 +1024,7 @@ export function getGeminiFallback(omoAgent, modelInfo) {
 /**
  * 라우팅 결정에 Gemini rate limit 폴백 적용
  *
- * @param {object} decision - shouldRouteToOpenCode()의 반환값
+ * @param {object} decision - shouldRouteToMcp()의 반환값
  * @returns {object} - 폴백 적용된 라우팅 결정
  */
 export function applyGeminiFallbackToDecision(decision) {
@@ -1030,7 +1045,7 @@ export function applyGeminiFallbackToDecision(decision) {
   if (!rateLimit.isLimited) return decision;
 
   // 폴백 적용
-  var fallback = getGeminiFallback(decision.opencodeAgent, decision.targetModel);
+  var fallback = getGeminiFallback(decision.mcpAgent, decision.targetModel);
   if (!fallback) return decision;
 
   // 원본 결정 보존 + 폴백 정보 병합
@@ -1038,8 +1053,8 @@ export function applyGeminiFallbackToDecision(decision) {
     route: decision.route,
     reason: decision.reason + '+' + fallback.reason,
     targetModel: fallback.model,
-    opencodeAgent: fallback.agent,
-    originalAgent: decision.opencodeAgent,
+    mcpAgent: fallback.agent,
+    originalAgent: decision.mcpAgent,
     originalModel: decision.targetModel,
     geminiRateLimit: {
       isLimited: true,

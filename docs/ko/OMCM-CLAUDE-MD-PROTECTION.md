@@ -1,5 +1,7 @@
 # OMCM CLAUDE.md 덮어쓰기 방지 가이드
 
+> **버전 기준 (OMC 4.2.15):** 본 문서는 `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, `gemini-3-pro`를 기본으로 설명합니다. `researcher`, `tdd-guide`, `*-low`/`*-medium` 표기는 하위호환(legacy) 맥락에서만 유지됩니다.
+
 ## 문제 상황
 
 OMC (oh-my-claudecode)가 업데이트될 때 `~/.claude/CLAUDE.md` 파일이 덮어씌워질 수 있습니다.
@@ -139,7 +141,7 @@ MCP 미설치/실패 시: 동등한 Claude agent로 폴백.
 | architect, debugger | Oracle | GPT |
 | designer, vision | Frontend Engineer | Gemini |
 | analyst, scientist, code-reviewer, security-reviewer | Oracle | GPT |
-| writer, style-reviewer | General | Gemini Flash |
+| writer, style-reviewer | General | Gemini 3 Flash |
 
 ## Fusion Activation
 

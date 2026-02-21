@@ -19,7 +19,7 @@ describe('validateAgentMapping', () => {
         {
           source: ['architect', 'debugger', 'quality-reviewer'],
           target: 'Oracle',
-          provider: 'opencode',
+          provider: 'mcp',
           model: 'gpt-4',
           tier: 'HIGH',
         },
@@ -118,7 +118,7 @@ describe('validateRoutingRules', () => {
         {
           id: 'test-rule',
           condition: 'usage.fiveHour > 90',
-          action: 'prefer_opencode',
+          action: 'prefer_mcp',
           priority: 100,
         },
       ],
@@ -140,7 +140,7 @@ describe('validateRoutingRules', () => {
       rules: [
         {
           condition: 'true',
-          action: 'prefer_opencode',
+          action: 'prefer_mcp',
         },
       ],
     };
@@ -155,7 +155,7 @@ describe('validateRoutingRules', () => {
       rules: [
         {
           id: 'test',
-          action: 'prefer_opencode',
+          action: 'prefer_mcp',
         },
       ],
     };
@@ -200,13 +200,13 @@ describe('validateConfig', () => {
   test('유효한 config', () => {
     const config = {
       threshold: 90,
-      keywords: ['opencode', 'handoff'],
+      keywords: ['mcp', 'handoff'],
       fusionDefault: true,
       routing: [
         {
           from: 'architect',
           to: 'Oracle',
-          provider: 'opencode',
+          provider: 'mcp',
         },
       ],
     };

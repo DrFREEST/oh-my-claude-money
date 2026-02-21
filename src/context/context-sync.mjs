@@ -33,20 +33,20 @@ export class ContextSynchronizer {
     this.isRunning = true;
 
     // 즉시 한 번 실행
-    this.syncToOpenCode();
+    this.syncContext();
 
     // 주기적 실행 설정
     this.intervalId = setInterval(() => {
-      this.syncToOpenCode();
+      this.syncContext();
     }, this.syncIntervalMs);
 
     console.log(`컨텍스트 동기화 시작 (주기: ${intervalMs}ms)`);
   }
 
   /**
-   * OpenCode용 컨텍스트 파일 갱신
+   * 컨텍스트 파일 갱신 (Markdown + JSON)
    */
-  syncToOpenCode() {
+  syncContext() {
     try {
       const projectPath = process.cwd();
       const omcStatePath = path.join(projectPath, '.omc', 'state');
@@ -78,7 +78,7 @@ export class ContextSynchronizer {
       // 컨텍스트 빌드
       const context = buildContext(session);
 
-      // Markdown 형식으로 저장 (OpenCode용)
+      // Markdown 형식으로 저장
       const markdownContent = serializeForOpenCode(context);
       const markdownPath = path.join(omcStatePath, 'context.md');
       fs.writeFileSync(markdownPath, markdownContent, 'utf8');
@@ -97,14 +97,14 @@ export class ContextSynchronizer {
   }
 
   /**
-   * OpenCode 결과 가져오기
-   * @returns {Object|null} OpenCode 결과 객체 또는 null
+   * 외부 결과 가져오기
+   * @returns {Object|null} 결과 객체 또는 null
    */
-  syncFromOpenCode() {
+  syncFromExternal() {
     try {
       const projectPath = process.cwd();
       const omcStatePath = path.join(projectPath, '.omc', 'state');
-      const resultPath = path.join(omcStatePath, 'opencode-result.json');
+      const resultPath = path.join(omcStatePath, 'mcp-result.json');
 
       if (!fs.existsSync(resultPath)) {
         return null;
@@ -115,13 +115,23 @@ export class ContextSynchronizer {
       // 읽은 후 파일 삭제 (한 번만 처리)
       fs.unlinkSync(resultPath);
 
-      console.log('OpenCode 결과 가져오기 완료');
+      console.log('결과 가져오기 완료');
       return data;
     } catch (error) {
-      console.error('OpenCode 결과 가져오기 실패:', error.message);
+      console.error('결과 가져오기 실패:', error.message);
       return null;
     }
   }
+
+  /**
+   * @deprecated Use syncContext() instead
+   */
+  syncToOpenCode() { return this.syncContext(); }
+
+  /**
+   * @deprecated Use syncFromExternal() instead
+   */
+  syncFromOpenCode() { return this.syncFromExternal(); }
 
   /**
    * 동기화 중지

@@ -25,7 +25,6 @@ const STATE_FILES = {
   ralph: 'ralph-state.json',
   autopilot: 'autopilot-state.json',
   ultrawork: 'ultrawork-state.json',
-  ecomode: 'ecomode-state.json',
   team: 'team-state.json',
   swarm: 'swarm-summary.json',
   pipeline: 'pipeline-state.json',

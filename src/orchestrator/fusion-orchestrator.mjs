@@ -1,19 +1,18 @@
 /**
- * fusion-orchestrator.mjs - OMC ↔ OpenCode 퓨전 오케스트레이터
+ * fusion-orchestrator.mjs - OMC ↔ MCP 퓨전 오케스트레이터
  *
- * 메인 오케스트레이터가 OMC와 Codex/Gemini CLI를 통합 관리하여
+ * 메인 오케스트레이터가 OMC와 MCP(ask_codex/ask_gemini)를 통합 관리하여
  * Claude 토큰 사용량을 최적화하면서 작업 품질 유지
  *
- * v2.1.0: OpenCode 서버 풀 → CLI 직접 실행 전환
+ * v4.0: OpenCode CLI 제거 → MCP-First(ask_codex/ask_gemini 직접 호출) 전환
  */
 
-import { FUSION_MAP, getFusionInfo, getTokenSavingAgents, estimateBatchSavings } from './agent-fusion-map.mjs';
-import { executeViaCLI, detectCLI } from '../executor/cli-executor.mjs';
+import { FUSION_MAP, getFusionInfo, getTokenSavingAgents, estimateBatchSavings, buildMcpCallDescriptor } from './agent-fusion-map.mjs';
 import { getUsageFromCache, getUsageLevel, checkThreshold } from '../utils/usage.mjs';
 import { loadConfig } from '../utils/config.mjs';
 import { recordRouting, setFusionMode as updateFusionMode } from '../utils/fusion-tracker.mjs';
 import { getFallbackOrchestrator } from './fallback-orchestrator.mjs';
-import { updateOpenAILimitsFromHeaders, recordGeminiRequest, recordGemini429 } from '../utils/provider-limits.mjs';
+import { recordGeminiRequest } from '../utils/provider-limits.mjs';
 
 // =============================================================================
 // 퓨전 오케스트레이터
@@ -23,13 +22,13 @@ export class FusionOrchestrator {
   constructor(options = {}) {
     this.projectDir = options.projectDir || process.cwd();
     this.config = loadConfig();
-    this.cliAvailable = false;
+    this.mcpAvailable = true; // MCP 도구는 항상 사용 가능 (직접 호출)
     this.fallbackOrchestrator = null;
     this.mode = 'balanced'; // 'save-tokens' | 'balanced' | 'quality-first'
     this.stats = {
       totalTasks: 0,
       omcTasks: 0,
-      opencodeTasks: 0,
+      mcpTasks: 0,
       estimatedSavedTokens: 0,
       byAgent: {},
     };
@@ -51,9 +50,6 @@ export class FusionOrchestrator {
       this.mode = 'quality-first';
     }
 
-    // CLI 사용 가능 여부 확인
-    this.cliAvailable = detectCLI('codex') || detectCLI('gemini');
-
     // Fallback 오케스트레이터 초기화
     try {
       this.fallbackOrchestrator = getFallbackOrchestrator();
@@ -64,7 +60,7 @@ export class FusionOrchestrator {
     return {
       initialized: true,
       mode: this.mode,
-      opencodeAvailable: this.cliAvailable,
+      mcpAvailable: this.mcpAvailable,
       fallbackAvailable: this.fallbackOrchestrator !== null,
       usage: usage,
       usageLevel: usageLevel,
@@ -102,33 +98,25 @@ export class FusionOrchestrator {
       };
     }
 
-    // OpenCode 미설치면 OMC 사용
-    if (!this.cliAvailable) {
-      return {
-        target: 'omc',
-        agent: task.type,
-        reason: 'CLI 미설치',
-        savesTokens: false,
-      };
-    }
-
     // 모드별 라우팅 전략
     switch (this.mode) {
       case 'save-tokens':
-        // 토큰 절약 모드: 가능하면 무조건 OpenCode
-        if (fusion.savesTokens) {
+        // 토큰 절약 모드: 가능하면 무조건 MCP
+        if (fusion.model.savesClaudeTokens) {
           return {
-            target: 'opencode',
-            agent: fusion.opencode,
+            target: 'mcp',
+            agent: task.type,
+            mcpTool: this._getMcpTool(fusion),
             reason: `토큰 절약 모드: ${fusion.reason}`,
             savesTokens: true,
           };
         }
-        // 절약 안 되어도 OpenCode 우선 (사용량 분산)
+        // 절약 안 되어도 MCP 우선 (사용량 분산)
         if (!fusion.fallbackToOMC || currentUsage > 80) {
           return {
-            target: 'opencode',
-            agent: fusion.opencode,
+            target: 'mcp',
+            agent: task.type,
+            mcpTool: this._getMcpTool(fusion),
             reason: '사용량 분산',
             savesTokens: false,
           };
@@ -137,21 +125,23 @@ export class FusionOrchestrator {
 
       case 'balanced':
         // 균형 모드: 토큰 절약 + 품질 고려
-        if (fusion.savesTokens && !fusion.fallbackToOMC) {
+        if (fusion.model.savesClaudeTokens && !fusion.fallbackToOMC) {
           return {
-            target: 'opencode',
-            agent: fusion.opencode,
+            target: 'mcp',
+            agent: task.type,
+            mcpTool: this._getMcpTool(fusion),
             reason: `균형 모드: ${fusion.reason}`,
             savesTokens: true,
           };
         }
-        // 사용량 높으면 OpenCode
+        // 사용량 높으면 MCP
         if (currentUsage > 70 && !fusion.fallbackToOMC) {
           return {
-            target: 'opencode',
-            agent: fusion.opencode,
-            reason: `사용량 ${currentUsage}%, OpenCode 우선`,
-            savesTokens: fusion.savesTokens,
+            target: 'mcp',
+            agent: task.type,
+            mcpTool: this._getMcpTool(fusion),
+            reason: `사용량 ${currentUsage}%, MCP 우선`,
+            savesTokens: fusion.model.savesClaudeTokens,
           };
         }
         break;
@@ -166,11 +156,12 @@ export class FusionOrchestrator {
             savesTokens: false,
           };
         }
-        // 토큰 절약 가능하면 OpenCode
-        if (fusion.savesTokens) {
+        // 토큰 절약 가능하면 MCP
+        if (fusion.model.savesClaudeTokens) {
           return {
-            target: 'opencode',
-            agent: fusion.opencode,
+            target: 'mcp',
+            agent: task.type,
+            mcpTool: this._getMcpTool(fusion),
             reason: `품질 동등 + 토큰 절약: ${fusion.reason}`,
             savesTokens: true,
           };
@@ -190,17 +181,17 @@ export class FusionOrchestrator {
   /**
    * 작업 배치 라우팅
    * @param {Array} tasks - [{ type, prompt, priority }]
-   * @returns {Object} { omcTasks, opencodeTasks, stats }
+   * @returns {Object} { omcTasks, mcpTasks, stats }
    */
   routeBatch(tasks) {
     const omcTasks = [];
-    const opencodeTasks = [];
+    const mcpTasks = [];
 
     for (const task of tasks) {
       const routing = this.routeTask(task);
 
-      if (routing.target === 'opencode') {
-        opencodeTasks.push({
+      if (routing.target === 'mcp') {
+        mcpTasks.push({
           ...task,
           routing,
         });
@@ -216,13 +207,13 @@ export class FusionOrchestrator {
 
     return {
       omcTasks,
-      opencodeTasks,
+      mcpTasks,
       summary: {
         total: tasks.length,
         omc: omcTasks.length,
-        opencode: opencodeTasks.length,
+        mcp: mcpTasks.length,
         omcPercent: Math.round((omcTasks.length / tasks.length) * 100),
-        opencodePercent: Math.round((opencodeTasks.length / tasks.length) * 100),
+        mcpPercent: Math.round((mcpTasks.length / tasks.length) * 100),
       },
       savings,
     };
@@ -240,31 +231,25 @@ export class FusionOrchestrator {
     this.stats.totalTasks++;
     this.stats.byAgent[task.type] = (this.stats.byAgent[task.type] || 0) + 1;
 
-    if (routing.target === 'opencode' && this.cliAvailable) {
-      this.stats.opencodeTasks++;
+    if (routing.target === 'mcp') {
+      this.stats.mcpTasks++;
       if (routing.savesTokens) {
         this.stats.estimatedSavedTokens += task.estimatedTokens || 1000;
       }
 
       // Record to fusion state file for HUD
-      var provider = this._getProviderFromAgent(routing.agent);
-      recordRouting('opencode', provider, task.estimatedTokens || 1000);
+      var provider = this._getProviderFromAgent(task.type);
+      recordRouting('mcp', provider, task.estimatedTokens || 1000);
 
-      // CLI 실행
-      var prompt = this._buildOpenCodePrompt(task, routing);
-      var cliProvider = (provider === 'gemini') ? 'google' : 'openai';
-      var result = await executeViaCLI({
-        prompt: prompt,
-        provider: cliProvider,
-        agent: routing.agent,
-        cwd: this.projectDir,
-      });
+      // MCP-First: ask_codex/ask_gemini 호출 디스크립터 반환
+      // 실제 MCP 호출은 호출 측(Claude)이 수행
+      var mcpDescriptor = buildMcpCallDescriptor(task.type, task.prompt || '', {});
 
       return {
         task,
         routing,
-        result,
-        source: 'opencode',
+        result: mcpDescriptor,
+        source: 'mcp',
       };
     } else {
       this.stats.omcTasks++;
@@ -288,7 +273,7 @@ export class FusionOrchestrator {
    * 배치 실행 (병렬)
    */
   async executeBatch(tasks, omcExecutor) {
-    const { omcTasks, opencodeTasks, summary, savings } = this.routeBatch(tasks);
+    const { omcTasks, mcpTasks, summary, savings } = this.routeBatch(tasks);
     const results = [];
 
     // 병렬 실행
@@ -305,13 +290,13 @@ export class FusionOrchestrator {
       );
     }
 
-    // OpenCode 작업
-    for (const task of opencodeTasks) {
+    // MCP 작업
+    for (const task of mcpTasks) {
       promises.push(
         this.executeTask(task, omcExecutor).catch((e) => ({
           task,
           error: e.message,
-          source: 'opencode',
+          source: 'mcp',
         }))
       );
     }
@@ -336,42 +321,26 @@ export class FusionOrchestrator {
   }
 
   /**
-   * Get provider name from OpenCode agent
+   * Get MCP tool name from fusion info
+   * @private
    */
-  _getProviderFromAgent(agentName) {
-    var fusion = FUSION_MAP[agentName];
-    if (!fusion) return 'unknown';
-
-    var model = fusion.model || '';
-    if (model.indexOf('gemini') >= 0 || model.indexOf('google') >= 0) {
-      return 'gemini';
-    }
-    if (model.indexOf('gpt') >= 0 || model.indexOf('openai') >= 0) {
-      return 'openai';
-    }
-    return 'unknown';
+  _getMcpTool(fusion) {
+    if (!fusion || !fusion.model) return 'ask_codex';
+    return (fusion.model.provider === 'google') ? 'ask_gemini' : 'ask_codex';
   }
 
   /**
-   * OpenCode 프롬프트 빌드
+   * Get provider name from OMC agent type
+   * @private
    */
-  _buildOpenCodePrompt(task, routing) {
-    var fusion = FUSION_MAP[routing.agent];
+  _getProviderFromAgent(agentType) {
+    var fusion = FUSION_MAP[agentType];
+    if (!fusion || !fusion.model) return 'unknown';
 
-    var prompt = '## Task for ' + routing.agent + '\n\n';
-
-    if (task.context) {
-      prompt += '### Context\n' + task.context + '\n\n';
-    }
-
-    prompt += '### Instruction\n' + task.prompt + '\n';
-
-    // 에이전트 힌트
-    if (fusion) {
-      prompt += '\n### Agent Hint\nPrefer using ' + routing.agent + ' (' + (fusion.omoAgent || 'general') + ')';
-    }
-
-    return prompt;
+    var provider = fusion.model.provider || '';
+    if (provider === 'google') return 'gemini';
+    if (provider === 'openai') return 'openai';
+    return 'unknown';
   }
 
   /**
@@ -394,7 +363,7 @@ export class FusionOrchestrator {
   async shutdown() {
     return {
       finalStats: this.getStats(),
-      message: `퓨전 오케스트레이터 종료: OMC ${this.stats.omcTasks}개, CLI ${this.stats.opencodeTasks}개, 절약 ~${this.stats.estimatedSavedTokens} 토큰`,
+      message: `퓨전 오케스트레이터 종료: OMC ${this.stats.omcTasks}개, MCP ${this.stats.mcpTasks}개, 절약 ~${this.stats.estimatedSavedTokens} 토큰`,
     };
   }
 }
@@ -467,8 +436,8 @@ export async function executeWithFallbackCheck(task, omcExecutor, orchestrator) 
   const current = fallback.getCurrentOrchestrator();
 
   if (current.fallbackActive) {
-    // 폴백 모드: OpenCode로 실행
-    return executeViaOpenCode(task, current.model, orchestrator);
+    // 폴백 모드: MCP로 실행 (ask_codex/ask_gemini 디스크립터 반환)
+    return executeViaMcp(task, current.model, orchestrator);
   } else {
     // 정상 모드: 일반 퓨전 실행
     return orchestrator.executeTask(task, omcExecutor);
@@ -476,50 +445,41 @@ export async function executeWithFallbackCheck(task, omcExecutor, orchestrator) 
 }
 
 /**
- * OpenCode를 통해 작업 실행 (폴백 모델 사용)
+ * MCP를 통해 작업 실행 (폴백 모델 사용)
  *
  * @param {Object} task - 실행할 작업
  * @param {Object} model - 사용할 모델 정보
  * @param {FusionOrchestrator} orchestrator - 오케스트레이터 인스턴스
  * @returns {Promise<Object>} 실행 결과
  */
-async function executeViaOpenCode(task, model, orchestrator) {
-  if (!orchestrator.cliAvailable) {
-    throw new Error('CLI not available for fallback execution');
-  }
+async function executeViaMcp(task, model, orchestrator) {
+  // Gemini 계열이면 ask_gemini, 그 외 ask_codex
+  var mcpTool = (model.provider === 'google') ? 'ask_gemini' : 'ask_codex';
 
   var prompt = buildFallbackPrompt(task, model);
-  var cliProvider = (model.provider === 'google') ? 'google' : 'openai';
 
-  var result = await executeViaCLI({
-    prompt: prompt,
-    provider: cliProvider,
-    agent: model.opencodeAgent,
-    cwd: orchestrator.projectDir,
-  });
-
-  // Provider limit 추적
-  if (model.provider === 'openai') {
-    // CLI 결과의 토큰으로 추적
-    if (result && result.tokens) {
-      var estimatedInput = result.tokens.input || 0;
-      // OpenAI limit은 토큰 기반으로 추적 (헤더 없음)
-    }
-  } else if (model.provider === 'google') {
-    var estimatedTokens = (result && result.tokens && result.tokens.input) || task.estimatedTokens || 500;
+  // Gemini provider limit 추적
+  if (model.provider === 'google') {
+    var estimatedTokens = task.estimatedTokens || 500;
     recordGeminiRequest(estimatedTokens);
   }
 
   return {
     task,
     routing: {
-      target: 'opencode',
-      agent: model.opencodeAgent,
+      target: 'mcp',
+      mcpTool: mcpTool,
+      agent: model.id,
       reason: 'Fallback execution via ' + model.name,
       savesTokens: true,
     },
-    result,
-    source: 'opencode-fallback',
+    result: {
+      mcpTool,
+      agentRole: task.type || 'executor',
+      prompt,
+      model: model.id,
+    },
+    source: 'mcp-fallback',
     fallbackModel: model,
   };
 }

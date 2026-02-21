@@ -1,5 +1,7 @@
 # OMCM 스킬 레퍼런스 가이드
 
+> **버전 기준 (OMC 4.2.15):** 본 문서는 `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, `gemini-3-pro`를 기본으로 설명합니다. `researcher`, `tdd-guide`, `*-low`/`*-medium` 표기는 하위호환(legacy) 맥락에서만 유지됩니다.
+
 이 문서는 oh-my-claude-money(OMCM)의 모든 스킬을 상세히 설명합니다. 각 스킬의 트리거, 사용 방법, 동작 방식을 한눈에 파악할 수 있습니다.
 
 ---
@@ -9,10 +11,9 @@
 1. [autopilot (하이브리드 오토파일럿)](#1-autopilot-하이브리드-오토파일럿)
 2. [ulw (울트라워크 with 자동 퓨전)](#2-ulw-울트라워크-with-자동-퓨전)
 3. [hulw (하이브리드 울트라워크)](#3-hulw-하이브리드-울트라워크)
-4. [ecomode (토큰 효율 모드)](#4-ecomode-토큰-효율-모드)
-5. [ralph (완료까지 지속 실행)](#5-ralph-완료까지-지속-실행)
-6. [opencode (OpenCode 전환)](#6-opencode-opencode-전환)
-7. [cancel (통합 취소)](#7-cancel-통합-취소)
+4. [ralph (완료까지 지속 실행)](#4-ralph-완료까지-지속-실행)
+5. [opencode (OpenCode 전환)](#5-opencode-opencode-전환)
+6. [cancel (통합 취소)](#6-cancel-통합-취소)
 8. [스킬 조합 및 최적 사용법](#스킬-조합-및-최적-사용법)
 
 ---
@@ -70,10 +71,10 @@ OMCM이 자동으로 다음과 같이 라우팅합니다:
 | 단계 | OMC 에이전트 | → | OMO 에이전트 | 모델 |
 |------|-------------|---|-------------|------|
 | 요구사항 분석 | analyst | → | Claude (fallback) | Opus |
-| 코드 탐색 | explore | → | explore | Gemini 3.0 Flash |
-| UI 구현 | designer | → | build | GPT-5.2-Codex |
-| 리서치 | researcher | → | general | GPT-5.2-Codex |
-| 실행/구현 | executor | → | build | GPT-5.2-Codex |
+| 코드 탐색 | explore | → | explore | Gemini 3 Flash |
+| UI 구현 | designer | → | build | GPT-5.3-Codex |
+| 리서치 | researcher | → | general | GPT-5.3-Codex |
+| 실행/구현 | executor | → | build | GPT-5.3-Codex |
 | 최종 검증 | architect | → | Claude (fallback) | Opus |
 
 ### 중요: 병렬 처리 규칙
@@ -143,20 +144,20 @@ OMCM이 사용량과 설정에 따라 자동 처리:
 
 | OMC 에이전트 | → | OMO 에이전트 | 모델 |
 |-------------|---|-------------|------|
-| explore | → | explore | Gemini 3.0 Flash |
-| explore-medium | → | explore | GPT-5.2-Codex |
+| explore | → | explore | Gemini 3 Flash |
+| explore-medium | → | explore | GPT-5.3-Codex |
 | explore-high | → | Claude (fallback) | Opus |
 | architect | → | Claude (fallback) | Opus |
-| architect-medium | → | build | GPT-5.2-Codex |
-| architect-low | → | explore | Gemini 3.0 Flash |
-| researcher | → | general | GPT-5.2-Codex |
-| researcher-low | → | general | Gemini 3.0 Flash |
-| designer | → | build | GPT-5.2-Codex |
-| designer-low | → | build | Gemini 3.0 Flash |
-| writer | → | general | Gemini 3.0 Flash |
-| vision | → | general | GPT-5.2-Codex |
-| executor | → | build | GPT-5.2-Codex |
-| executor-low | → | build | Gemini 3.0 Flash |
+| architect-medium | → | build | GPT-5.3-Codex |
+| architect-low | → | explore | Gemini 3 Flash |
+| researcher | → | general | GPT-5.3-Codex |
+| researcher-low | → | general | Gemini 3 Flash |
+| designer | → | build | GPT-5.3-Codex |
+| designer-low | → | build | Gemini 3 Flash |
+| writer | → | general | Gemini 3 Flash |
+| vision | → | general | GPT-5.3-Codex |
+| executor | → | build | GPT-5.3-Codex |
+| executor-low | → | build | Gemini 3 Flash |
 
 ### 알림 메시지
 
@@ -207,8 +208,8 @@ hulw: 데이터베이스 스키마 마이그레이션 구현
 1. 작업 분석
    ↓
 2. 라우팅 결정
-   - 분석/탐색 작업 → OMO explore/general (GPT-5.2-Codex/Gemini Flash)
-   - UI/프론트엔드 → OMO build (GPT-5.2-Codex)
+   - 분석/탐색 작업 → OMO explore/general (GPT-5.3-Codex/Gemini 3 Flash)
+   - UI/프론트엔드 → OMO build (GPT-5.3-Codex)
    - 복잡한 구현 → Claude (Opus)
    ↓
 3. 병렬 실행
@@ -221,9 +222,9 @@ hulw: 데이터베이스 스키마 마이그레이션 구현
 | 작업 유형 | 라우팅 | 모델 | 절약 |
 |----------|--------|------|------|
 | 아키텍처 분석 | Claude (fallback) | Opus | - |
-| 코드 탐색 | OMO explore | Gemini 3.0 Flash | ✅ |
-| UI 작업 | OMO build | GPT-5.2-Codex | ✅ |
-| 리서치 | OMO general | GPT-5.2-Codex | ✅ |
+| 코드 탐색 | OMO explore | Gemini 3 Flash | ✅ |
+| UI 작업 | OMO build | GPT-5.3-Codex | ✅ |
+| 리서치 | OMO general | GPT-5.3-Codex | ✅ |
 | 복잡한 구현 | Claude executor-high | Opus | - |
 | 전략적 계획 | Claude planner | Opus | - |
 
@@ -246,99 +247,7 @@ hulw: 데이터베이스 스키마 마이그레이션 구현
 
 ---
 
-## 4. ecomode (토큰 효율 모드)
-
-### 설명
-
-Claude 토큰을 최대한 절약하면서 작업을 수행합니다. **Haiku/Flash 우선 라우팅**으로 30-50% 토큰 절약을 기대할 수 있습니다.
-
-### 트리거 키워드
-
-| 키워드 | 예시 |
-|--------|------|
-| `eco` | "eco: 이 컴포넌트 리팩토링" |
-| `ecomode` | "ecomode로 시작" |
-| `efficient` | "효율적으로 작업" |
-| `budget` | "budget 모드 활성화" |
-| `save-tokens` | "save-tokens: 모든 테스트 실행" |
-| `절약` | "토큰 절약해줘" |
-| `효율` | "효율적으로 처리" |
-| `/eco` | "/eco" |
-| `/ecomode` | "/ecomode" |
-
-### 사용 예시
-
-```
-eco: 이 프로젝트의 모든 컴포넌트 리팩토링해줘
-```
-
-```
-budget 모드로 전체 테스트 스위트 구현
-```
-
-### 라우팅 전략
-
-#### 강제 LOW 티어 (Gemini Flash)
-
-- explore, explore-medium → explore (Flash)
-- researcher, researcher-low → general (Flash)
-- writer → general (Flash)
-- designer-low → build (Flash)
-- executor-low → build (Flash)
-
-#### 강제 MEDIUM 티어 (GPT Codex)
-
-- architect, architect-medium → build (Codex)
-- executor → build (Codex)
-- designer → build (Codex)
-
-#### Opus 유지 (품질 필수)
-
-- planner, critic, analyst → 원래 티어 유지
-- security-reviewer → 보안은 타협 불가
-- executor-high → 복잡한 구현은 품질 우선
-
-### 예상 절약률
-
-| 작업 유형 | 기본 모드 | Ecomode | 절약률 |
-|----------|----------|---------|-------|
-| 탐색/검색 | Sonnet | Flash | ~70% |
-| 표준 구현 | Sonnet | Codex | ~40% |
-| 문서 작성 | Sonnet | Flash | ~70% |
-| 코드 리뷰 | Opus | Codex | ~50% |
-| 복잡한 분석 | Opus | Opus | 0% |
-
-**평균 절약률**: 30-50%
-
-### 상태 관리
-
-```json
-// ~/.omcm/state/ecomode.json
-{
-  "active": true,
-  "startedAt": "2026-01-27T10:00:00Z",
-  "tokensSaved": 15000,
-  "tasksCompleted": 12,
-  "escalations": 2
-}
-```
-
-### 품질 모니터링
-
-에스컬레이션 조건:
-- 동일 작업 2회 실패
-- 명시적 품질 요구 ("정확하게", "꼼꼼히")
-- 보안/인증 관련 작업
-
-### Ecomode + Ultrawork 조합
-
-`eco ulw:` 또는 `ecomode ultrawork:` 형태로 조합하여 최적의 가성비 달성:
-- 병렬 처리의 속도
-- 저비용 모델의 경제성
-
----
-
-## 5. ralph (완료까지 지속 실행)
+## 4. ralph (완료까지 지속 실행)
 
 ### 설명
 
@@ -422,10 +331,6 @@ Ralph와 퓨전 모드를 조합할 수 있습니다:
 ralph hulw: 하이브리드 울트라워크로 완료까지
 ```
 
-```
-ralph eco: 토큰 절약하면서 완료 보장
-```
-
 ### 안전장치
 
 #### 최대 반복 횟수
@@ -457,7 +362,7 @@ ralph eco: 토큰 절약하면서 완료 보장
 
 ---
 
-## 6. opencode (OpenCode 전환)
+## 5. opencode (OpenCode 전환)
 
 ### 설명
 
@@ -523,7 +428,7 @@ opencode로 전환: 나머지 구현 마무리
 
 ---
 
-## 7. cancel (통합 취소)
+## 6. cancel (통합 취소)
 
 ### 설명
 
@@ -547,7 +452,6 @@ opencode로 전환: 나머지 구현 마무리
 | autopilot | `~/.omcm/state/autopilot.json` | 세션 종료, 상태 초기화 |
 | ralph | `~/.omcm/state/ralph.json` | 루프 중단, 상태 초기화 |
 | ultrawork | `~/.omcm/state/ultrawork.json` | 병렬 작업 중단 |
-| ecomode | `~/.omcm/state/ecomode.json` | 토큰 절약 모드 해제 |
 | hulw | `~/.omcm/state/hulw.json` | 하이브리드 모드 해제 |
 | swarm | `~/.omcm/state/swarm.json` | 에이전트 풀 해제 |
 | pipeline | `~/.omcm/state/pipeline.json` | 파이프라인 중단 |
@@ -608,7 +512,7 @@ ulw: React 컴포넌트 빠르게 구현해줘
 #### 2. 토큰 절약 (효율 우선)
 
 ```
-eco: TypeScript 타입 오류 모두 수정
+save-tokens: TypeScript 타입 오류 모두 수정
 ```
 
 **최적**: 토큰 사용량 높을 때
@@ -639,16 +543,6 @@ autopilot: REST API 서버 구축하고 배포까지 해줘
 
 ### 조합 예시
 
-#### 토큰 절약 + 완료 보장
-
-```
-ralph eco: 모든 테스트 작성하고 통과까지 보장해줘
-```
-
-동작:
-- Ecomode로 저비용 모델 사용
-- Ralph 루프로 완료까지 지속
-
 #### 병렬 + 퓨전
 
 ```
@@ -674,9 +568,8 @@ ralph hulw: 핵심 기능 완벽하게 구현해줘
 | 사용량 | 권장 모드 | 이유 |
 |--------|----------|------|
 | 0-50% | ulw, autopilot | Claude 충분, 속도 우선 |
-| 50-70% | hulw, eco | 토큰 절약 시작 |
-| 70-90% | eco, ralph eco | 토큰 최대 절약 |
-| 90%+ | eco, opencode 전환 | OpenCode 위주 |
+| 50-70% | hulw, save-tokens | 토큰 절약 시작 |
+| 90%+ | save-tokens, opencode 전환 | OpenCode 위주 |
 
 ### 상황별 최적 선택
 
@@ -697,8 +590,8 @@ ralph: 버그를 설명하면 찾고 수정하고
 #### 토큰 부족 상황
 
 ```
-eco: 효율적으로 처리하되,
-품질이 중요하면 eco + 특정 에이전트명
+save-tokens: 효율적으로 처리하되,
+품질이 중요하면 save-tokens + 특정 에이전트명
 ```
 
 #### 대규모 리팩토링
@@ -724,7 +617,7 @@ OMCM은 다음 조건에서 자동으로 모드를 제안합니다:
 
 | 사용량 | 자동 제안 |
 |--------|----------|
-| 70% 이상 | hulw 또는 eco 권장 |
+| 70% 이상 | hulw 또는 save-tokens 권장 |
 | 90% 이상 | OpenCode 중심 모드 전환 권장 |
 
 ### 설정 기반 자동 활성화
@@ -792,7 +685,7 @@ cancel --force
 **개선책**:
 1. 더 구체적인 지시사항 제공
 2. 작업을 더 작은 단위로 분해
-3. `eco` 스킬로 명시적 절약 요청
+3. `save-tokens` 스킬로 명시적 절약 요청
 
 ---
 

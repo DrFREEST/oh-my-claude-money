@@ -35,7 +35,7 @@
 
 ### What is OMCM?
 
-OMCM fuses 32 Claude Code agents with OpenCode's multi-provider agents, enabling **62% token savings** by intelligently routing tasks to the optimal LLM (Claude, GPT, or Gemini).
+OMCM fuses 30 Claude Code agents with OpenCode's multi-provider agents, enabling **62% token savings** by intelligently routing tasks to the optimal LLM (Claude, GPT, or Gemini).
 
 ### Key Features
 
@@ -72,42 +72,11 @@ Then use these commands:
 ```
 User Request
     ↓
-Claude Opus 4.5 (Conductor)
+Claude Opus 4.6 (Conductor)
     ↓
 ├─→ Analysis task? → Route to OpenCode (GPT/Gemini) ✅ Save tokens
 ├─→ Execution task? → Route to Claude (high quality)
 └─→ Usage > 90%? → Automatic fallback to OpenCode
-```
-
-### OpenCode Server Pool (Performance)
-
-OMCM uses a **flexible server pool** to reduce **routing call latency by ~90%** compared to CLI mode:
-
-```bash
-# Server pool is managed automatically in parallel modes (ultrapilot, ultrawork)
-# Manual server control is still available:
-./scripts/opencode-server.sh start
-```
-
-**Performance Comparison:**
-
-| Mode | First Call | Subsequent Calls |
-|------|------------|------------------|
-| CLI Mode (no server) | ~10-15s (cold boot) | ~10-15s |
-| **Server Pool Mode** | ~5s (pool start) | **~1s** |
-
-**Server Pool Features:**
-- **Dynamic Scaling**: 1-4 servers based on load (configurable via `maxOpencodeWorkers`)
-- **Auto-Recovery**: Failed servers are automatically restarted
-- **Load Balancing**: Round-robin distribution across idle servers
-- **Resource Usage**: ~250-300MB per server instance (~1.2GB for 4 servers)
-
-**Server Management:**
-```bash
-./scripts/opencode-server.sh start   # Start server
-./scripts/opencode-server.sh stop    # Stop server
-./scripts/opencode-server.sh status  # Check status
-./scripts/opencode-server.sh logs    # View logs
 ```
 
 ### Configuration
@@ -132,14 +101,14 @@ See sections below for complete setup guide, configuration, and troubleshooting.
 
 ## 개요
 
-Claude Code의 32개 OMC 에이전트를 OpenCode의 멀티 프로바이더 에이전트로 **퓨전**하여:
+Claude Code의 30개 OMC 에이전트를 OpenCode의 멀티 프로바이더 에이전트로 **퓨전**하여:
 - **Claude 토큰 62% 절약**: 18개 에이전트를 GPT/Gemini로 오프로드
-- **메인 오케스트레이터**: Opus 4.5가 지휘, 서브 에이전트는 최적 LLM으로 분배
+- **메인 오케스트레이터**: Opus 4.6이 지휘, 서브 에이전트는 최적 LLM으로 분배
 - **자동 라우팅**: 사용량/작업 유형 기반 지능형 분배
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│              Meta-Orchestrator (Claude Opus 4.5)                    │
+│              Meta-Orchestrator (Claude Opus 4.6)                    │
 │                     "지휘자 역할"                                    │
 ├─────────────────────────────────────────────────────────────────────┤
 │                              ↓                                      │
@@ -163,7 +132,7 @@ Claude Code의 32개 OMC 에이전트를 OpenCode의 멀티 프로바이더 에�
 
 ### 1. 🔀 에이전트 퓨전 (핵심!)
 
-OMC 32개 에이전트 → OMO 에이전트 + 외부 모델 매핑으로 **Claude 토큰 62% 절약**:
+OMC 30개 에이전트 → OMO 에이전트 + 외부 모델 매핑으로 **Claude 토큰 62% 절약**:
 
 **티어별 모델 분배 (퓨전/폴백 모드):**
 
@@ -173,7 +142,7 @@ OMC 32개 에이전트 → OMO 에이전트 + 외부 모델 매핑으로 **Claud
 | **MEDIUM** | Claude Sonnet | **gpt-5.2-codex** | ✅ |
 | **LOW** | Claude Haiku | **gemini-3.0-flash** | ✅ |
 
-**에이전트별 매핑 (28개):**
+**에이전트별 매핑 (30개):**
 
 | OMC 에이전트 | Lane | OMO 에이전트 | 퓨전 모델 | 절약 |
 |-------------|------|-------------|----------|------|
@@ -181,15 +150,16 @@ OMC 32개 에이전트 → OMO 에이전트 + 외부 모델 매핑으로 **Claud
 | planner, critic, analyst | HIGH | plan | Claude Opus | - |
 | security-reviewer, code-reviewer, quality-reviewer | HIGH | build | Claude Opus | - |
 | product-manager, information-architect | HIGH | plan/build | Claude Opus | - |
-| executor, dependency-expert | MEDIUM | build | **gpt-5.2-codex** | ✅ |
-| designer, vision | MEDIUM | general/build | **gemini-3.0-pro** | ✅ |
-| qa-tester, build-fixer, test-engineer | MEDIUM | build | **gpt-5.2-codex** | ✅ |
-| scientist, git-master, verifier | MEDIUM | build | **gpt-5.2-codex** | ✅ |
-| api-reviewer, performance-reviewer, quality-strategist | MEDIUM | build | **gpt-5.2-codex** | ✅ |
-| product-analyst | MEDIUM | general | **gpt-5.2-codex** | ✅ |
-| explore, writer, style-reviewer, ux-researcher | LOW | explore/general | **gemini-3.0-flash** | ✅ |
+| **code-simplifier** | HIGH | build | **Claude Opus** | - |
+| executor, dependency-expert | MEDIUM | build | **gpt-5.3-codex** | ✅ |
+| designer, vision | MEDIUM | general/build | **gemini-3-pro** | ✅ |
+| qa-tester, build-fixer, test-engineer | MEDIUM | build | **gpt-5.3-codex** | ✅ |
+| scientist, git-master, verifier | MEDIUM | build | **gpt-5.3-codex** | ✅ |
+| api-reviewer, performance-reviewer, quality-strategist | MEDIUM | build | **gpt-5.3-codex** | ✅ |
+| product-analyst | MEDIUM | general | **gpt-5.3-codex** | ✅ |
+| explore, writer, style-reviewer, ux-researcher | LOW | explore/general | **gemini-3-flash** | ✅ |
 
-**18개 에이전트 (62%)** 가 GPT/Gemini로 대체되어 Claude 토큰 절약!
+**18개 에이전트 (60%)** 가 GPT/Gemini로 대체되어 Claude 토큰 절약!
 
 ### 2. 🔄 하이브리드 울트라워크
 
@@ -222,10 +192,10 @@ Claude 리밋에 따른 자동 전환:
 | 상태 | 임계값 | 동작 |
 |------|--------|------|
 | **폴백 활성화** | Claude >= 90% | GPT-5.2-Codex로 자동 전환 |
-| **복구** | Claude < 85% | Claude Opus 4.5로 자동 복귀 |
+| **복구** | Claude < 85% | Claude Opus 4.6로 자동 복귀 |
 
 **폴백 체인:**
-1. Claude Opus 4.5 (기본)
+1. Claude Opus 4.6 (기본)
 2. GPT-5.2-Codex (1차 폴백)
 3. Gemini 2.5 Flash (2차 폴백)
 4. GPT-5.2 (3차 폴백)
@@ -744,7 +714,6 @@ oh-my-claude-money/
 ├── skills/
 │   ├── autopilot/SKILL.md        # 하이브리드 오토파일럿
 │   ├── cancel/SKILL.md           # 통합 취소
-│   ├── ecomode/SKILL.md          # 토큰 효율 모드
 │   ├── hulw/SKILL.md             # 하이브리드 울트라워크
 │   ├── hybrid-ultrawork/SKILL.md # 하이브리드 울트라워크 (별칭)
 │   ├── opencode/SKILL.md         # OpenCode 전환 스킬

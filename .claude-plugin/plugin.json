@@ -1,6 +1,6 @@
 {
   "name": "omcm",
-  "version": "2.1.4",
-  "description": "Claude Code ↔ Codex/Gemini CLI 퓨전 오케스트레이터 - OMC v4.2.7 호환",
+  "version": "2.1.9",
+  "description": "Claude Code ↔ Codex/Gemini CLI 퓨전 오케스트레이터 - OMC v4.3.0 호환",
   "skills": "./skills"
 }

@@ -79,7 +79,7 @@ export function syncToOmcState(omcmState) {
       fusionEnabled: omcmState.fusionEnabled || false,
       routingMode: omcmState.routingMode || 'balanced',
       savedTokens: omcmState.savedTokens || 0,
-      routedToOpenCode: omcmState.routedToOpenCode || 0,
+      routedToMcp: omcmState.routedToMcp || omcmState.routedToOpenCode || 0,
       totalTasks: omcmState.totalTasks || 0,
       mcpTracking: omcmState.mcpTracking || {},
       lastUpdated: new Date().toISOString()

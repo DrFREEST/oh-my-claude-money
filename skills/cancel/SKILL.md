@@ -1,6 +1,6 @@
 ---
 name: cancel
-description: 모든 활성 OMCM 모드 취소 (autopilot, ralph, ultrawork, ecomode, hulw 등)
+description: 모든 활성 OMCM 모드 취소 (autopilot, ralph, ultrawork, hulw 등)
 triggers:
   - cancel
   - stop
@@ -21,7 +21,6 @@ triggers:
 | autopilot | `.omc/state/autopilot-state.json` | 세션 종료, 상태 초기화 |
 | ralph | `.omc/state/ralph-state.json` | 루프 중단, 상태 초기화 |
 | ultrawork | `.omc/state/ultrawork-state.json` | 병렬 작업 중단 |
-| ecomode | `.omc/state/ecomode-state.json` | 토큰 절약 모드 해제 |
 | hulw | `.omc/state/hulw-state.json` | 하이브리드 모드 해제 |
 | team | `.omc/state/team-state.json` | 팀 협업 모드 해제 (v4.1.16+) |
 | swarm | `.omc/state/swarm-state.json` | 에이전트 풀 해제 (레거시) |

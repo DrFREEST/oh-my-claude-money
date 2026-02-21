@@ -40,6 +40,59 @@ const DEFAULT_FALLBACK = {
   model: 'sonnet',
 };
 
+function isObjectMapping(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function inferTierFromDefaultModel(defaultModel) {
+  if (defaultModel === 'opus') {
+    return 'HIGH';
+  }
+  if (defaultModel === 'haiku') {
+    return 'LOW';
+  }
+  return 'MEDIUM';
+}
+
+function normalizeMappingRules(mappings) {
+  if (Array.isArray(mappings)) {
+    return mappings;
+  }
+
+  if (!isObjectMapping(mappings)) {
+    return null;
+  }
+
+  const normalized = [];
+
+  for (const sourceKey of Object.keys(mappings)) {
+    if (sourceKey.indexOf('_comment') === 0) {
+      continue;
+    }
+
+    const entry = mappings[sourceKey];
+    if (!isObjectMapping(entry)) {
+      continue;
+    }
+
+    const target = entry.target || entry.omo_agent;
+    if (!target) {
+      continue;
+    }
+
+    normalized.push({
+      source: Array.isArray(entry.source) ? entry.source : [sourceKey],
+      target,
+      provider: entry.provider || 'mcp',
+      model: entry.model || entry.default_model || 'gpt-4',
+      tier: entry.tier || inferTierFromDefaultModel(entry.default_model),
+      reason: entry.reason || entry.description || 'Dynamic mapping',
+    });
+  }
+
+  return normalized;
+}
+
 // =============================================================================
 // 매핑 파일 찾기
 // =============================================================================
@@ -62,13 +115,22 @@ function loadMappingFile(filePath) {
     const content = readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(content);
 
-    // 기본 구조 검증
-    if (!parsed.mappings || !Array.isArray(parsed.mappings)) {
-      console.error('[OMCM] Invalid mapping file: missing mappings array');
+    // 기본 구조 검증 (배열 + 객체형 mappings 하위호환)
+    if (!parsed.mappings) {
+      console.error('[OMCM] Invalid mapping file: missing mappings');
       return null;
     }
 
-    return parsed;
+    const normalizedMappings = normalizeMappingRules(parsed.mappings);
+    if (!normalizedMappings) {
+      console.error('[OMCM] Invalid mapping file: mappings must be an array or object');
+      return null;
+    }
+
+    return {
+      ...parsed,
+      mappings: normalizedMappings,
+    };
   } catch (e) {
     console.error(`[OMCM] Failed to load mapping file: ${e.message}`);
     return null;
@@ -147,7 +209,7 @@ export function getAgentMapping(sourceAgent) {
     if (rule.source.includes(sourceAgent)) {
       return {
         target: rule.target,
-        provider: rule.provider || 'opencode',
+        provider: rule.provider || 'mcp',
         model: rule.model || 'gpt-4',
         tier: rule.tier || 'MEDIUM',
         reason: rule.reason || 'Dynamic mapping',
@@ -194,7 +256,7 @@ export function getMappingStats() {
     const count = rule.source.length;
     totalAgents += count;
 
-    const provider = rule.provider || 'opencode';
+    const provider = rule.provider || 'mcp';
     byProvider[provider] = (byProvider[provider] || 0) + count;
 
     const tier = rule.tier || 'MEDIUM';
@@ -235,13 +297,11 @@ export function validateMappingFile(filePath) {
 
     const errors = [];
 
-    // mappings 배열 확인
+    // mappings 확인 (배열 + 객체형 하위호환)
     if (!parsed.mappings) {
-      errors.push('Missing "mappings" array');
-    } else if (!Array.isArray(parsed.mappings)) {
-      errors.push('"mappings" must be an array');
-    } else {
-      // 각 매핑 규칙 검증
+      errors.push('Missing "mappings"');
+    } else if (Array.isArray(parsed.mappings)) {
+      // 배열 규칙 검증
       parsed.mappings.forEach((rule, index) => {
         if (!rule.source || !Array.isArray(rule.source)) {
           errors.push(`Rule ${index}: missing or invalid "source" array`);
@@ -250,6 +310,26 @@ export function validateMappingFile(filePath) {
           errors.push(`Rule ${index}: missing "target"`);
         }
       });
+    } else if (isObjectMapping(parsed.mappings)) {
+      // 객체 규칙 검증
+      const keys = Object.keys(parsed.mappings);
+      for (const key of keys) {
+        if (key.indexOf('_comment') === 0) {
+          continue;
+        }
+
+        const rule = parsed.mappings[key];
+        if (!isObjectMapping(rule)) {
+          errors.push(`Rule "${key}": must be an object`);
+          continue;
+        }
+
+        if (!rule.target && !rule.omo_agent) {
+          errors.push(`Rule "${key}": missing "target" or "omo_agent"`);
+        }
+      }
+    } else {
+      errors.push('"mappings" must be an array or object');
     }
 
     // fallback 확인 (선택적)
@@ -261,7 +341,8 @@ export function validateMappingFile(filePath) {
       return { valid: false, errors };
     }
 
-    return { valid: true, mappings: parsed.mappings.length };
+    const normalizedMappings = normalizeMappingRules(parsed.mappings) || [];
+    return { valid: true, mappings: normalizedMappings.length };
   } catch (e) {
     return { valid: false, error: `JSON parse error: ${e.message}` };
   }

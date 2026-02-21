@@ -18,6 +18,121 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+## v2.1.9 (2026-02-21)
+
+### Added
+- **code-simplifier 에이전트 래퍼** (`agents/code-simplifier.md`) — OMC v4.3.0 신규 에이전트 호환
+  - 코드 단순화 및 리팩토링 전문가 (Opus 기반)
+  - 기능 보존하며 가독성/일관성/유지보수성 개선
+- **agent-mapping.json refactoring 레인 추가** — code-simplifier 퓨전 매핑 등록
+- **configure-slack 스킬/커맨드** (`skills/configure-slack/`, `commands/configure-slack.md`) — OMC v4.3.0 신규 스킬 호환
+  - Slack 인커밍 웹훅 알림 자연어 설정
+- **PostToolUseFailure 훅** (`hooks/post-tool-failure.mjs`) — OMC v4.3.0 신규 훅 이벤트 대응
+  - 도구 실패 시 `.omc/state/last-tool-error.json`에 기록, 재시도 횟수 추적
+
+### Changed
+- OMC 호환 버전 4.2.15 → 4.3.0 업데이트
+- `scripts/check-omc-compat.mjs` 소스 경로 `/tmp/omc_429_clone` → `/tmp/omc_430_clone` 갱신
+- `scripts/agent-mapping.json` 메타데이터 버전 갱신 (v4.0.0 → v4.1.0)
+- 전체 에이전트 수 29 → 30개
+- docs 전체 OMC 버전 참조 4.2.15 → 4.3.0 일괄 업데이트
+
+### Compatibility
+- **OMC**: v4.3.0
+- **Claude Code**: v1.0.33+
+
+## v2.1.8 (2026-02-20)
+
+### Added
+- **CCG 스킬 래퍼** (`skills/ccg/`) — OMC v4.2.15 신규 스킬 호환
+  - Claude-Codex-Gemini 트리-모델 오케스트레이션
+  - OMCM MCP-First 아키텍처와 자동 통합 (ask_codex + ask_gemini)
+  - 키워드: `ccg`, `claude-codex-gemini`
+
+### Changed
+- **ecomode 완전 폐기** — OMC v4.2.15 공식 deprecation 반영
+  - keyword-detector에서 eco/ecomode 키워드 제거
+  - persistent-mode에서 ecomode 상태 처리 제거
+  - cancel 스킬에서 ecomode 언급 제거
+- OMC 호환 버전 4.2.12 → 4.2.15 업데이트
+- 소스/문서 OMC 버전 참조 일괄 업데이트
+
+### Compatibility
+- **OMC**: v4.2.15
+- **Claude Code**: v1.0.33+
+
+## v2.1.7 (2026-02-18)
+
+### Changed
+- **OMC v4.2.12 전면 호환**
+  - Sonnet 4.5 → Sonnet 4.6 모델 ID 업데이트 (`claude-sonnet-4-6-20260217`)
+  - mode registry ecomode 추가 반영
+  - CC native command 충돌 방지 (`omc-` prefix) 인지
+  - `research` → `sciomc` 키워드 매핑 변경 반영
+  - 크로스 플랫폼 `pathToFileURL()` 호환
+  - ralplan consensus 모드 개선 (re-review loop + clear context)
+  - interop 모듈 (OMC↔OMX MCP bridge) 신규 추가 인지
+- 소스/문서 OMC 버전 참조 4.2.11 → 4.2.12 일괄 업데이트
+- docs/ko + docs/en OMC 호환 버전 4.2.9 → 4.2.12 일괄 업데이트
+
+### Compatibility
+- **OMC**: v4.2.12
+- **Claude Code**: v1.0.33+
+
+## [2.1.6] - 2026-02-18
+
+### 호환성 업데이트 (Compatibility)
+- **OMC v4.2.11 전면 호환** — OMC v4.2.7→v4.2.11 모든 변경사항 반영
+
+### 제거 (Removed)
+- **Ecomode 완전 폐기** — OMC v4.2.10에서 deprecated된 ecomode를 완전 제거
+  - `skills/ecomode/SKILL.md`, `commands/ecomode.md` 삭제
+  - 라우팅 규칙, 상태 관리, 모드 감지, 키워드 감지에서 ecomode 참조 제거
+  - 관련 테스트 케이스 제거 및 테스트 카운트 조정
+- **OpenCode CLI 완전 제거** — MCP-First(ask_codex/ask_gemini) 아키텍처로 완전 전환
+  - 삭제된 파일: `opencode-executor.mjs`, `opencode-server.mjs`, `opencode-worker.mjs`, `skills/opencode/SKILL.md`, `commands/opencode.md`, `tests/unit/opencode-executor.test.mjs`
+  - 전체 코드베이스 OpenCode→MCP 리네이밍: `shouldRouteToOpenCode`→`shouldRouteToMcp`, `mapAgentToOpenCode`→`mapAgentToMcp`, `buildOpenCodeCommand`→`buildMcpCallDescriptor`, `opencodeTasks`→`mcpTasks`, `routedToOpenCode`→`routedToMcp` 등
+  - 라우팅 target `'opencode'`→`'mcp'`, provider `'opencode'`→`'mcp'`
+  - 하위 호환 별칭 유지: `logOpenCodeCall`, `serializeForOpenCode`, `syncToOpenCode`
+
+### 수정 (Fixed)
+- **퓨전 라우팅 크래시 수정** — `fusion-router-main.mjs`가 존재하지 않는 `shouldRouteToOpenCode` import로 인해 훅이 크래시, 모든 Task가 Claude로 통과되던 문제 수정
+- **`distribution.opencodeTasks` 버그 수정** — task-router가 `mcpTasks`로 변경했지만 hybrid-ultrawork/parallel-executor의 consumer가 미변경, MCP 태스크가 드롭되던 문제 수정
+- **`updateFusionState` byProvider 미초기화 수정** — MCP-First 섹션이 부분 상태만 기록하면 `byProvider` 접근 시 undefined 에러 발생, 방어적 초기화 추가
+- `provider-limits.test.mjs` 기존 실패 수정 (353/353 전체 통과)
+
+### 변경 (Changed)
+- `package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` 버전/호환 표기 갱신: `2.1.5` → `2.1.6`, OMC 호환 `4.2.9` → `4.2.11`
+- `scripts/agent-mapping.json` `omc_version`을 `4.2.11`, `omcm_version`을 `2.1.6`으로 갱신
+- 소스 코드 버전 코멘트 일괄 갱신 (agent-fusion-map, fusion-router-logic, task-router, model-advisor)
+- 테스트 데이터 OpenCode→MCP 전환 (tracking, context, schema, rules 테스트)
+- 문서 18파일(ko/en) OpenCode→MCP CLI 참조 전환
+
+### 검증 (Verification)
+- `npm test` 전체 통과 확인 (353/353, 0 fail)
+- ecomode 관련 참조 0건 확인 (src/ 디렉토리)
+- `opencodeTasks`, `opencodePercent`, `target === 'opencode'` 참조 0건 확인 (src/)
+- 퓨전 라우팅 실 동작 검증: architect→ask_codex, designer→ask_gemini, O/G 카운트 정상 증가
+- researcher backward-compat alias 유지 확인
+
+### 호환성 (Compatibility)
+- **OMC**: v4.2.11
+
+## [2.1.5] - 2026-02-14
+
+### 호환성 업데이트 (Compatibility)
+- **OMC v4.2.9 호환** — OMC v4.2.9 기준 메타데이터/키워드 규칙 동기화
+
+### 변경 (Changed)
+- `package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` 버전/호환 표기 갱신: `2.1.4` → `2.1.5`, OMC 호환을 `4.2.9`로 업데이트
+- `scripts/agent-mapping.json` `omc_version`을 `4.2.9`, `omcm_version`을 `2.1.5`로 갱신하고 `last_updated`를 `2026-02-14`로 갱신
+- ecomode 트리거 규칙을 OMC 4.2.9 기준으로 조정: `efficient`, `budget`, 단독 `eco` 트리거 제거
+
+### 호환성 (Compatibility)
+- **OMC**: v4.2.9
+
 ## [2.1.4] - 2026-02-13
 
 ### 호환성 업데이트 (Compatibility)
@@ -323,7 +438,7 @@ All notable changes to this project will be documented in this file.
   - `output_file` 필수 파라미터 지원 (Breaking Change 대응)
   - `writePromptFile()` 반환값에 `outputFile` 추가
 - **모델 폴백 체인** (`scripts/agent-mapping.json`)
-  - `codex_fallback_chain`: gpt-5.3-codex → gpt-5.3 → gpt-5.2-codex → gpt-5.2
+  - `codex_fallback_chain`: gpt-5.3-codex → gpt-5.3 → gpt-5.3-codex → gpt-5.3
   - `gemini_fallback_chain`: gemini-3-pro-preview → gemini-3-flash-preview → gemini-2.5-pro → gemini-2.5-flash
   - `metadata.omc_version`: 4.0.8
 
@@ -361,7 +476,7 @@ All notable changes to this project will be documented in this file.
 - cancel
 
 ### 마이그레이션 가이드
-- v0.8.0에서 v1.0.0으로 업그레이드 시 추가 작업 불필요
+- v0.8.0에서 v2.1.5으로 업그레이드 시 추가 작업 불필요
 - 신규 기능은 선택적 사용 (기존 API 100% 호환)
 - 추천: 컨텍스트 전달 시스템으로 핸드오프 품질 향상
 
@@ -410,7 +525,7 @@ All notable changes to this project will be documented in this file.
 
 ### 추가 (Added)
 - **에이전트 매핑 확장**: 3개 에이전트 추가 (OMC 33개 중 32개 커버)
-  - `qa-tester-low`: Gemini Flash - 빠른 QA 테스트
+  - `qa-tester-low`: Gemini 3 Flash - 빠른 QA 테스트
   - `researcher-high`: Claude Opus - 심층 연구 및 복잡한 문서 분석
   - `build-fixer-high`: Claude Opus - 복잡한 빌드/컴파일 오류 해결
 - **cancel 스킬**: 모든 활성 OMCM 모드 통합 취소
@@ -453,7 +568,7 @@ All notable changes to this project will be documented in this file.
 
 ### 변경 (Changed)
 - **Google 프로바이더 모델 변경**: Antigravity 모델로 업그레이드
-  - `gemini-flash` → `google/antigravity-gemini-3-flash`
+  - `gemini-3-flash` → `google/antigravity-gemini-3-flash`
   - `gemini-pro` → `google/antigravity-gemini-3-pro-high`
 - **fusion-router.mjs**: OpenCode 실행 시 `-m` 옵션으로 모델 명시
 
@@ -468,8 +583,8 @@ All notable changes to this project will be documented in this file.
 ### 추가 (Added)
 - **에이전트 퓨전 매핑 v2.0**: OMC 29개 에이전트 → OMO 에이전트 티어별 매핑
   - HIGH (11개): Claude Opus 유지 (architect, planner, critic 등)
-  - MEDIUM (10개): **gpt-5.2-codex** (thinking) - executor, researcher, designer 등
-  - LOW (8개): **gemini-3.0-flash** (thinking) - explore, writer, *-low 에이전트들
+  - MEDIUM (10개): **gpt-5.3-codex** (thinking) - executor, researcher, designer 등
+  - LOW (8개): **gemini-3-flash** (thinking) - explore, writer, *-low 에이전트들
 - **Claude 토큰 절약률 62%**: 기존 39%에서 대폭 향상
 - **Thinking 모드 기본 활성화**: 모든 외부 모델에서 thinking 모드 사용
 
@@ -518,7 +633,7 @@ All notable changes to this project will be documented in this file.
   - 변경: `opencode run --agent Codex prompt` (올바른 서브커맨드 및 플래그)
 - **프롬프트 전달 방식 개선**: stdin 대신 positional argument로 전달
 - **Hook 파일 동기화**: 개발 버전과 설치된 버전 불일치 문제 해결
-- **[P0] Gemini Flash 라우팅 수정**: Claude 90%+ 시에도 에이전트 매핑 존중
+- **[P0] Gemini 3 Flash 라우팅 수정**: Claude 90%+ 시에도 에이전트 매핑 존중
   - 이전: Claude 리밋 도달 시 모든 에이전트가 무조건 Codex로 라우팅
   - 변경: explore → Flash, architect → Oracle 등 에이전트별 매핑 유지
 - **HUD 표시 개선**: API 사용량(%) 대신 라우팅 카운트 표시
@@ -640,7 +755,7 @@ All notable changes to this project will be documented in this file.
 ### 추가 (Added)
 - **독립 HUD 래퍼**: OMC HUD를 수정하지 않고 퓨전 메트릭 표시
 - **프로바이더 리밋 추적**: Claude(OAuth), OpenAI(헤더), Gemini(로컬 카운팅) 실시간 추적
-- **자동 폴백 오케스트레이터**: Claude 90% 도달 시 GPT-5.2-Codex로 자동 전환
+- **자동 폴백 오케스트레이터**: Claude 90% 도달 시 GPT-5.3-Codex로 자동 전환
 - **Handoff 컨텍스트**: 프로바이더 전환 시 `~/.omcm/handoff/context.md` 자동 생성
 - **PreToolUse Hook**: Claude Code Task 호출 자동 라우팅
 - **OpenCode 자동 실행**: 폴백 활성화 시 실제 OpenCode로 작업 실행
@@ -662,7 +777,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Independent HUD Wrapper**: Display fusion metrics without modifying OMC HUD
 - **Provider Rate Limit Tracking**: Real-time tracking for Claude (OAuth), OpenAI (headers), Gemini (local counting)
-- **Automatic Fallback Orchestrator**: Auto-switch to GPT-5.2-Codex when Claude reaches 90%
+- **Automatic Fallback Orchestrator**: Auto-switch to GPT-5.3-Codex when Claude reaches 90%
 - **Handoff Context**: Auto-generate `~/.omcm/handoff/context.md` on provider switch
 - **PreToolUse Hook**: Automatic routing of Claude Code Task calls
 - **OpenCode Auto-Execution**: Execute tasks via OpenCode when fallback is active

@@ -1,14 +1,16 @@
-# OMCM (oh-my-claude-money) v1.0.0 Architecture
+# OMCM (oh-my-claude-money) v2.1.5 Architecture
+
+> **Version Baseline (OMC 4.2.15):** This document uses `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, and `gemini-3-pro` as defaults. Legacy aliases such as `researcher`, `tdd-guide`, and `*-low`/`*-medium` appear only for backward compatibility.
 
 ## Overview
 
-OMCM is a Fusion Orchestrator that integrates Claude Code and OpenCode. A single Meta-Orchestrator (Claude Opus 4.5) analyzes tasks and routes them to either 32 OMC Agents or OpenCode's Multi-Provider Agents.
+OMCM is a Fusion Orchestrator that integrates Claude Code and OpenCode. A single Meta-Orchestrator (Claude Opus 4.6) analyzes tasks and routes them to either 32 OMC Agents or OpenCode's Multi-Provider Agents.
 
 **Core Goals**: 62% Claude Token Saving + Parallel Processing Performance + Auto Fallback System
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│              Meta-Orchestrator (Claude Opus 4.5)                    │
+│              Meta-Orchestrator (Claude Opus 4.6)                    │
 │                     "Conductor Role"                                │
 ├─────────────────────────────────────────────────────────────────────┤
 │                              ↓                                      │
@@ -67,8 +69,8 @@ shouldRouteToOpenCode(toolInput, options)
   route: true,                      // Whether to route
   reason: 'claude-limit-92%',       // Decision reason
   targetModel: {
-    id: 'gpt-5.2-codex',
-    name: 'GPT-5.2 Codex'
+    id: 'gpt-5.3-codex',
+    name: 'GPT-5.3 Codex'
   },
   opencodeAgent: 'build'           // OpenCode mapped agent (build/explore/general/plan)
 }
@@ -84,21 +86,21 @@ shouldRouteToOpenCode(toolInput, options)
 
 | OMC Agent | OpenCode Agent | Model |
 |-----------|----------------|-------|
-| architect-medium | build | GPT-5.2-Codex |
-| executor | build | GPT-5.2-Codex |
-| explore-medium | explore | GPT-5.2-Codex |
-| designer, researcher, vision | build/general | GPT-5.2-Codex |
-| qa-tester, build-fixer, tdd-guide, scientist | build | GPT-5.2-Codex |
+| architect-medium | build | GPT-5.3-Codex |
+| executor | build | GPT-5.3-Codex |
+| explore-medium | explore | GPT-5.3-Codex |
+| designer, researcher, vision | build/general | GPT-5.3-Codex |
+| qa-tester, build-fixer, tdd-guide, scientist | build | GPT-5.3-Codex |
 
 **LOW Tier (OpenCode FLASH -- 8+ agents):**
 
 | OMC Agent | OpenCode Agent | Model |
 |-----------|----------------|-------|
-| architect-low, executor-low | build | Gemini-3.0-Flash |
-| explore | explore | Gemini-3.0-Flash |
-| designer-low, researcher-low, writer | build/general | Gemini-3.0-Flash |
-| security-reviewer-low, build-fixer-low, tdd-guide-low | build | Gemini-3.0-Flash |
-| code-reviewer-low, scientist-low | build | Gemini-3.0-Flash |
+| architect-low, executor-low | build | Gemini 3 Flash |
+| explore | explore | Gemini 3 Flash |
+| designer-low, researcher-low, writer | build/general | Gemini 3 Flash |
+| security-reviewer-low, build-fixer-low, tdd-guide-low | build | Gemini 3 Flash |
+| code-reviewer-low, scientist-low | build | Gemini 3 Flash |
 
 ### 1.2 CLI Execution Engine (src/executor/cli-executor.mjs)
 
@@ -138,7 +140,7 @@ Request arrives
 var result = await executeViaCLI({
   prompt: 'task instructions',
   provider: 'openai',     // or 'google'
-  model: 'gpt-5.2-codex', // optional
+  model: 'gpt-5.3-codex', // optional
   agent: 'oracle',        // for logging
   timeout: 300000,        // 5min default
   cwd: '/path/to/project'
@@ -399,7 +401,7 @@ Claude Limit Check (5-hour/weekly usage)
 └─ ≥ 90% → Activate fallback
    │
    ├─ Set fallbackActive = true
-   ├─ Set currentModel = GPT-5.2-Codex
+   ├─ Set currentModel = GPT-5.3-Codex
    │
    └─ All subsequent requests
       └─ shouldRouteToOpenCode() → Force OpenCode
@@ -552,7 +554,7 @@ Stop → Stop (persistent-mode)
 ### 4.2 OMC Agent Delegation Structure
 
 ```
-Claude Opus 4.5 (Main Orchestrator)
+Claude Opus 4.6 (Main Orchestrator)
 │
 ├─ Agent invocation
 │  └─ Task(subagent_type='oh-my-claudecode:architect')
@@ -714,26 +716,26 @@ oh-my-claude-money/
 │   └── plugin.json               # Plugin definition
 │
 ├── src/
-│   ├── context/                  # v1.0.0 Context transfer system
+│   ├── context/                  # v2.1.5 Context transfer system
 │   │   ├── context-builder.mjs       # Context building
 │   │   ├── context-serializer.mjs    # JSON serialization
 │   │   ├── context-sync.mjs          # Synchronization
 │   │   └── index.mjs                 # Module exports
 │   │
-│   ├── tracking/                 # v1.0.0 Real-time tracking system
+│   ├── tracking/                 # v2.1.5 Real-time tracking system
 │   │   ├── realtime-tracker.mjs      # RingBuffer-based tracking
 │   │   ├── metrics-collector.mjs     # Metric aggregation
 │   │   └── index.mjs                 # Module exports
 │   │
 │   ├── router/                   # Routing engine
-│   │   ├── balancer.mjs              # v1.0.0 Provider balancing
+│   │   ├── balancer.mjs              # v2.1.5 Provider balancing
 │   │   ├── mapping.mjs               # Dynamic agent mapping
 │   │   ├── cache.mjs                 # LRU cache
 │   │   └── rules.mjs                 # Rules engine
 │   │
 │   ├── orchestrator/              # Orchestration
-│   │   ├── parallel-executor.mjs      # v1.0.0 Parallel executor
-│   │   ├── execution-strategy.mjs     # v1.0.0 Execution strategy
+│   │   ├── parallel-executor.mjs      # v2.1.5 Parallel executor
+│   │   ├── execution-strategy.mjs     # v2.1.5 Execution strategy
 │   │   ├── task-router.mjs            # Task routing
 │   │   ├── agent-fusion-map.mjs       # Agent mapping
 │   │   ├── fallback-orchestrator.mjs  # Fallback orchestrator
@@ -779,7 +781,6 @@ oh-my-claude-money/
 ├── skills/
 │   ├── autopilot/SKILL.md             # Hybrid autopilot
 │   ├── cancel/SKILL.md                # Unified cancel
-│   ├── ecomode/SKILL.md               # Token-efficient mode
 │   ├── hulw/SKILL.md                  # Hybrid ultrawork
 │   ├── hybrid-ultrawork/SKILL.md      # Hybrid ultrawork (alias)
 │   ├── opencode/SKILL.md              # OpenCode handoff
@@ -939,7 +940,7 @@ npm test -- --grep "parallel" # Parallel execution tests only
 
 ## Document Information
 
-**Version**: v1.0.0
+**Version**: v2.1.5
 **Created**: 2026-01-28
 **Target Audience**: OMCM developers and maintainers
 **Language**: English

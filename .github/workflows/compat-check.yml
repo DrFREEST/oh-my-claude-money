@@ -1,0 +1,40 @@
+name: compat-check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prepare OMC 4.2.9 reference
+        run: |
+          set -e
+          rm -rf /tmp/omc_429_clone
+          if git ls-remote --tags https://github.com/Yeachan-Heo/oh-my-claudecode v4.2.9 | grep -q v4.2.9; then
+            git clone --depth 1 --branch v4.2.9 https://github.com/Yeachan-Heo/oh-my-claudecode /tmp/omc_429_clone
+          else
+            git clone --depth 1 https://github.com/Yeachan-Heo/oh-my-claudecode /tmp/omc_429_clone
+          fi
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run compatibility check (strict)
+        run: npm run check:compat -- --strict

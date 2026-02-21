@@ -5,9 +5,6 @@
 // 기본 라우터
 export * from './task-router.mjs';
 
-// OpenCode 워커
-export * from './opencode-worker.mjs';
-
 // 하이브리드 울트라워크
 export * from './hybrid-ultrawork.mjs';
 

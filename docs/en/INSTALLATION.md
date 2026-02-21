@@ -1,4 +1,6 @@
-# OMCM v1.0.0 Installation Guide
+# OMCM v2.1.5 Installation Guide
+
+> **Version Baseline (OMC 4.2.15):** This document uses `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, and `gemini-3-pro` as defaults. Legacy aliases such as `researcher`, `tdd-guide`, and `*-low`/`*-medium` appear only for backward compatibility.
 
 > **oh-my-claude-money** - Claude Code ↔ OpenCode Fusion Orchestrator
 
@@ -100,7 +102,7 @@ brew install opencode
 OMCM supports the following providers.
 
 **Required (choose one or more):**
-- **OpenAI** (for GPT-5.2) or
+- **OpenAI** (for GPT-5.3) or
 - **Google** (for Gemini) or
 - Both (recommended)
 
@@ -259,8 +261,8 @@ opencode auth status
 Example output:
 
 ```
-✅ OpenAI (gpt-5.2, gpt-5.2-codex)
-✅ Google (gemini-3.0-pro, gemini-3.0-flash)
+✅ OpenAI (gpt-5.3, gpt-5.3-codex)
+✅ Google (gemini-3-pro, gemini-3-flash)
 ❌ Anthropic (not configured)
 ```
 
@@ -797,6 +799,20 @@ claude
 - [FEATURES.md](./FEATURES.md) - Feature guide and usage examples
 - [SKILLS-REFERENCE.md](./SKILLS-REFERENCE.md) - Skills reference
 
+### 4. Validate OMC 4.2.15 Compatibility (Recommended)
+
+```bash
+# Strict compatibility validation
+node scripts/check-omc-compat.mjs --source /tmp/omc_429_clone --strict
+
+# Auto-sync missing wrappers (agents/skills/commands)
+node scripts/sync-omc-compat.mjs --source /tmp/omc_429_clone
+
+# Package script shortcuts
+npm run check:compat
+npm run sync:compat
+```
+
 ---
 
 ## Support
@@ -817,8 +833,8 @@ MIT License - see [LICENSE](../LICENSE) file for details
 
 ## Version
 
-- **OMCM**: v1.0.0
-- **Minimum Node.js**: 18+
+- **OMCM**: v2.1.5
+- **Minimum Node.js**: 20+
 - **Minimum Claude Code**: latest
 - **Minimum OpenCode**: latest
 

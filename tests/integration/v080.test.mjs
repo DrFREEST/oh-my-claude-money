@@ -1,7 +1,7 @@
 /**
  * v080.test.mjs - v0.8.0 통합 테스트
  *
- * shouldRouteToOpenCodeV2 함수의 통합 동작 테스트
+ * shouldRouteToMcpV2 함수의 통합 동작 테스트
  */
 
 import { test, describe, beforeEach } from 'node:test';
@@ -12,9 +12,9 @@ import { homedir } from 'os';
 
 // 테스트 대상 모듈
 import {
-  shouldRouteToOpenCode,
-  shouldRouteToOpenCodeV2,
-  mapAgentToOpenCode,
+  shouldRouteToMcp,
+  shouldRouteToMcpV2,
+  mapAgentToMcp,
   getModelInfoForAgent,
   FUSION_STATE_FILE,
   FALLBACK_STATE_FILE,
@@ -25,51 +25,51 @@ import { invalidateAllCache } from '../../src/router/cache.mjs';
 import { invalidateRulesCache } from '../../src/router/rules.mjs';
 import { invalidateMappingCache } from '../../src/router/mapping.mjs';
 
-describe('mapAgentToOpenCode', () => {
+describe('mapAgentToMcp', () => {
   test('architect → Oracle', () => {
-    assert.strictEqual(mapAgentToOpenCode('architect'), 'Oracle');
+    assert.strictEqual(mapAgentToMcp('architect'), 'codex-oracle');
   });
 
   test('explore → Flash', () => {
-    assert.strictEqual(mapAgentToOpenCode('explore'), 'Flash');
+    assert.strictEqual(mapAgentToMcp('explore'), 'gemini-flash');
   });
 
   test('designer → Flash', () => {
-    assert.strictEqual(mapAgentToOpenCode('designer'), 'Flash');
+    assert.strictEqual(mapAgentToMcp('designer'), 'gemini-flash');
   });
 
   test('executor → Codex', () => {
-    assert.strictEqual(mapAgentToOpenCode('executor'), 'Codex');
+    assert.strictEqual(mapAgentToMcp('executor'), 'codex-build');
   });
 
   test('unknown → Codex (기본값)', () => {
-    assert.strictEqual(mapAgentToOpenCode('unknown-agent'), 'Codex');
+    assert.strictEqual(mapAgentToMcp('unknown-agent'), 'codex-build');
   });
 });
 
 describe('getModelInfoForAgent', () => {
-  test('Oracle → GPT 5.2', () => {
-    const info = getModelInfoForAgent('Oracle');
-    assert.strictEqual(info.id, 'gpt-5.2');
+  test('codex-oracle → GPT 5.3', () => {
+    const info = getModelInfoForAgent('codex-oracle');
+    assert.strictEqual(info.id, 'gpt-5.3');
   });
 
-  test('explore → Gemini Flash', () => {
-    const info = getModelInfoForAgent('explore');
-    assert.strictEqual(info.id, 'gemini-flash');
+  test('gemini-flash → Gemini Flash', () => {
+    const info = getModelInfoForAgent('gemini-flash');
+    assert.strictEqual(info.id, 'gemini-3-flash');
   });
 
-  test('Codex → GPT 5.2 Codex', () => {
-    const info = getModelInfoForAgent('Codex');
-    assert.strictEqual(info.id, 'gpt-5.2-codex');
+  test('codex-build → GPT 5.3 Codex', () => {
+    const info = getModelInfoForAgent('codex-build');
+    assert.strictEqual(info.id, 'gpt-5.3-codex');
   });
 
-  test('frontend-ui-ux-engineer → Gemini Pro', () => {
-    const info = getModelInfoForAgent('frontend-ui-ux-engineer');
-    assert.strictEqual(info.id, 'gemini-pro');
+  test('gemini-pro → Gemini 3 Pro', () => {
+    const info = getModelInfoForAgent('gemini-pro');
+    assert.strictEqual(info.id, 'gemini-3-pro');
   });
 });
 
-describe('shouldRouteToOpenCode (v0.7.0 호환)', () => {
+describe('shouldRouteToMcp (v0.7.0 호환)', () => {
   beforeEach(() => {
     invalidateAllCache();
     invalidateRulesCache();
@@ -85,7 +85,7 @@ describe('shouldRouteToOpenCode (v0.7.0 호환)', () => {
       config: { fusionDefault: false },
     };
 
-    const result = shouldRouteToOpenCode(toolInput, options);
+    const result = shouldRouteToMcp(toolInput, options);
     assert.strictEqual(result.route, false);
     assert.strictEqual(result.reason, 'fusion-disabled');
   });
@@ -96,13 +96,13 @@ describe('shouldRouteToOpenCode (v0.7.0 호환)', () => {
       fusion: { enabled: true },
       fallback: {
         fallbackActive: true,
-        currentModel: { id: 'gpt-5.2', opencodeAgent: 'Oracle' },
+        currentModel: { id: 'gpt-5.3', mcpAgent: 'oracle' },
       },
       limits: null,
       config: null,
     };
 
-    const result = shouldRouteToOpenCode(toolInput, options);
+    const result = shouldRouteToMcp(toolInput, options);
     assert.strictEqual(result.route, true);
     assert.strictEqual(result.reason, 'fallback-active');
   });
@@ -121,7 +121,7 @@ describe('shouldRouteToOpenCode (v0.7.0 호환)', () => {
       config: null,
     };
 
-    const result = shouldRouteToOpenCode(toolInput, options);
+    const result = shouldRouteToMcp(toolInput, options);
     assert.strictEqual(result.route, true);
     assert.ok(result.reason.includes('claude-limit'));
   });
@@ -135,7 +135,7 @@ describe('shouldRouteToOpenCode (v0.7.0 호환)', () => {
       config: { fusionDefault: true },
     };
 
-    const result = shouldRouteToOpenCode(toolInput, options);
+    const result = shouldRouteToMcp(toolInput, options);
     assert.strictEqual(result.route, true);
     assert.ok(result.reason.includes('fusion-default'));
   });
@@ -149,12 +149,12 @@ describe('shouldRouteToOpenCode (v0.7.0 호환)', () => {
       config: { fusionDefault: true },
     };
 
-    const result = shouldRouteToOpenCode(toolInput, options);
+    const result = shouldRouteToMcp(toolInput, options);
     assert.strictEqual(result.route, false);
   });
 });
 
-describe('shouldRouteToOpenCodeV2 (v0.8.0 신규)', () => {
+describe('shouldRouteToMcpV2 (v0.8.0 신규)', () => {
   beforeEach(() => {
     invalidateAllCache();
     invalidateRulesCache();
@@ -165,7 +165,7 @@ describe('shouldRouteToOpenCodeV2 (v0.8.0 신규)', () => {
     const toolInput = {};
     const context = {};
 
-    const result = shouldRouteToOpenCodeV2(toolInput, context);
+    const result = shouldRouteToMcpV2(toolInput, context);
     assert.strictEqual(result.route, false);
     assert.strictEqual(result.reason, 'no-agent-type');
   });
@@ -176,31 +176,15 @@ describe('shouldRouteToOpenCodeV2 (v0.8.0 신규)', () => {
     const options = { config: { fusionDefault: true } };
 
     // 첫 번째 호출 (캐시 미스)
-    const result1 = shouldRouteToOpenCodeV2(toolInput, context, options);
+    const result1 = shouldRouteToMcpV2(toolInput, context, options);
     assert.strictEqual(result1.fromCache, undefined);
 
     // 두 번째 호출 (캐시 히트)
-    const result2 = shouldRouteToOpenCodeV2(toolInput, context, options);
+    const result2 = shouldRouteToMcpV2(toolInput, context, options);
     assert.strictEqual(result2.fromCache, true);
   });
 
-  test('규칙 엔진 - ecomode 활성화 시 OpenCode 선호', () => {
-    const toolInput = { subagent_type: 'oh-my-claudecode:architect' };
-    const context = {
-      usage: { fiveHour: 50, weekly: 50 },
-      mode: { ecomode: true },
-      task: {},
-    };
-    const options = { config: { fusionDefault: false } };
-
-    invalidateAllCache(); // 캐시 무효화
-
-    const result = shouldRouteToOpenCodeV2(toolInput, context, options);
-    // 규칙 매칭되면 라우팅
-    assert.strictEqual(result.matched || result.route, true);
-  });
-
-  test('규칙 엔진 - 고사용량 시 OpenCode 선호', () => {
+  test('규칙 엔진 - 고사용량 시 MCP 선호', () => {
     const toolInput = { subagent_type: 'oh-my-claudecode:executor' };
     const context = {
       usage: { fiveHour: 95, weekly: 50 },
@@ -211,7 +195,7 @@ describe('shouldRouteToOpenCodeV2 (v0.8.0 신규)', () => {
 
     invalidateAllCache();
 
-    const result = shouldRouteToOpenCodeV2(toolInput, context, options);
+    const result = shouldRouteToMcpV2(toolInput, context, options);
     assert.strictEqual(result.matched || result.route, true);
   });
 });
@@ -225,15 +209,15 @@ describe('전체 라우팅 흐름', () => {
 
     // 첫 번째: 캐시 미스, 규칙 또는 기본 로직 사용
     const context1 = { usage: { fiveHour: 30 }, mode: {}, task: {} };
-    const result1 = shouldRouteToOpenCodeV2(toolInput, context1, { config: { fusionDefault: true } });
+    const result1 = shouldRouteToMcpV2(toolInput, context1, { config: { fusionDefault: true } });
 
     // 같은 컨텍스트로 두 번째: 캐시 히트
-    const result2 = shouldRouteToOpenCodeV2(toolInput, context1, { config: { fusionDefault: true } });
+    const result2 = shouldRouteToMcpV2(toolInput, context1, { config: { fusionDefault: true } });
     assert.strictEqual(result2.fromCache, true);
 
     // 다른 컨텍스트: 캐시 미스
     const context2 = { usage: { fiveHour: 95 }, mode: {}, task: {} };
-    const result3 = shouldRouteToOpenCodeV2(toolInput, context2, { config: { fusionDefault: true } });
+    const result3 = shouldRouteToMcpV2(toolInput, context2, { config: { fusionDefault: true } });
     assert.strictEqual(result3.fromCache, undefined);
   });
 });

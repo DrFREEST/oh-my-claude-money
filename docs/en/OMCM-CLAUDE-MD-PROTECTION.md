@@ -1,5 +1,7 @@
 # OMCM CLAUDE.md Protection Guide
 
+> **Version Baseline (OMC 4.2.15):** This document uses `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, and `gemini-3-pro` as defaults. Legacy aliases such as `researcher`, `tdd-guide`, and `*-low`/`*-medium` appear only for backward compatibility.
+
 ## Problem
 
 When OMC (oh-my-claudecode) is updated, the `~/.claude/CLAUDE.md` file may be overwritten.
@@ -139,7 +141,7 @@ Full MCP routing table: see `~/.claude/docs/omc-ref.md`.
 | architect, debugger | Oracle | GPT |
 | designer, vision | Frontend Engineer | Gemini |
 | analyst, scientist, code-reviewer, security-reviewer | Oracle | GPT |
-| writer, style-reviewer | General | Gemini Flash |
+| writer, style-reviewer | General | Gemini 3 Flash |
 
 ## Fusion Activation
 

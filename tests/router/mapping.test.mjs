@@ -73,7 +73,7 @@ describe('validateMappingFile', () => {
         {
           source: ['architect'],
           target: 'Oracle',
-          provider: 'opencode',
+          provider: 'mcp',
         },
       ],
     };

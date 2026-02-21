@@ -1,7 +1,7 @@
 /**
  * prompt-file.mjs - OMC v4.0.10 Prompt-file 시스템 호환 유틸리티
  *
- * OMCM이 OpenCode로 라우팅할 때도 prompt-file 시스템을 활용하여
+ * OMCM이 MCP(ask_codex/ask_gemini)로 라우팅할 때 prompt-file 시스템을 활용하여
  * OMC의 감사 추적과 호환되는 프롬프트 파일을 생성합니다.
  *
  * OMC 4.0.8+ Breaking Changes:

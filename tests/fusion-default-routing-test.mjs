@@ -18,7 +18,7 @@ function readJsonFile(filepath) {
   catch (e) { return null; }
 }
 
-function mapAgentToOpenCode(agentType) {
+function mapAgentToMcp(agentType) {
   var mapping = {
     'architect': 'Oracle',
     'executor': 'Codex',
@@ -56,7 +56,7 @@ function mapAgentToOpenCode(agentType) {
 }
 
 // 라우팅 결정 함수 (fusion-router.mjs에서 가져옴)
-function shouldRouteToOpenCode(toolInput) {
+function shouldRouteToMcp(toolInput) {
   var fusion = readJsonFile(FUSION_STATE_FILE);
   var fallback = readJsonFile(FALLBACK_STATE_FILE);
   var config = readJsonFile(CONFIG_FILE);
@@ -92,7 +92,7 @@ function shouldRouteToOpenCode(toolInput) {
         route: true,
         reason: fusionDefault ? 'fusion-default-' + agentType : 'token-saving-agent-' + agentType,
         targetModel: { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
-        opencodeAgent: mapAgentToOpenCode(agentType)
+        mcpAgent: mapAgentToMcp(agentType)
       };
     }
   }
@@ -142,14 +142,14 @@ var passed = 0;
 var failed = 0;
 
 testCases.forEach(function(tc) {
-  var result = shouldRouteToOpenCode(tc);
+  var result = shouldRouteToMcp(tc);
   var actualRoute = result.route ? 'route' : 'no-route';
   var status = actualRoute === tc.expected ? '✅' : '❌';
 
   if (actualRoute === tc.expected) passed++;
   else failed++;
 
-  var info = result.route ? ' → ' + result.opencodeAgent : '';
+  var info = result.route ? ' → ' + result.mcpAgent : '';
   console.log(status + ' ' + tc.desc + info);
 
   if (actualRoute !== tc.expected) {

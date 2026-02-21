@@ -1,5 +1,7 @@
 # Troubleshooting
 
+> **Version Baseline (OMC 4.2.15):** This document uses `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, and `gemini-3-pro` as defaults. Legacy aliases such as `researcher`, `tdd-guide`, and `*-low`/`*-medium` appear only for backward compatibility.
+
 Comprehensive guide providing all common issues and solutions for **oh-my-claude-money (OMCM)**.
 
 ---
@@ -7,7 +9,7 @@ Comprehensive guide providing all common issues and solutions for **oh-my-claude
 ## Table of Contents
 
 1. [Installation Issues](#1-installation-issues)
-2. [OpenCode Connection Issues](#2-opencode-connection-issues)
+2. [MCP CLI Connection Issues](#2-mcp-cli-connection-issues)
 3. [Fusion Routing Issues](#3-fusion-routing-issues)
 4. [HUD Display Issues](#4-hud-display-issues)
 5. [CLI Execution Issues](#5-cli-execution-issues)
@@ -51,9 +53,9 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 ---
 
-### 1.2 OpenCode Not Found
+### 1.2 Codex/Gemini CLI Not Found
 
-**Symptoms**: `opencode: command not found`
+**Symptoms**: `codex: command not found` or `gemini: command not found`
 
 **Solution Steps**:
 
@@ -62,20 +64,22 @@ curl -fsSL https://claude.ai/install.sh | bash
 hash -r
 
 # Step 2: Verify installation
-opencode --version
+codex --version
+gemini --version
 
 # If not installed, reinstall
-npm uninstall -g opencode-ai
-npm install -g opencode-ai@latest
+npm install -g @openai/codex
+npm install -g @google/gemini-cli
 
 # Step 3: Open new terminal and verify
-opencode --version
+codex --version
+gemini --version
 ```
 
-**macOS Homebrew Users**:
+**Authenticate via environment variables**:
 ```bash
-brew install opencode
-opencode --version
+export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="AIza..."
 ```
 
 ---
@@ -168,9 +172,9 @@ cat ~/.omcm/install.log  # if exists
 
 ---
 
-## 2. OpenCode Connection Issues
+## 2. MCP CLI Connection Issues
 
-### 2.1 Provider Authentication Failed
+### 2.1 MCP CLI Provider Authentication Failed
 
 **Symptoms**: `Authentication failed` or `Invalid credentials`
 
@@ -178,20 +182,21 @@ cat ~/.omcm/install.log  # if exists
 
 ```bash
 # Step 1: Check authentication status
-opencode auth status
+codex auth status
+gemini auth status
 
 # Step 2: Re-authenticate providers
-opencode auth login
+codex auth login    # OpenAI
+gemini auth login   # Google
 
-# Step 3: Authenticate specific provider if needed
-opencode auth login openai   # OpenAI
-opencode auth login google   # Google
-opencode auth login anthropic # Anthropic
+# Step 3: Set environment variables (alternative)
+export OPENAI_API_KEY="sk-proj-..."
+export GOOGLE_API_KEY="AIza..."
 ```
 
 **Auth Status Interpretation**:
 ```
-✅ OpenAI (gpt-5.2, gpt-5.2-codex)      # OK
+✅ OpenAI (gpt-5.3, gpt-5.3-codex)      # OK
 ❌ Google (not configured)               # Not configured
 ⚠️ Anthropic (expired)                   # Expired
 ```
@@ -235,7 +240,7 @@ source ~/.bashrc
 
 ### 2.3 Model Not Available
 
-**Symptoms**: `Model gpt-5.2 not available for your API key` or similar
+**Symptoms**: `Model gpt-5.3 not available for your API key` or similar
 
 **Cause**: API key lacks access to the model
 
@@ -252,9 +257,9 @@ source ~/.bashrc
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "preferOpencode": ["explore", "designer"],
+    "preferMcp": ["explore", "designer"],
     "models": {
-      "openai": "gpt-4o",          # Use instead of gpt-5.2
+      "openai": "gpt-4o",          # Use instead of gpt-5.3
       "google": "gemini-2.0-flash"  # Use instead of gemini-pro
     }
   }
@@ -278,13 +283,12 @@ which gemini
 # Step 2: Re-authenticate
 codex auth login
 # or
-opencode auth login openai
-opencode auth login google
+codex auth login
+gemini auth login
 
 # Step 3: Verify authentication
 codex auth status
-# or
-opencode auth status
+gemini auth status
 
 # Step 4: Test CLI execution
 codex exec "test prompt" --json --full-auto
@@ -295,7 +299,7 @@ gemini -p=. "test prompt"
 
 ## 3. Fusion Routing Issues
 
-### 3.1 hulw Not Routing to OpenCode
+### 3.1 hulw Not Routing to MCP CLI
 
 **Symptoms**: Using `hulw` keyword but only Claude is used
 
@@ -376,9 +380,9 @@ EOF
 
 ---
 
-### 3.3 OpenCode Timeout
+### 3.3 MCP CLI Timeout
 
-**Symptoms**: `OpenCode request timeout after 300000ms`
+**Symptoms**: `MCP CLI request timeout after 300000ms`
 
 **Cause**: Task too large or slow network
 
@@ -388,9 +392,8 @@ EOF
 # Step 1: Increase timeout
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
-  "opencode": {
-    "timeout": 600000,  # Increase to 10 minutes (default 5 minutes)
-    "command": "opencode"
+  "mcp": {
+    "timeout": 600000  # Increase to 10 minutes (default 5 minutes)
   }
 }
 EOF
@@ -535,8 +538,8 @@ npm install -g @openai/codex-cli
 # Install Gemini CLI
 npm install -g @google/gemini-cli
 
-# Or via OpenCode
-opencode --version  # Includes both CLIs
+# Or install both at once
+npm install -g @openai/codex @google/gemini-cli
 ```
 
 **PATH Issues**:
@@ -609,7 +612,7 @@ top -o MEM
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "maxOpencodeWorkers": 2  # Limit concurrent CLI calls
+    "maxMcpWorkers": 2  # Limit concurrent CLI calls
   }
 }
 EOF
@@ -716,7 +719,7 @@ gemini --version
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "maxOpencodeWorkers": 5  # Increase parallel CLI calls
+    "maxMcpWorkers": 5  # Increase parallel CLI calls
   }
 }
 EOF
@@ -741,13 +744,13 @@ ping -c 3 generativelanguage.googleapis.com
 cat > ~/.claude/plugins/omcm/config.json << 'EOF'
 {
   "routing": {
-    "maxOpencodeWorkers": 10,      # Max 10 concurrent operations
+    "maxMcpWorkers": 10,           # Max 10 concurrent operations
     "usageThreshold": 60           # Start distributing early
   },
   "context": {
     "maxContextLength": 100000     # Increase context
   },
-  "opencode": {
+  "mcp": {
     "timeout": 600000             # 10 minute timeout
   }
 }
@@ -800,23 +803,25 @@ claude --version
 claude
 /oh-my-claudecode:version
 
-# OpenCode
-opencode --version
+# MCP CLI (Codex/Gemini)
+codex --version
+gemini --version
 
-# OpenCode providers
-opencode auth status
+# MCP CLI auth status
+codex auth status
+gemini auth status
 ```
 
 ---
 
 ## 9. FAQ
 
-### Q1: What is OpenCode?
+### Q1: What is MCP CLI (ask_codex/ask_gemini)?
 
-**A**: OpenCode is an open-source AI coding agent that allows you to use multiple LLM providers (OpenAI, Google, Anthropic, etc.) through a single interface.
+**A**: MCP (Model Context Protocol) tools that directly invoke Codex CLI (OpenAI) and Gemini CLI (Google) from within Claude Code.
 
-OMCM connects OpenCode with Claude Code to:
-- Process **search, exploration, and analysis tasks** with **OpenCode (GPT/Gemini)**
+OMCM uses MCP tools to:
+- Process **search, exploration, and analysis tasks** with **ask_codex/ask_gemini (GPT/Gemini)**
 - Handle **complex reasoning and implementation** with **Claude Code**
 - Result: **62% Claude token savings**
 
@@ -834,7 +839,7 @@ OMCM connects OpenCode with Claude Code to:
 **Example**:
 ```
 100 hours of work
-├─ 62 hours: OpenCode (GPT/Gemini) → Low cost
+├─ 62 hours: MCP CLI (GPT/Gemini) → Low cost
 └─ 38 hours: Claude Opus → High quality
 
 Result: 62% reduction in Claude usage!
@@ -862,17 +867,18 @@ Result: 62% reduction in Claude usage!
 
 ### Q4: How Are Agents Routed?
 
-**A**: Default routing rules:
+**A**: In OMC 4.2.15 baseline, routing depends on fusion mode and usage. Common defaults:
 
-**Claude (High Quality)**:
-- `architect`, `executor-high`
-- `critic`, `planner`
-- `security-reviewer`
+**Claude-first (execution/decision critical)**:
+- `planner`, `critic`, `product-manager`
+- `executor`, `deep-executor`, `verifier`
+- `qa-tester`, `test-engineer`, `build-fixer`, `git-master`
 
-**OpenCode (Fast, Low-Cost)**:
-- `explore`, `explore-medium`
-- `researcher`, `designer`
-- `writer`, `vision`
+**MCP CLI-preferred (analysis/review/documentation heavy)**:
+- `architect`, `debugger`, `explore`
+- `code-reviewer`, `security-reviewer`, `api-reviewer`, `performance-reviewer`
+- `dependency-expert`, `designer`, `writer`, `document-specialist`, `vision`
+- `analyst`, `ux-researcher`, `information-architect`, `product-analyst`
 
 Custom configuration: `~/.omcm/agent-mapping.json`
 
@@ -883,11 +889,12 @@ Custom configuration: `~/.omcm/agent-mapping.json`
 **A**: Each provider needs to be authenticated only once:
 
 ```bash
-opencode auth login openai   # One-time only
-opencode auth login google   # One-time only
+codex auth login    # OpenAI - One-time only
+gemini auth login   # Google - One-time only
 
 # Reusable after
-opencode auth status        # Check status
+codex auth status   # Check status
+gemini auth status  # Check status
 ```
 
 **Re-auth Required When**:
@@ -902,7 +909,7 @@ opencode auth status        # Check status
 **A**:
 | Feature | ulw (Ultrawork) | fusion |
 |---------|-----------------|--------|
-| **Purpose** | Parallelization within Claude | OMC + OpenCode hybrid |
+| **Purpose** | Parallelization within Claude | OMC + MCP CLI hybrid |
 | **When** | Fast processing needed | Token savings needed |
 | **Models** | Claude only | Claude + GPT/Gemini |
 | **Cost** | High | Low |
@@ -1062,4 +1069,22 @@ If issues persist:
 
 ---
 
-**Last Updated**: 2026-01-28 | **OMCM v1.0.0**
+## OMC 4.2.15 Compatibility Drift Check
+
+If behavior changes after OMC updates, run:
+
+```bash
+# Strict compatibility check
+node scripts/check-omc-compat.mjs --source /tmp/omc_429_clone --strict
+
+# Auto-sync missing wrappers (agents/skills/commands)
+node scripts/sync-omc-compat.mjs --source /tmp/omc_429_clone
+```
+
+CI shortcut:
+
+```bash
+npm run check:compat
+```
+
+**Last Updated**: 2026-02-15 | **OMCM v2.1.5**

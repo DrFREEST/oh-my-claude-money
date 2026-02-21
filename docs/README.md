@@ -24,3 +24,16 @@
 - [README](../README.md) - Project overview
 - [CHANGELOG](../CHANGELOG.md) - Version history
 - [LICENSE](../LICENSE) - MIT License
+
+## OMC 4.2.15 Compatibility Quick Check
+
+```bash
+# 호환성 점검 (strict)
+node scripts/check-omc-compat.mjs --source /tmp/omc_429_clone --strict
+
+# 누락 항목 자동 동기화
+node scripts/sync-omc-compat.mjs --source /tmp/omc_429_clone
+```
+
+- 검수 대상: agents / skills / commands / hooks
+- 핵심 리네임 호환: `sciomc`, `omc-help`, `omc-doctor`

@@ -27,18 +27,18 @@ const RULES_PATHS = [
 
 const DEFAULT_RULES = [
   {
-    id: 'high-usage-opencode',
+    id: 'high-usage-mcp',
     condition: 'usage.fiveHour > 90',
-    action: 'prefer_opencode',
+    action: 'prefer_mcp',
     priority: 100,
-    description: '5시간 사용량 90% 초과 시 OpenCode 우선',
+    description: '5시간 사용량 90% 초과 시 MCP 우선',
   },
   {
-    id: 'weekly-limit-opencode',
+    id: 'weekly-limit-mcp',
     condition: 'usage.weekly > 85',
-    action: 'prefer_opencode',
+    action: 'prefer_mcp',
     priority: 90,
-    description: '주간 사용량 85% 초과 시 OpenCode 우선',
+    description: '주간 사용량 85% 초과 시 MCP 우선',
   },
   {
     id: 'complex-task-claude',
@@ -53,13 +53,6 @@ const DEFAULT_RULES = [
     action: 'prefer_claude',
     priority: 85,
     description: '보안 검토는 Claude 우선',
-  },
-  {
-    id: 'ecomode-opencode',
-    condition: 'mode.ecomode == true',
-    action: 'prefer_opencode',
-    priority: 95,
-    description: 'Ecomode 활성화 시 OpenCode 우선',
   },
 ];
 
@@ -210,7 +203,7 @@ function evaluateCondition(condition, context) {
  * @param {object} context.usage - 사용량 정보 { fiveHour, weekly }
  * @param {object} context.task - 작업 정보 { complexity, type }
  * @param {object} context.agent - 에이전트 정보 { type, tier }
- * @param {object} context.mode - 모드 정보 { ecomode, ralph }
+ * @param {object} context.mode - 모드 정보 { ralph }
  * @returns {object} 라우팅 결정 { action, rule, matched }
  */
 export function evaluateRouting(context) {
@@ -262,18 +255,18 @@ export function evaluateRouting(context) {
  */
 export function interpretAction(action) {
   switch (action) {
-    case 'prefer_opencode':
+    case 'prefer_mcp':
       return {
-        preferredProvider: 'opencode',
+        preferredProvider: 'mcp',
         forceProvider: false,
-        reason: 'Rule: prefer OpenCode',
+        reason: 'Rule: prefer MCP',
       };
 
-    case 'force_opencode':
+    case 'force_mcp':
       return {
-        preferredProvider: 'opencode',
+        preferredProvider: 'mcp',
         forceProvider: true,
-        reason: 'Rule: force OpenCode',
+        reason: 'Rule: force MCP',
       };
 
     case 'prefer_claude':
@@ -334,8 +327,8 @@ export function validateRule(rule) {
   }
 
   const validActions = [
-    'prefer_opencode',
-    'force_opencode',
+    'prefer_mcp',
+    'force_mcp',
     'prefer_claude',
     'force_claude',
     'block',

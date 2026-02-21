@@ -197,7 +197,7 @@ export function inferTaskType(task) {
  * @param {boolean} [task.options.preferServe] - serve 모드 선호
  * @param {boolean} [task.options.preferAcp] - ACP 모드 선호
  * @param {Object} [context] - 실행 컨텍스트
- * @param {boolean} [context.serverRunning] - OpenCode 서버 실행 중 여부
+ * @param {boolean} [context.serverRunning] - 세션 서버 실행 중 여부
  * @param {boolean} [context.acpAvailable] - ACP 사용 가능 여부
  * @param {number} [context.currentSessions] - 현재 활성 세션 수
  * @returns {'run' | 'serve' | 'acp'} 실행 전략
@@ -430,7 +430,7 @@ function generateRecommendation(taskType, strategy, context) {
 
   // 전략별 추천
   if (strategy === STRATEGY.SERVE && !context.serverRunning) {
-    messages.push('OpenCode 서버 시작을 권장합니다: opencode serve --port 4096');
+    messages.push('MCP(ask_codex/ask_gemini)를 통한 세션 유지형 실행을 사용합니다.');
   }
 
   if (strategy === STRATEGY.RUN && taskType === TASK_TYPE.COMPLEX_IMPLEMENTATION) {

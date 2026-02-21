@@ -277,7 +277,7 @@ describe('핸드오프 컨텍스트 테스트', () => {
   test('createHandoffContext() - 기본 동작', () => {
     const options = {
       fromModel: { name: 'Claude Opus 4.5' },
-      toModel: { name: 'OpenCode GPT-4' },
+      toModel: { name: 'MCP GPT-4' },
       reason: 'Rate limit reached',
       currentTask: 'Implement feature X',
       cwd: TEST_PROJECT_PATH

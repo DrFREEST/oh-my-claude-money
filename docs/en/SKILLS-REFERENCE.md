@@ -1,5 +1,7 @@
 # OMCM Skills Reference Guide
 
+> **Version Baseline (OMC 4.2.15):** This document uses `gpt-5.3`, `gpt-5.3-codex`, `gemini-3-flash`, and `gemini-3-pro` as defaults. Legacy aliases such as `researcher`, `tdd-guide`, and `*-low`/`*-medium` appear only for backward compatibility.
+
 This document provides detailed documentation for all skills in oh-my-claude-money (OMCM). Learn about triggers, usage, and behaviors at a glance.
 
 ---
@@ -9,10 +11,9 @@ This document provides detailed documentation for all skills in oh-my-claude-mon
 1. [autopilot (Hybrid Autopilot)](#1-autopilot-hybrid-autopilot)
 2. [ulw (Ultrawork with Auto Fusion)](#2-ulw-ultrawork-with-auto-fusion)
 3. [hulw (Hybrid Ultrawork)](#3-hulw-hybrid-ultrawork)
-4. [ecomode (Token Efficiency Mode)](#4-ecomode-token-efficiency-mode)
-5. [ralph (Persist Until Complete)](#5-ralph-persist-until-complete)
-6. [opencode (OpenCode Transition)](#6-opencode-opencode-transition)
-7. [cancel (Unified Cancel)](#7-cancel-unified-cancel)
+4. [ralph (Persist Until Complete)](#4-ralph-persist-until-complete)
+5. [opencode (OpenCode Transition)](#5-opencode-opencode-transition)
+6. [cancel (Unified Cancel)](#6-cancel-unified-cancel)
 8. [Skill Combinations and Best Practices](#skill-combinations-and-best-practices)
 
 ---
@@ -69,10 +70,10 @@ OMCM automatically routes agents as follows:
 |-------|-----------|------|----------------|-------|
 | Requirements Analysis | analyst | HIGH | Claude (retained) | Opus |
 | Planning | planner | HIGH | Claude (retained) | Opus |
-| Code Exploration | explore | LOW | OpenCode explore | Gemini Flash |
-| UI Implementation | designer | MEDIUM | OpenCode build | GPT-5.2-Codex |
-| Research | researcher | MEDIUM | OpenCode build | GPT-5.2-Codex |
-| Implementation | executor | MEDIUM | OpenCode build | GPT-5.2-Codex |
+| Code Exploration | explore | LOW | OpenCode explore | Gemini 3 Flash |
+| UI Implementation | designer | MEDIUM | OpenCode build | GPT-5.3-Codex |
+| Research | researcher | MEDIUM | OpenCode build | GPT-5.3-Codex |
+| Implementation | executor | MEDIUM | OpenCode build | GPT-5.3-Codex |
 | Final Verification | architect | HIGH | Claude (retained) | Opus |
 
 ### Important: Parallel Processing Rules
@@ -141,14 +142,14 @@ OMCM automatically routes based on usage and settings:
 
 | OMC Agent | Fusion Target | Model |
 |-----------|---------------|-------|
-| explore, explore-medium | OpenCode explore | Gemini Flash / GPT-5.2 |
-| architect-medium | OpenCode build | GPT-5.2-Codex |
-| researcher | OpenCode build | GPT-5.2-Codex |
-| researcher-low | OpenCode explore | Gemini Flash |
-| designer, designer-low | OpenCode build | GPT-5.2-Codex / Gemini Flash |
-| writer | OpenCode general | Gemini Flash |
-| vision | OpenCode build | GPT-5.2-Codex |
-| executor, executor-low | OpenCode build | GPT-5.2-Codex / Gemini Flash |
+| explore, explore-medium | OpenCode explore | Gemini 3 Flash / GPT-5.3 |
+| architect-medium | OpenCode build | GPT-5.3-Codex |
+| researcher | OpenCode build | GPT-5.3-Codex |
+| researcher-low | OpenCode explore | Gemini 3 Flash |
+| designer, designer-low | OpenCode build | GPT-5.3-Codex / Gemini 3 Flash |
+| writer | OpenCode general | Gemini 3 Flash |
+| vision | OpenCode build | GPT-5.3-Codex |
+| executor, executor-low | OpenCode build | GPT-5.3-Codex / Gemini 3 Flash |
 
 ### Notification Messages
 
@@ -211,10 +212,10 @@ completely refactor this project hulw
 
 | Task Type | Routing | Model | Savings |
 |-----------|---------|-------|---------|
-| Architecture analysis (architect-medium) | OpenCode build | GPT-5.2-Codex | Yes |
-| Code exploration (explore) | OpenCode explore | Gemini Flash | Yes |
-| UI work (designer) | OpenCode build | GPT-5.2-Codex | Yes |
-| Research (researcher) | OpenCode build | GPT-5.2-Codex | Yes |
+| Architecture analysis (architect-medium) | OpenCode build | GPT-5.3-Codex | Yes |
+| Code exploration (explore) | OpenCode explore | Gemini 3 Flash | Yes |
+| UI work (designer) | OpenCode build | GPT-5.3-Codex | Yes |
+| Research (researcher) | OpenCode build | GPT-5.3-Codex | Yes |
 | Complex implementation (executor-high) | Claude | Opus | - |
 | Strategic planning (planner) | Claude | Opus | - |
 | Plan critique (critic) | Claude | Opus | - |
@@ -239,97 +240,7 @@ completely refactor this project hulw
 
 ---
 
-## 4. ecomode (Token Efficiency Mode)
-
-### Description
-
-Performs tasks while **maximizing Claude token savings**. Expects 30-50% token savings with **Haiku/Flash priority routing**.
-
-### Trigger Keywords
-
-| Keyword | Example |
-|---------|---------|
-| `eco` | "eco: refactor this component" |
-| `ecomode` | "start with ecomode" |
-| `efficient` | "work efficiently" |
-| `budget` | "activate budget mode" |
-| `save-tokens` | "save-tokens: run all tests" |
-| `/eco` | "/eco" |
-| `/ecomode` | "/ecomode" |
-
-### Usage Examples
-
-```
-eco: refactor all components in this project
-```
-
-```
-budget mode: implement the entire test suite
-```
-
-### Routing Strategy
-
-#### Forced LOW Tier (Gemini Flash)
-
-- explore, explore-medium -> explore (Flash)
-- researcher, researcher-low -> general (Flash)
-- writer -> general (Flash)
-- designer-low -> build (Flash)
-- executor-low -> build (Flash)
-
-#### Forced MEDIUM Tier (GPT Codex)
-
-- architect-medium -> build (Codex)
-- executor -> build (Codex)
-- designer -> build (Codex)
-
-#### Opus Retained (Quality Required)
-
-- planner, critic, analyst -> Original tier maintained
-- security-reviewer -> Security cannot be compromised
-- executor-high -> Complex implementation is quality-first
-
-### Expected Savings
-
-| Task Type | Default Mode | Ecomode | Savings |
-|-----------|--------------|---------|---------|
-| Exploration/Search | Sonnet | Flash | ~70% |
-| Standard Implementation | Sonnet | Codex | ~40% |
-| Documentation | Sonnet | Flash | ~70% |
-| Code Review | Opus | Codex | ~50% |
-| Complex Analysis | Opus | Opus | 0% |
-
-**Average Savings**: 30-50%
-
-### State Management
-
-```json
-// ~/.omcm/state/ecomode.json
-{
-  "active": true,
-  "startedAt": "2026-01-27T10:00:00Z",
-  "tokensSaved": 15000,
-  "tasksCompleted": 12,
-  "escalations": 2
-}
-```
-
-### Quality Monitoring
-
-Escalation conditions:
-- Same task fails 2 times
-- Explicit quality requests ("precisely", "carefully")
-- Security/authentication related tasks
-
-### Ecomode + Ultrawork Combination
-
-Use `eco ulw:` or `ecomode ultrawork:` to achieve optimal cost-performance:
-- Speed from parallel processing
-- Economy from low-cost models
-
----
-
-## 5. ralph (Persist Until Complete)
+## 4. ralph (Persist Until Complete)
 
 ### Description
 
@@ -410,10 +321,6 @@ Ralph can be combined with fusion modes:
 ralph hulw: hybrid ultrawork until completion
 ```
 
-```
-ralph eco: token-efficient completion guarantee
-```
-
 ### Safety Mechanisms
 
 #### Maximum Iterations
@@ -445,7 +352,7 @@ ALL of the following must be met:
 
 ---
 
-## 6. opencode (OpenCode Transition)
+## 5. opencode (OpenCode Transition)
 
 ### Description
 
@@ -509,7 +416,7 @@ Context save only (no transition):
 
 ---
 
-## 7. cancel (Unified Cancel)
+## 6. cancel (Unified Cancel)
 
 ### Description
 
@@ -531,7 +438,6 @@ Automatically detects and cancels all activated OMCM modes.
 | autopilot | `~/.omcm/state/autopilot.json` | End session, reset state |
 | ralph | `~/.omcm/state/ralph.json` | Stop loop, reset state |
 | ultrawork | `~/.omcm/state/ultrawork.json` | Stop parallel tasks |
-| ecomode | `~/.omcm/state/ecomode.json` | Disable token savings mode |
 | hulw | `~/.omcm/state/hulw.json` | Disable hybrid mode |
 | swarm | `~/.omcm/state/swarm.json` | Release agent pool |
 | pipeline | `~/.omcm/state/pipeline.json` | Stop pipeline |
@@ -592,7 +498,7 @@ ulw: implement React component quickly
 #### 2. Token Savings (Efficiency Priority)
 
 ```
-eco: fix all TypeScript type errors
+save-tokens: fix all TypeScript type errors
 ```
 
 **Best for**: When token usage is high
@@ -623,16 +529,6 @@ autopilot: build a REST API server and deploy
 
 ### Combination Examples
 
-#### Token Savings + Guaranteed Completion
-
-```
-ralph eco: write all tests and guarantee they pass
-```
-
-Behavior:
-- Ecomode uses low-cost models
-- Ralph loop persists until completion
-
 #### Parallel + Fusion
 
 ```
@@ -658,9 +554,8 @@ Behavior:
 | Usage | Recommended Mode | Reason |
 |-------|------------------|--------|
 | 0-50% | ulw, autopilot | Claude sufficient, prioritize speed |
-| 50-70% | hulw, eco | Start token savings |
-| 70-90% | eco, ralph eco | Maximum token savings |
-| 90%+ | eco, opencode switch | OpenCode-centric |
+| 50-70% | hulw, save-tokens | Start token savings |
+| 90%+ | save-tokens, opencode switch | OpenCode-centric |
 
 ### Best Skill by Situation
 
@@ -681,8 +576,8 @@ and verified automatically until completion
 #### Token Shortage
 
 ```
-eco: handle efficiently, or
-eco + specific agent name for quality-critical work
+save-tokens: handle efficiently, or
+save-tokens + specific agent name for quality-critical work
 ```
 
 #### Large-Scale Refactoring
@@ -708,7 +603,7 @@ OMCM suggests mode changes automatically under these conditions:
 
 | Usage | Auto Suggestion |
 |-------|-----------------|
-| 70%+ | Recommend hulw or eco |
+| 70%+ | Recommend hulw or save-tokens |
 | 90%+ | Recommend switching to OpenCode-centric mode |
 
 ### Config-Based Auto-Activation
@@ -776,7 +671,7 @@ Then analyze the problem and start fresh.
 **Solutions**:
 1. Provide more specific instructions
 2. Break tasks into smaller units
-3. Use `eco` skill for explicit savings request
+3. Use `save-tokens` skill for explicit savings request
 
 ---
 

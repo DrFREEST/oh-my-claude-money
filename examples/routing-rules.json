@@ -17,13 +17,6 @@
       "description": "주간 사용량 85% 초과 시 OpenCode 우선"
     },
     {
-      "id": "ecomode-active",
-      "condition": "mode.ecomode == true",
-      "action": "prefer_opencode",
-      "priority": 95,
-      "description": "Ecomode 활성화 시 OpenCode 우선"
-    },
-    {
       "id": "complex-task-claude",
       "condition": "task.complexity == \"high\"",
       "action": "prefer_claude",

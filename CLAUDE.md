@@ -30,9 +30,20 @@
 
 - [ ] `package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` 버전 동기화
 - [ ] `CHANGELOG.md` 변경사항 기록
-- [ ] `/opt/oh-my-claude-money/` ↔ `~/.claude/marketplaces/omcm/` 파일 동기화
+- [ ] 아래 3개 경로 모두 동기화 (순서대로 실행)
 
-동기화: `rsync -av --exclude='.git' --exclude='.omc' --exclude='.omcm' /opt/oh-my-claude-money/ ~/.claude/marketplaces/omcm/`
+동기화:
+```bash
+# 1. 마켓플레이스 (설치 소스)
+rsync -av --exclude='.git' --exclude='.omc' --exclude='.omcm' /opt/oh-my-claude-money/ ~/.claude/marketplaces/omcm/
+# 2. 플러그인 캐시 (실제 로드 경로 — 가장 중요!)
+rsync -av --exclude='.git' --exclude='.omc' --exclude='.omcm' /opt/oh-my-claude-money/ ~/.claude/plugins/cache/omcm/omcm/2.1.4/
+# 3. 마켓플레이스 미러
+rsync -av --exclude='.git' --exclude='.omc' --exclude='.omcm' /opt/oh-my-claude-money/ ~/.claude/plugins/marketplaces/omcm/
+```
+
+> **주의**: 실제 플러그인은 `~/.claude/plugins/cache/omcm/omcm/{version}/`에서 로드됩니다.
+> 버전 업그레이드 시 `~/.claude/plugins/installed_plugins.json`의 `installPath`를 확인하세요.
 
 ## 문서화 규칙
 
@@ -51,3 +62,14 @@ src/ 수정 시 `docs/ko/` + `docs/en/` 관련 문서 동시 업데이트 필수
 
 - **설정 파일**: `~/.claude/plugins/omcm/config.json`
 - **적용 범위**: 모든 프로젝트/세션에 글로벌 적용
+
+## EAU Bus 미션 프로토콜
+
+이 CC 세션은 EAU Hub에서 위임받은 미션을 수행하는 프로젝트 세션입니다.
+
+### 미션 수신 시 처리 순서
+
+1. 미션 내용 분석
+2. `mcp__eau-bus__eau_task_update(task_id="{task_id}", status="in_progress")` 호출
+3. 미션 수행
+4. 완료 시 `mcp__eau-bus__eau_task_update(task_id="{task_id}", status="completed", result="결과 요약")` 호출

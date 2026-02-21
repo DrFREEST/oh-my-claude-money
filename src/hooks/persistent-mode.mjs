@@ -84,6 +84,40 @@ function isContextLimitStop(input) {
 }
 
 // =============================================================================
+// Rate-Limit 감지 (무한 루프 방지) — OMC 4.3.0 #777
+// Rate limit 발생 시 ralph continuation을 주입하면 즉시 또 rate limit →
+// 무한 루프가 된다. rate limit stop은 반드시 차단 없이 통과시켜야 한다.
+// =============================================================================
+
+function isRateLimitStop(input) {
+  if (!input) return false;
+
+  try {
+    var data = typeof input === 'string' ? JSON.parse(input) : input;
+    var reason = (data.stop_reason || data.reason || '').toLowerCase();
+    var endTurnReason = (data.end_turn_reason || data.endTurnReason || '').toLowerCase();
+
+    var rateLimitPatterns = [
+      'rate_limit', 'rate_limited', 'ratelimit',
+      'too_many_requests', '429',
+      'quota_exceeded', 'quota_limit', 'quota_exhausted',
+      'request_limit', 'api_limit',
+      'overloaded', 'capacity',
+    ];
+
+    for (var i = 0; i < rateLimitPatterns.length; i++) {
+      var p = rateLimitPatterns[i];
+      if (reason.indexOf(p) !== -1 || endTurnReason.indexOf(p) !== -1) {
+        return true;
+      }
+    }
+  } catch (e) {
+    // parse failure
+  }
+  return false;
+}
+
+// =============================================================================
 // 활성 모드 확인
 // =============================================================================
 
@@ -198,6 +232,16 @@ async function main() {
     // Context-limit 감지 시 즉시 통과 (교착 방지)
     if (isContextLimitStop(parsedInput || rawInput)) {
       console.log(JSON.stringify({ continue: true, suppressOutput: true }));
+      process.exit(0);
+    }
+
+    // Rate-limit 감지 시 즉시 통과 (무한루프 방지) — OMC 4.3.0 #777
+    if (isRateLimitStop(parsedInput || rawInput)) {
+      console.log(JSON.stringify({
+        continue: true,
+        suppressOutput: false,
+        reason: '[RALPH PAUSED - RATE LIMITED] API rate limit detected. Ralph loop paused until the rate limit resets. Resume manually once the limit clears.',
+      }));
       process.exit(0);
     }
 

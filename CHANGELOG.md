@@ -32,6 +32,11 @@ All notable changes to this project will be documented in this file.
 - **PostToolUseFailure 훅** (`hooks/post-tool-failure.mjs`) — OMC v4.3.0 신규 훅 이벤트 대응
   - 도구 실패 시 `.omc/state/last-tool-error.json`에 기록, 재시도 횟수 추적
 
+### Fixed
+- **ralph rate-limit 무한루프 방지** (`src/hooks/persistent-mode.mjs`) — OMC issue #777 포트
+  - `isRateLimitStop()` 함수 추가: API rate limit/429/quota 감지 시 ralph 루프 즉시 일시정지
+  - rate limit 상태에서 continuation 주입 → 즉시 또 rate limit → 무한루프 방지
+
 ### Changed
 - OMC 호환 버전 4.2.15 → 4.3.0 업데이트
 - `scripts/check-omc-compat.mjs` 소스 경로 `/tmp/omc_429_clone` → `/tmp/omc_430_clone` 갱신

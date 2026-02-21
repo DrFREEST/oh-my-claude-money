@@ -369,6 +369,41 @@ OMCM은 이제 **12개 도구**를 포함한 독립 MCP 서버를 내장합니�
 4. 세션 종료 전  → omcm_memory_summarize_session
 ```
 
+#### 동작 확인 3가지 방법
+
+| 방법 | 언제 | 명령 |
+|------|------|------|
+| **방법 1**: Claude 세션 대화 | 일상 사용 | Claude에게 말로 요청 |
+| **방법 2**: 터미널 JSON-RPC | 헬스체크/자동화 | 아래 bash 명령 |
+| **방법 3**: Memory 왕복 | 배포 후 smoke test | 저장→조회 왕복 |
+
+**방법 1 — Claude 세션 (일상적 사용)**
+```
+# Claude Code 세션에서:
+"이 프로젝트 코드 인덱싱해줘"
+→ Claude가 omcm_index_build 자동 호출
+
+"지난 세션에서 논의한 내용 기억에서 찾아줘"
+→ Claude가 omcm_memory_recall 자동 호출
+```
+
+**방법 2 — 터미널 JSON-RPC (헬스체크/자동화)**
+```bash
+# 12개 도구 목록 응답 확인 (CI/CD 체크에 활용)
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
+  | timeout 10 node packages/mcp-server/index.mjs 2>/dev/null \
+  | jq '.result.tools | length'
+# → 12
+```
+
+**방법 3 — Memory 왕복 smoke test (배포 후 E2E 검증)**
+```bash
+# 저장
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"omcm_memory_remember","arguments":{"key":"deploy-check","value":"ok","session_id":"smoke"}}}\n' \
+  | timeout 10 node packages/mcp-server/index.mjs 2>/dev/null
+# → {"result":{"content":[{"type":"text","text":"Remembered: deploy-check"}]}}
+```
+
 ## 빠른 시작 (30초)
 
 **Claude Code 내에서 설치** (권장):

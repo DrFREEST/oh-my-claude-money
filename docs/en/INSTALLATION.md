@@ -489,12 +489,58 @@ node --version  # v20+ required
 ls node_modules  # confirm deps installed (if missing: npm install)
 ```
 
-### Verify Server
+### Verify Server — 3 Methods
+
+| Method | When | Purpose |
+|--------|------|---------|
+| **Method 1**: Claude session chat | Daily use | Most common approach |
+| **Method 2**: Terminal JSON-RPC | Health check / automation | CI/CD, after server restart |
+| **Method 3**: Memory round-trip | Post-deploy smoke test | Detect DB path/permission issues early |
+
+#### Method 1 — Claude Session (Daily Use)
+
+In a new Claude Code session, just ask in natural language — Claude calls tools automatically:
+
+```
+"Index this project's codebase"
+→ Claude calls omcm_index_build
+
+"Find what we discussed last session in memory"
+→ Claude calls omcm_memory_recall
+
+"Have Codex and Gemini analyze this architecture decision"
+→ Claude calls omcm_fusion_analyze
+```
+
+#### Method 2 — Terminal JSON-RPC (Health Check / Automation)
 
 ```bash
-printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' | timeout 10 node /opt/oh-my-claude-money/packages/mcp-server/index.mjs 2>/dev/null
-# → Expect 12 tools in response
+# Verify 12 tools respond (server startup check)
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
+  | timeout 10 node /opt/oh-my-claude-money/packages/mcp-server/index.mjs 2>/dev/null \
+  | jq '.result.tools | length'
+# → 12
 ```
+
+Register in `package.json` for CI/CD pipelines:
+```json
+{
+  "scripts": {
+    "test:mcp": "printf '...' | node packages/mcp-server/index.mjs | jq '.result.tools | length'"
+  }
+}
+```
+
+#### Method 3 — Memory Round-Trip Smoke Test (Post-Deploy E2E)
+
+```bash
+# Store → retrieve round-trip to verify SQLite DB works
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"omcm_memory_remember","arguments":{"key":"deploy-check","value":"ok","session_id":"smoke"}}}\n' \
+  | timeout 10 node /opt/oh-my-claude-money/packages/mcp-server/index.mjs 2>/dev/null
+# → {"result":{"content":[{"type":"text","text":"Remembered: deploy-check"}]}}
+```
+
+> **Pro tip**: The Index tool delivers the most value on large codebases. Run `omcm_index_build` once on a new project and all subsequent searches skip grep entirely.
 
 ---
 

@@ -846,12 +846,58 @@ node --version  # v20+ 필요
 ls node_modules  # 의존성 설치 확인 (없으면: npm install)
 ```
 
-### 동작 확인
+### 동작 확인 — 3가지 방법
+
+| 방법 | 언제 | 용도 |
+|------|------|------|
+| **방법 1**: Claude 세션 대화 | 일상 사용 | 가장 빈번한 방법 |
+| **방법 2**: 터미널 JSON-RPC | 헬스체크/자동화 | CI/CD, 서버 재시작 후 |
+| **방법 3**: Memory 왕복 | 배포 후 smoke test | DB 권한/경로 이상 조기 감지 |
+
+#### 방법 1 — Claude 세션 (일상적 사용)
+
+새 Claude Code 세션에서 자연어로 요청하면 Claude가 자동으로 도구를 호출합니다:
+
+```
+"이 프로젝트 코드 인덱싱해줘"
+→ Claude가 omcm_index_build 호출
+
+"지난 세션에서 논의한 내용 기억에서 찾아줘"
+→ Claude가 omcm_memory_recall 호출
+
+"이 아키텍처 결정을 Codex와 Gemini에게 분석해줘"
+→ Claude가 omcm_fusion_analyze 호출
+```
+
+#### 방법 2 — 터미널 JSON-RPC (헬스체크/자동화)
 
 ```bash
-printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' | timeout 10 node /opt/oh-my-claude-money/packages/mcp-server/index.mjs 2>/dev/null
-# → 12개 도구 목록 응답 확인
+# 12개 도구 목록 응답 확인 (서버 기동 확인)
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n' \
+  | timeout 10 node /opt/oh-my-claude-money/packages/mcp-server/index.mjs 2>/dev/null \
+  | jq '.result.tools | length'
+# → 12
 ```
+
+`package.json`에 등록해 CI/CD에서 활용:
+```json
+{
+  "scripts": {
+    "test:mcp": "printf '...' | node packages/mcp-server/index.mjs | jq '.result.tools | length'"
+  }
+}
+```
+
+#### 방법 3 — Memory 왕복 smoke test (배포 후 E2E 검증)
+
+```bash
+# 저장 → 조회 왕복으로 SQLite DB 동작 확인
+printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"omcm_memory_remember","arguments":{"key":"deploy-check","value":"ok","session_id":"smoke"}}}\n' \
+  | timeout 10 node /opt/oh-my-claude-money/packages/mcp-server/index.mjs 2>/dev/null
+# → {"result":{"content":[{"type":"text","text":"Remembered: deploy-check"}]}}
+```
+
+> **활용 팁**: Index 도구는 코드베이스가 클수록 가치가 높습니다. 새 프로젝트에서 `omcm_index_build` 한 번으로 이후 탐색 속도가 크게 향상됩니다.
 
 ---
 

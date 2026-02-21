@@ -79,7 +79,7 @@ triggers:
 
 1. **MCP 직접 호출** (최우선) - 분석/리뷰/디자인 작업
    - ask_codex: architect, planner, code-reviewer, verifier
-   - ask_gemini: designer, writer, ux-researcher
+   - ask_gemini: designer, writer
 2. **Claude Task** (도구 필요 시) - 실행/탐색 작업
    - executor, explore, build-fixer, qa-tester, git-master
 

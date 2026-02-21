@@ -120,12 +120,12 @@ export function logRouting(decision) {
 /**
  * OMC 에이전트를 MCP 도구용 모델 힌트로 매핑
  *
- * OMC 4.2.15 기준 에이전트 (29개, Lane 기반):
- *   Build/Analysis: architect, executor, explore, debugger, verifier, deep-executor, git-master
- *   Review: security-reviewer, code-reviewer, style-reviewer, quality-reviewer, api-reviewer, performance-reviewer
- *   Testing: qa-tester, test-engineer (was tdd-guide)
- *   Domain: scientist, dependency-expert (was researcher), designer, writer, document-specialist, vision, quality-strategist
- *   Product: planner, critic, analyst, product-manager, ux-researcher, information-architect, product-analyst
+ * OMC 4.3.3 기준 에이전트 (21개, Lane 기반):
+ *   Build/Analysis: architect, executor, explore, debugger, verifier, deep-executor, git-master, build-fixer
+ *   Review: security-reviewer, code-reviewer, quality-reviewer
+ *   Testing: qa-tester, test-engineer
+ *   Domain: scientist, designer, writer, document-specialist
+ *   Product: planner, critic, analyst
  *
  * MCP-First (v3.0): ask_codex / ask_gemini 직접 호출
  * OMCM은 delegationRouting이 활성화되면 자동으로 양보함
@@ -147,10 +147,7 @@ export function mapAgentToMcp(agentType) {
     // Review Lane → ask_codex
     'security-reviewer': 'codex-oracle',   // 보안 취약점 분석
     'code-reviewer': 'codex-oracle',       // 코드 품질 리뷰
-    'style-reviewer': 'gemini-flash',      // 코드 스타일 체크
     'quality-reviewer': 'codex-oracle',    // 품질 심층 리뷰
-    'api-reviewer': 'codex-oracle',        // API 설계 리뷰
-    'performance-reviewer': 'codex-oracle', // 성능 분석
 
     // Testing Lane → ask_codex
     'qa-tester': 'codex-build',        // QA 테스팅
@@ -158,28 +155,32 @@ export function mapAgentToMcp(agentType) {
 
     // Domain Lane
     'scientist': 'codex-oracle',           // 데이터 분석 → ask_codex
-    'dependency-expert': 'codex-oracle',   // 의존성/문서 조사 → ask_codex
     'designer': 'gemini-flash',            // UI/UX 디자인 → ask_gemini
     'writer': 'gemini-flash',              // 문서 작성 → ask_gemini
     'document-specialist': 'gemini-flash', // 문서 전문 작성/정리 → ask_gemini
-    'vision': 'gemini-flash',              // 이미지/다이어그램 분석 → ask_gemini
-    'quality-strategist': 'codex-oracle',  // 품질 전략 수립 → ask_codex
 
     // Product Lane → ask_codex
     'planner': 'codex-oracle',             // 전략적 계획 수립
     'critic': 'codex-oracle',              // 플랜 검토/비평
     'analyst': 'codex-oracle',             // 요구사항 분석
-    'product-manager': 'codex-oracle',     // 제품 관리
-    'ux-researcher': 'gemini-flash',       // UX 리서치 → ask_gemini
-    'information-architect': 'codex-oracle', // 정보 구조 설계
-    'product-analyst': 'codex-oracle',     // 제품 분석
 
     // build-fixer → ask_codex
     'build-fixer': 'codex-build',      // 빌드/타입 오류 수정 전문
 
-    // Backward-compat aliases (OMC 4.0.x → 4.1.x)
-    'researcher': 'codex-oracle',      // → dependency-expert
-    'tdd-guide': 'codex-build',        // → test-engineer
+    // Backward-compat aliases (OMC 4.3.1 이전 에이전트 → canonical 자동 라우팅)
+    'researcher': 'codex-oracle',          // → document-specialist
+    'tdd-guide': 'codex-build',            // → test-engineer
+    // OMC 4.3.1에서 제거된 에이전트 (normalizeDelegationRole()과 동기화)
+    'api-reviewer': 'codex-oracle',        // → code-reviewer
+    'performance-reviewer': 'codex-oracle', // → quality-reviewer
+    'style-reviewer': 'gemini-flash',      // → quality-reviewer (model=haiku)
+    'dependency-expert': 'codex-oracle',   // → document-specialist
+    'quality-strategist': 'codex-oracle',  // → quality-reviewer
+    'vision': 'gemini-flash',              // → document-specialist
+    'product-manager': 'codex-oracle',     // → planner/analyst
+    'ux-researcher': 'gemini-flash',       // → designer
+    'information-architect': 'codex-oracle', // → analyst/planner
+    'product-analyst': 'codex-oracle',     // → analyst
   };
   return mapping[agentType] || 'codex-build';
 }

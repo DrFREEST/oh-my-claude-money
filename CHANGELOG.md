@@ -20,6 +20,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## v2.2.0 (2026-02-22)
+
+### Changed
+- **OMC 호환 버전 4.3.0 → 4.3.3** (v4.3.1 Agent Registry Consolidation 완벽 대응)
+- **에이전트 레지스트리 30 → 21 에이전트** — OMC v4.3.1 통합 반영
+  - 제거: `style-reviewer`, `api-reviewer`, `performance-reviewer` → `quality-reviewer`/`code-reviewer`
+  - 제거: `dependency-expert`, `quality-strategist` → `quality-reviewer`/`document-specialist`
+  - 제거: `product-manager`, `ux-researcher`, `information-architect`, `product-analyst` (저활용)
+  - 제거: `vision` → `document-specialist`
+- **fusion-router-logic.mjs** 에이전트 매핑 OMC 4.3.3 기준으로 업데이트
+  - 폐기된 에이전트를 Backward-compat aliases 섹션으로 이동
+  - 자동 라우팅 주석 동기화
+- **skills/autopilot** — `ux-researcher` 참조 제거
+
+### Deprecated (Backward-compat 유지)
+- 폐기된 에이전트 이름은 OMCM 내부에서 canonical 에이전트로 자동 라우팅됩니다
+- `agents/` 래퍼 파일은 migration 안내로 업데이트됨
+
+### Compatibility
+- **OMC**: v4.3.3
+- **Claude Code**: v1.0.33+
+
 ## v2.1.10 (2026-02-22)
 
 ### Fixed

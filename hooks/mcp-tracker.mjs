@@ -38,6 +38,14 @@ function readJsonFile(filepath) {
 function classifyMcpCall(toolName) {
   if (!toolName) return null;
 
+  // OMC 4.1.0+ 형식: mcp__plugin_oh-my-claudecode_x__ask_codex
+  if (toolName.indexOf('mcp__plugin_oh-my-claudecode_x__') === 0) {
+    return { provider: 'openai', type: 'codex', action: toolName.replace('mcp__plugin_oh-my-claudecode_x__', '') };
+  }
+  if (toolName.indexOf('mcp__plugin_oh-my-claudecode_g__') === 0) {
+    return { provider: 'google', type: 'gemini', action: toolName.replace('mcp__plugin_oh-my-claudecode_g__', '') };
+  }
+  // 레거시 형식 (OMC 4.0.10 이하): mcp__x__ask_codex
   if (toolName.indexOf('mcp__x__') === 0) {
     return { provider: 'openai', type: 'codex', action: toolName.replace('mcp__x__', '') };
   }

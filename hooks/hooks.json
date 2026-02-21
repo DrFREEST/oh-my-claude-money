@@ -174,7 +174,7 @@
         ]
       },
       {
-        "matcher": "mcp__x__|mcp__g__",
+        "matcher": "mcp__plugin_oh-my-claudecode_x__|mcp__plugin_oh-my-claudecode_g__|mcp__x__|mcp__g__",
         "hooks": [
           {
             "type": "command",
